@@ -188,7 +188,7 @@
             
             if (imageUrl) {
                 const img = document.createElement('img');
-                img.src = '/static/data/images/' + imageUrl;
+                img.src = '/static/images/' + imageUrl;
                 img.onerror = function() { this.style.display = 'none'; };
                 msgDiv.appendChild(img);
             }
