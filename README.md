@@ -1,6 +1,6 @@
 # KDI Power AI WhatsApp Assistant & Sales Dashboard
 
-![Python](https://img.shields.io/badge/PYTHON-3.10+-0078D4?style=flat-square&logo=python&logoColor=white&labelColor=555555) ![FastAPI](https://img.shields.io/badge/-FASTAPI-009688?style=flat-square&logo=fastapi&logoColor=white) ![Twilio WhatsApp](https://img.shields.io/badge/TWILIO-WHATSAPP-F22F46?style=flat-square) ![Google Sheets API](https://img.shields.io/badge/GOOGLE%20SHEETS-API-34A853?style=flat-square) ![Deployment Render](https://img.shields.io/badge/DEPLOYMENT-RENDER-000000?style=flat-square&logo=render&logoColor=white)
+![Python](https://img.shields.io/badge/PYTHON-3.10+-0078D4?style=flat-square&logo=python&logoColor=white&labelColor=555555) ![FastAPI](https://img.shields.io/badge/-FASTAPI-009688?style=flat-square&logo=fastapi&logoColor=white) ![Meta WhatsApp](https://img.shields.io/badge/META-WHATSAPP-25D366?style=flat-square&logo=whatsapp&logoColor=white) ![Google Sheets API](https://img.shields.io/badge/GOOGLE%20SHEETS-API-34A853?style=flat-square) ![Deployment Render](https://img.shields.io/badge/DEPLOYMENT-RENDER-000000?style=flat-square&logo=render&logoColor=white)
 
 
 A state-of-the-art WhatsApp Assistant and Sales Dashboard built for **KDI Power**. 
@@ -8,7 +8,7 @@ It features a conversational AI bot (powered by Groq Llama-3) that interacts wit
 
 ## 🚀 Features
 - **AI WhatsApp Bot:** Understands natural language, answers catalog queries, and captures complex lead details conversationally.
-- **Supabase Cloud DB:** Completely serverless database connection for Leads, Chat History, and Product Catalog.
+- **Supabase Cloud DB:** Serverless PostgreSQL database for Leads, Chat History, Product Catalog, and **pgvector** for RAG Document Search.
 - **Glassmorphic SPA Dashboard:** Built with HTML/CSS/JS and Chart.js for beautiful, real-time analytics and lead management.
 - **Real-Time Catalog Manager:** Inline price and stock editing that immediately updates the bot's knowledge base.
 

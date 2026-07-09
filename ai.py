@@ -11,20 +11,13 @@ from collections import defaultdict
 from logger import get_logger
 
 logger = get_logger(__name__)
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
+from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
+from langchain_community.vectorstores import SupabaseVectorStore
+from supabase.client import Client, create_client
 
 # Suppress some of the verbose langchain warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
-
-# Initialize Vector DB globally to avoid reloading models per request
-try:
-    hf_embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    vectorstore = Chroma(persist_directory="data/chroma_db", embedding_function=hf_embeddings)
-except Exception as e:
-    logger.warning(f"Could not initialize ChromaDB vectorstore. {e}")
-    vectorstore = None
 
 def load_env():
     env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -41,6 +34,22 @@ load_env()
 
 GROQ_API_KEY = os.environ.get("GROQ_API")
 GROQ_MODEL = "llama-3.1-8b-instant"
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+
+# Initialize Vector DB globally to avoid reloading models per request
+try:
+    embeddings = FastEmbedEmbeddings()
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    vectorstore = SupabaseVectorStore(
+        client=supabase,
+        embedding=embeddings,
+        table_name="documents",
+        query_name="match_documents"
+    )
+except Exception as e:
+    logger.warning(f"Could not initialize Supabase vectorstore. {e}")
+    vectorstore = None
 
 def get_ai_response(phone, profile_name):
     # Fetch chat history

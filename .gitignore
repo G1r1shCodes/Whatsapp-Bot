@@ -8,6 +8,8 @@ venv/
 __pycache__/
 *.py[cod]
 *$py.class
+.pytest_cache/
+.agents/
 
 # Local Database (Using Supabase Cloud now)
 whatsapp_bot.db
@@ -25,5 +27,4 @@ node_modules/
 .wwebjs_cache/
 
 # RAG Data
-data/chroma_db/
 data/kdi_knowledge.txt
