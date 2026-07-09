@@ -42,6 +42,9 @@ Conversation Start: {conversation_start}
 
 If Conversation Start is True:
   Greet the user by name and show the menu.
+  Include the KDI logo by adding this exactly on its own line:
+  [IMAGE: kdi-logo-white.png]
+  
   Use this format:
     Hi {profile_name}! 👋
     Welcome to *KDI Power*!
