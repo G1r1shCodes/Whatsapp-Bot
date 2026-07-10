@@ -538,7 +538,7 @@ async function loadCatalogData() {
                 <td>${product.core} core</td>
                 <td>
                     <span class="editable-price" data-name="${product.name}">
-                        INR ${product.price_per_meter.toFixed(2)}
+                        ${product.price_per_meter !== null ? 'INR ' + product.price_per_meter.toFixed(2) : 'N/A'}
                     </span>
                 </td>
                 <td>
@@ -587,7 +587,7 @@ function startEditingPrice(element) {
     input.type = 'number';
     input.step = '0.01';
     input.className = 'editable-price-input';
-    input.value = currentPrice;
+    input.value = isNaN(currentPrice) ? '' : currentPrice;
     
     element.textContent = '';
     element.appendChild(input);
@@ -599,7 +599,7 @@ function startEditingPrice(element) {
         const newPrice = parseFloat(input.value);
         if (isNaN(newPrice) || newPrice < 0) {
             showToast('Please enter a valid price', true);
-            element.textContent = `INR ${currentPrice.toFixed(2)}`;
+            element.textContent = isNaN(currentPrice) ? 'N/A' : `INR ${currentPrice.toFixed(2)}`;
             return;
         }
         
