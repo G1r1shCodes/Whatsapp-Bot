@@ -1,3 +1,5 @@
+import config_manager
+
 def get_system_prompt(
     retrieved_context: str,
     products_txt: str,
@@ -43,11 +45,10 @@ Conversation Start: {conversation_start}
 If Conversation Start is True:
   Greet the user by name and show the menu.
   Include the KDI logo by adding this exactly on its own line:
-  [IMAGE: kdi-logo-white-bg.jpg]
+  [IMAGE: {config_manager.get_config().get("welcome_image", "kdi-logo-white-bg.jpg")}]
   
   Use this format:
-    Hi {profile_name}! 👋
-    Welcome to *KDI Power*!
+    {config_manager.get_config().get("welcome_text", "Hi {profile_name}! 👋\\nWelcome to *KDI Power*!").format(profile_name=profile_name)}
   Then show the menu (see MENU section).
 
 If Conversation Start is False:

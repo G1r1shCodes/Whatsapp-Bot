@@ -42,6 +42,10 @@
                     <i class="fa-solid fa-cubes"></i>
                     <span>Cables Catalog</span>
                 </button>
+                <button class="nav-item" data-tab="settings-tab">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Bot Configuration</span>
+                </button>
             </nav>
             
             <div class="system-status">
@@ -277,6 +281,48 @@
                                     <!-- Dynamic catalog rows go here -->
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Tab: Settings -->
+                <section id="settings-tab" class="tab-panel">
+                    <div class="settings-grid">
+                        <div class="settings-form card">
+                            <h3 style="margin-bottom: 20px; font-weight: 600; color: #fff;">WhatsApp Greeting Configuration</h3>
+                            <div class="input-group">
+                                <label for="welcome-image">Header Image (Filename / URL)</label>
+                                <input type="text" id="welcome-image" class="modern-input" placeholder="e.g. kdi-logo-white-bg.jpg">
+                                <p class="help-text">Image displayed at the top of the welcome message.</p>
+                            </div>
+                            <div class="input-group">
+                                <label for="welcome-text">Welcome Message</label>
+                                <textarea id="welcome-text" class="modern-input" rows="5" placeholder="Enter your welcome text here... Use {profile_name} to insert the customer's name."></textarea>
+                                <p class="help-text">You can use standard WhatsApp formatting like *bold*.</p>
+                            </div>
+                            <button id="save-settings-btn" class="action-btn primary w-100" style="margin-top: 10px;">
+                                <i class="fa-solid fa-save"></i> Save configuration
+                            </button>
+                        </div>
+                        
+                        <div class="settings-preview card">
+                            <h3 style="margin-bottom: 20px; font-weight: 600; color: #fff;">Live Preview</h3>
+                            <div class="whatsapp-preview">
+                                <div class="whatsapp-bubble">
+                                    <div class="wa-image-placeholder">
+                                        <i class="fa-regular fa-image"></i>
+                                        <span id="preview-image-name">kdi-logo-white-bg.jpg</span>
+                                    </div>
+                                    <div class="wa-text" id="preview-text">
+                                        Hi Rajesh! 👋<br>Welcome to <strong>KDI Power</strong>!
+                                    </div>
+                                    <div class="wa-buttons">
+                                        <div class="wa-button">Browse Products</div>
+                                        <div class="wa-button">Request a Quote</div>
+                                        <div class="wa-button">Call Us</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>

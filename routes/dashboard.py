@@ -8,6 +8,7 @@ import json
 import auth
 import io
 import csv
+import config_manager
 
 router = APIRouter()
 
@@ -199,3 +200,19 @@ async def update_product_api(product_name: str, request: Request):
         raise HTTPException(status_code=400, detail="Price must be a non-negative number.")
     db.update_product_price_and_stock(product_name, price, stock_status)
     return {"success": True, "product": product_name}
+
+@router.get("/api/settings")
+async def get_settings_api(request: Request):
+    auth.require_auth(request)
+    return config_manager.get_config()
+
+@router.put("/api/settings")
+async def update_settings_api(request: Request):
+    auth.require_auth(request)
+    payload = await request.json()
+    success = config_manager.save_config(payload)
+    if success:
+        return {"success": True}
+    else:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail="Failed to save configuration.")
