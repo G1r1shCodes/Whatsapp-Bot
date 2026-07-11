@@ -15,7 +15,7 @@ META_VERIFY_TOKEN = os.environ.get("META_VERIFY_TOKEN", "default_verify_token")
 META_ACCESS_TOKEN = os.environ.get("META_ACCESS_TOKEN")
 META_PHONE_NUMBER_ID = os.environ.get("META_PHONE_NUMBER_ID")
 
-def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_menu: bool = False):
+def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_menu: bool = False, show_categories_menu: bool = False):
     """Sends a message to the user via Meta Cloud API."""
     if not META_ACCESS_TOKEN or not META_PHONE_NUMBER_ID:
         logger.error("Missing Meta API credentials in environment variables.")
@@ -39,7 +39,7 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
             }
         }
         # If no menu follows, put the text in the caption
-        if not show_menu and text:
+        if not show_menu and not show_categories_menu and text:
             payload_img["image"]["caption"] = text
             
         try:
@@ -49,7 +49,7 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
         except Exception as e:
             logger.error(f"Error sending Meta image: {e}")
 
-    # 2. Send Menu if requested
+    # 2. Send Main Menu if requested
     if show_menu:
         payload_menu = {
             "messaging_product": "whatsapp",
@@ -92,9 +92,54 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
             logger.error(f"Error sending Meta menu (HTTP {he.code}): {he.read().decode('utf-8')}")
         except Exception as e:
             logger.error(f"Error sending Meta menu: {e}")
+
+    # 3. Send Categories Menu if requested
+    if show_categories_menu:
+        payload_cat = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": to_phone,
+            "type": "interactive",
+            "interactive": {
+                "type": "list",
+                "header": {
+                    "type": "text",
+                    "text": "KDI Products"
+                },
+                "body": {
+                    "text": text if text else "Browse our product categories:"
+                },
+                "footer": {
+                    "text": "Tap the button below"
+                },
+                "action": {
+                    "button": "Categories",
+                    "sections": [
+                        {
+                            "title": "Select a Category",
+                            "rows": [
+                                {"id": "cat_power", "title": "Power Cables"},
+                                {"id": "cat_wires", "title": "Electrical Wires"},
+                                {"id": "cat_armour", "title": "Armoured Cables"},
+                                {"id": "cat_unarmour", "title": "Unarmoured Cables"},
+                                {"id": "cat_control", "title": "Control Cables"}
+                            ]
+                        }
+                    ]
+                }
+            }
+        }
+        try:
+            req = urllib.request.Request(url, data=json.dumps(payload_cat).encode("utf-8"), headers=headers, method="POST")
+            with urllib.request.urlopen(req) as response:
+                logger.info("Sent categories menu successfully")
+        except urllib.error.HTTPError as he:
+            logger.error(f"Error sending Meta cat menu (HTTP {he.code}): {he.read().decode('utf-8')}")
+        except Exception as e:
+            logger.error(f"Error sending Meta cat menu: {e}")
             
-    # 3. If neither, just send text
-    if not image_url and not show_menu and text:
+    # 4. If neither, just send text
+    if not image_url and not show_menu and not show_categories_menu and text:
         payload_text = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
@@ -168,58 +213,79 @@ async def whatsapp_webhook(request: Request):
                     # Process Message
                     db.log_chat_message(from_number, "inbound", incoming_msg)
                     
-                    # Get response from Groq AI
-                    ai_response = ai.get_ai_response(from_number, profile_name)
-                    
-                    reply_text = ai_response
+                    # Intercept static buttons to save API calls
+                    lower_msg = incoming_msg.lower()
                     image_file = None
+                    menu_match = False
+                    cat_match = False
                     
-                    # Parse specific tags
-                    submit_match = re.search(r'\[LEAD_SUBMIT:\s*(\{.*?\})\s*\]', ai_response, re.DOTALL)
-                    status_match = "[LEAD_STATUS_CHECK]" in ai_response
-                    menu_match = "[SHOW_MAIN_MENU]" in ai_response
-                    image_match = re.search(r'\[IMAGE:\s*(.+?)\s*\]', ai_response)
-                    
-                    if menu_match:
-                        reply_text = reply_text.replace("[SHOW_MAIN_MENU]", "").strip()
-                        
-                    if image_match:
-                        image_file = image_match.group(1).strip()
-                        reply_text = re.sub(r'\[IMAGE:\s*.+?\s*\]', '', reply_text).strip()
-
-                    if submit_match:
-                        try:
-                            lead_data = json.loads(submit_match.group(1))
-                            # Validate required fields
-                            if not lead_data.get("name") or not lead_data.get("product"):
-                                raise ValueError("Missing required lead fields: name and product")
-                            lead_id = db.create_lead(
-                                phone=from_number,
-                                name=lead_data.get("name", "Unknown")[:200],
-                                company=lead_data.get("company", "Individual")[:200],
-                                email="",
-                                location=lead_data.get("location", "Unknown")[:200],
-                                product_interest=lead_data.get("product", "Unknown")[:200],
-                                quantity=lead_data.get("quantity", "Unknown")[:100],
-                                requirements=f"Captured via AI chatbot. Qty: {lead_data.get('quantity')}. Loc: {lead_data.get('location')}."
-                            )
-                            cleaned_text = re.sub(r'\[LEAD_SUBMIT:\s*\{.*?\}\s*\]', '', ai_response, flags=re.DOTALL).strip()
-                            success_msg = f"🎉 *Inquiry Submitted Successfully!*\n\n🔹 *Inquiry ID:* #{lead_id}\n\nOur sales representatives are reviewing your requirements and will reach out shortly."
-                            reply_text = f"{cleaned_text}\n\n{success_msg}" if cleaned_text else success_msg
-                        except Exception as e:
-                            logger.error(f"Error parsing LEAD_SUBMIT tag: {e}")
-                            reply_text = "I encountered an error submitting your quote request. Please try again."
-                            
-                    elif status_match:
+                    if lower_msg == "contact sales":
+                        reply_text = "📍 *Factory Address*\nH-1243, DSIDC Industrial Area,\nNarela, New Delhi - 110040\n\n🏢 *Corporate Office / Registered Office*\n912, 9th Floor, D Mall, Netaji Subhash Place, Pitampura, Delhi - 110034\n\n📞 *+91-8043863456*\n👤 Vipul Kumar — Marketing Manager"
+                    elif lower_msg == "track my inquiry":
                         lead = db.get_lead_by_phone(from_number)
-                        cleaned_text = ai_response.replace("[LEAD_STATUS_CHECK]", "").strip()
                         if lead:
                             status_emoji = {"New": "🆕", "Contacted": "📞", "Quoted": "💰", "Won": "🎉", "Lost": "❌"}.get(lead["status"], "ℹ️")
-                            status_msg = f"📄 *Your Inquiry Status*\n\n🔹 *Inquiry ID:* #{lead['id']}\n🔹 *Product:* {lead['product_interest']}\n🔹 *Quantity:* {lead['quantity']}\n🔹 *Status:* {status_emoji} *{lead['status']}*\n🔹 *Updated:* {lead['updated_at'][:16]}"
+                            reply_text = f"📄 *Your Inquiry Status*\n\n🔹 *Inquiry ID:* #{lead['id']}\n🔹 *Product:* {lead['product_interest']}\n🔹 *Quantity:* {lead['quantity']}\n🔹 *Status:* {status_emoji} *{lead['status']}*\n🔹 *Updated:* {lead['updated_at'][:16]}"
                         else:
-                            status_msg = "❌ No active inquiry found for your number. Feel free to request a quote by chatting with me!"
-                        reply_text = f"{cleaned_text}\n\n{status_msg}" if cleaned_text else status_msg
-
+                            reply_text = "❌ No active inquiry found for your number. Feel free to request a quote by chatting with me!"
+                    elif lower_msg == "browse products":
+                        reply_text = ""
+                        cat_match = True
+                    elif lower_msg in ["main menu", "menu"]:
+                        reply_text = ""
+                        menu_match = True
+                    else:
+                        # Get response from Groq AI
+                        ai_response = ai.get_ai_response(from_number, profile_name)
+                        
+                        reply_text = ai_response
+                        
+                        # Parse specific tags
+                        submit_match = re.search(r'\[LEAD_SUBMIT:\s*(\{.*?\})\s*\]', ai_response, re.DOTALL)
+                        status_match = "[LEAD_STATUS_CHECK]" in ai_response
+                        menu_match = "[SHOW_MAIN_MENU]" in ai_response
+                        image_match = re.search(r'\[IMAGE:\s*(.+?)\s*\]', ai_response)
+                        
+                        if menu_match:
+                            reply_text = reply_text.replace("[SHOW_MAIN_MENU]", "").strip()
+                            
+                        if image_match:
+                            image_file = image_match.group(1).strip()
+                            reply_text = re.sub(r'\[IMAGE:\s*.+?\s*\]', '', reply_text).strip()
+    
+                        if submit_match:
+                            try:
+                                lead_data = json.loads(submit_match.group(1))
+                                # Validate required fields
+                                if not lead_data.get("name") or not lead_data.get("product"):
+                                    raise ValueError("Missing required lead fields: name and product")
+                                lead_id = db.create_lead(
+                                    phone=from_number,
+                                    name=lead_data.get("name", "Unknown")[:200],
+                                    company=lead_data.get("company", "Individual")[:200],
+                                    email="",
+                                    location=lead_data.get("location", "Unknown")[:200],
+                                    product_interest=lead_data.get("product", "Unknown")[:200],
+                                    quantity=lead_data.get("quantity", "Unknown")[:100],
+                                    requirements=f"Captured via AI chatbot. Qty: {lead_data.get('quantity')}. Loc: {lead_data.get('location')}."
+                                )
+                                cleaned_text = re.sub(r'\[LEAD_SUBMIT:\s*\{.*?\}\s*\]', '', ai_response, flags=re.DOTALL).strip()
+                                success_msg = f"🎉 *Inquiry Submitted Successfully!*\n\n🔹 *Inquiry ID:* #{lead_id}\n\nOur sales representatives are reviewing your requirements and will reach out shortly."
+                                reply_text = f"{cleaned_text}\n\n{success_msg}" if cleaned_text else success_msg
+                            except Exception as e:
+                                logger.error(f"Error parsing LEAD_SUBMIT tag: {e}")
+                                reply_text = "I encountered an error submitting your quote request. Please try again."
+                                
+                        elif status_match:
+                            lead = db.get_lead_by_phone(from_number)
+                            cleaned_text = ai_response.replace("[LEAD_STATUS_CHECK]", "").strip()
+                            if lead:
+                                status_emoji = {"New": "🆕", "Contacted": "📞", "Quoted": "💰", "Won": "🎉", "Lost": "❌"}.get(lead["status"], "ℹ️")
+                                status_msg = f"📄 *Your Inquiry Status*\n\n🔹 *Inquiry ID:* #{lead['id']}\n🔹 *Product:* {lead['product_interest']}\n🔹 *Quantity:* {lead['quantity']}\n🔹 *Status:* {status_emoji} *{lead['status']}*\n🔹 *Updated:* {lead['updated_at'][:16]}"
+                            else:
+                                status_msg = "❌ No active inquiry found for your number. Feel free to request a quote by chatting with me!"
+                            reply_text = f"{cleaned_text}\n\n{status_msg}" if cleaned_text else status_msg
+                        
                     reply_text = reply_text.replace("**", "*")
                     reply_text = re.sub(r'\n{3,}', '\n\n', reply_text).strip()
                     db.log_chat_message(from_number, "outbound", reply_text)
@@ -229,7 +295,7 @@ async def whatsapp_webhook(request: Request):
                     if image_file:
                         image_url = f"https://whatsapp-bot-m3u1.onrender.com/static/images/{image_file}"
                         
-                    send_whatsapp_message(from_number, reply_text, image_url=image_url, show_menu=menu_match)
+                    send_whatsapp_message(from_number, reply_text, image_url=image_url, show_menu=menu_match, show_categories_menu=cat_match)
                     
         return Response(status_code=200)
     except Exception as e:
