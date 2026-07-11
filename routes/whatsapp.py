@@ -51,6 +51,9 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None):
         with urllib.request.urlopen(req) as response:
             res_data = response.read().decode("utf-8")
             logger.info(f"Meta API Response: {res_data}")
+    except urllib.error.HTTPError as he:
+        err_msg = he.read().decode("utf-8")
+        logger.error(f"Error sending Meta API message (HTTP {he.code}): {err_msg}")
     except Exception as e:
         logger.error(f"Error sending Meta API message: {e}")
 
