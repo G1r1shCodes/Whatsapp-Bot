@@ -155,36 +155,7 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
         except Exception as e:
             logger.error(f"Error sending Meta cat menu: {e}")
             
-    # 4. Send Call CTA if requested
-    if show_call_cta:
-        payload_call = {
-            "messaging_product": "whatsapp",
-            "recipient_type": "individual",
-            "to": to_phone,
-            "type": "interactive",
-            "interactive": {
-                "type": "voice_call",
-                "body": {
-                    "text": "Tap the button below to call our factory sales team directly!"
-                },
-                "action": {
-                    "name": "voice_call",
-                    "parameters": {
-                        "display_text": "Call KDI Power",
-                        "ttl_minutes": 10080,
-                        "payload": "call_kdi_power"
-                    }
-                }
-            }
-        }
-        try:
-            req = urllib.request.Request(url, data=json.dumps(payload_call).encode("utf-8"), headers=headers, method="POST")
-            with urllib.request.urlopen(req) as response:
-                logger.info("Sent call CTA successfully")
-        except urllib.error.HTTPError as he:
-            logger.error(f"Error sending Meta call CTA (HTTP {he.code}): {he.read().decode('utf-8')}")
-        except Exception as e:
-            logger.error(f"Error sending Meta call CTA: {e}")
+
 
     # 5. If neither, just send text
     if not image_url and not show_menu and not show_categories_menu and not show_call_cta and text:
@@ -237,8 +208,8 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
         call_match = False
         
         if lower_msg in ["contact sales", "call us"]:
-            reply_text = ""
-            call_match = True
+            reply_text = "📞 *Sales & Support*\nTap the number below to call us directly:\n\n*+91-9205333843*\n👤 Vipul Kumar — Marketing Manager\n\n📍 *Factory Address*\nH-1243, DSIDC Industrial Area, Narela, New Delhi"
+            call_match = False
         elif lower_msg == "track my inquiry":
             lead = db.get_lead_by_phone(from_number)
             if lead:
