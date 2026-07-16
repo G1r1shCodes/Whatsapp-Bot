@@ -13,7 +13,7 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/styles.css?v=1.4">
 </head>
 <body>
     <div class="app-container">
@@ -156,18 +156,18 @@
                 <section id="leads-tab" class="tab-panel">
                     <div class="inbox-layout">
                         <!-- Leads List Panel -->
-                        <div class="leads-list-panel card">
-                            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.25rem 0.25rem 1.25rem;">
+                        <div class="leads-list-panel card" style="display: flex; flex-direction: column; height: 100%;">
+                            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.25rem 0.25rem 1.25rem; flex-shrink: 0;">
                                 <h3 style="margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--text-primary);">Leads Directory</h3>
                                 <a href="/api/leads/export" class="export-btn" title="Export Leads to CSV" style="background: #1e293b; color: #fff; padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 0.75rem; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(255,255,255,0.1); transition: var(--transition-smooth);" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='#1e293b'">
                                     <i class="fa-solid fa-file-excel" style="color: #10b981;"></i> Export
                                 </a>
                             </div>
-                            <div class="inbox-search">
+                            <div class="inbox-search" style="flex-shrink: 0;">
                                 <i class="fa-solid fa-magnifying-glass"></i>
                                 <input type="text" id="lead-search-input" placeholder="Search leads by name, company, phone...">
                             </div>
-                            <div class="inbox-filters" style="display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0 1.25rem 1rem 1.25rem;">
+                            <div class="inbox-filters" style="display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 0 1.25rem 1rem 1.25rem; flex-shrink: 0;">
                                 <button class="filter-btn active" data-filter="All">All</button>
                                 <button class="filter-btn" data-filter="New">New</button>
                                 <button class="filter-btn" data-filter="Contacted">Contacted</button>
@@ -176,7 +176,7 @@
                                 <button class="filter-btn" data-filter="Lost">Lost</button>
                                 <button class="filter-btn" data-filter="Partial">Partial</button>
                             </div>
-                            <div class="leads-list-scroll">
+                            <div class="leads-list-scroll" style="flex-grow: 1; overflow-y: auto; min-height: 0; padding: 0 1.25rem 1.25rem 1.25rem;">
                                 <div class="leads-loading text-center" id="leads-list-loading">
                                     <i class="fa-solid fa-spinner fa-spin"></i> Loading leads...
                                 </div>
