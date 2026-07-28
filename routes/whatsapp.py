@@ -249,7 +249,20 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
         elif lower_msg in ["contact sales", "call us"]:
             reply_text = "📞 *Sales & Support*\nTap the number below to call us directly:\n\n*+91-9205333843*\n👤 Vipul Kumar — Marketing Manager\n\n📍 *Factory Address*\nH-1243, DSIDC Industrial Area, Narela, New Delhi"
             call_match = False
+        elif lower_msg in ["request a quote", "request quote", "get quote", "quote"]:
+            reply_text = (
+                "📝 *Request a Price Quote*\n\n"
+                "To get you the best bulk pricing, please reply with your requirements:\n\n"
+                "1️⃣ *Your Name*\n"
+                "2️⃣ *Company / Firm Name*\n"
+                "3️⃣ *Product & Specification* (e.g. 1.5 sq mm Copper Wire)\n"
+                "4️⃣ *Quantity* (meters, coils, or drums)\n"
+                "5️⃣ *Delivery Location / City*\n\n"
+                "💡 *Tip:* You can reply with all 5 details in a single message or share them one by one!"
+            )
+            call_match = False
         elif lower_msg == "track my inquiry":
+
             lead = db.get_lead_by_phone(from_number)
             if lead:
                 status_emoji = {"New": "🆕", "Contacted": "📞", "Quoted": "💰", "Won": "🎉", "Lost": "❌"}.get(lead["status"], "ℹ️")
