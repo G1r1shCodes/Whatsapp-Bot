@@ -34,8 +34,9 @@ load_env()
 
 GROQ_API_RAW = os.environ.get("GROQ_API", "")
 GROQ_API_KEYS = [k.strip() for k in re.split(r'[,;\s]+', GROQ_API_RAW) if k.strip()]
-GROQ_MODELS = ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "mixtral-8x7b-32768"]
+GROQ_MODELS = ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "groq/compound-mini"]
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
+
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 http_client = httpx.Client(timeout=15.0)
