@@ -34,7 +34,7 @@ load_env()
 
 GROQ_API_RAW = os.environ.get("GROQ_API", "")
 GROQ_API_KEYS = [k.strip() for k in re.split(r'[,;\s]+', GROQ_API_RAW) if k.strip()]
-GROQ_MODELS = ["llama-3.1-8b-instant", "llama-3.2-3b-preview", "gemma2-9b-it"]
+GROQ_MODELS = ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "mixtral-8x7b-32768"]
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
@@ -105,11 +105,11 @@ def get_ai_response(phone, profile_name):
                     cleaned = re.sub(pattern, "", cleaned)
                 # Clean up double linebreaks or trailing whitespace
                 cleaned = "\n".join(line.strip() for line in cleaned.split("\n") if line.strip())
-                retrieved_context = cleaned
+                retrieved_context = cleaned[:500]  # Keep lean to conserve tokens
         except Exception as e:
             logger.error(f"Vector search error: {e}")
 
-    # --- Products: Only inject relevant products (or top 8 fallback) ---
+    # --- Products: Only inject relevant products (or top 4 fallback) ---
     all_products = db.get_all_products()
     products_txt = ""
     # Filter products by keyword match to keep prompt lean
@@ -122,19 +122,13 @@ def get_ai_response(phone, profile_name):
             p.get('conductor', '').lower(),
             p.get('size', '').lower(),
         ])
-    ] or all_products  # fallback to all products if no keyword match
+    ] or all_products
     
-    # Limit to top 8 to keep prompt lean and prevent 429 TPM errors
-    relevant_products = relevant_products[:8]
+    # Limit to top 4 items and ultra-compact formatting to stay below 6000 TPM limit
+    relevant_products = relevant_products[:4]
 
     for p in relevant_products:
-        products_txt += (
-            f"🔹 *{p['name']}*\n"
-            f"   ▫️ Category: {p['category']}\n"
-            f"   ▫️ Specs: {p['conductor']} {p['size']} {p['core']}C {p['insulation']}\n"
-            f"   ▫️ Price: ~INR {p['price_per_meter']}/m\n"
-            f"   ▫️ Status: {p['stock_status']}\n\n"
-        )
+        products_txt += f"🔹 *{p['name']}* ({p['category']}): ~INR {p['price_per_meter']}/m | Specs: {p['conductor']} {p['size']}\n"
 
     # --- Available images ---
     images_txt = ""
@@ -142,7 +136,7 @@ def get_ai_response(phone, profile_name):
         image_files = os.listdir("data/images")
         valid_images = [f for f in image_files if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
         if valid_images:
-            images_txt = "\n".join(valid_images)
+            images_txt = "\n".join(valid_images[:6])
     except Exception as e:
         logger.error(f"Error reading images directory: {e}")
 
@@ -156,8 +150,8 @@ def get_ai_response(phone, profile_name):
 
     messages = [{"role": "system", "content": system_prompt}]
     
-    # Append conversation history (limit to last 8 messages to stay lean)
-    for msg in history[-8:]:
+    # Append conversation history (limit to last 4 messages to stay lean)
+    for msg in history[-4:]:
         role = "user" if msg["direction"] == "inbound" else "assistant"
         content = msg["body"]
         if "[LEAD_SUBMIT:" in content:
@@ -188,7 +182,7 @@ def get_ai_response(phone, profile_name):
                 "User-Agent": "Mozilla/5.0"
             }
             
-            retries = 3
+            retries = 2
             delay = 1.0
             
             for attempt in range(retries):
@@ -201,10 +195,8 @@ def get_ai_response(phone, profile_name):
                     if he.response.status_code == 429:
                         # Parse Retry-After header if provided by Groq
                         retry_after = he.response.headers.get("retry-after")
-                        if retry_after and retry_after.isdigit():
-                            wait_sec = min(float(retry_after), 5.0)
-                        else:
-                            wait_sec = delay
+                        wait_sec = float(retry_after) if (retry_after and retry_after.replace('.', '', 1).isdigit()) else delay
+                        wait_sec = min(wait_sec, 3.0)
                             
                         # If we have multiple keys, immediately switch key instead of sleeping long
                         if len(GROQ_API_KEYS) > 1 and key_idx < len(GROQ_API_KEYS) - 1:
@@ -213,7 +205,7 @@ def get_ai_response(phone, profile_name):
                         elif attempt < retries - 1:
                             logger.warning(f"Rate limited (429) by Groq ({model_name}). Retrying in {wait_sec}s (attempt {attempt+1}/{retries})...")
                             time.sleep(wait_sec)
-                            delay *= 2.0
+                            delay *= 1.5
                             continue
                     logger.error(f"Groq API HTTPStatusError {he.response.status_code}: {he.response.text}")
                     break
@@ -222,4 +214,5 @@ def get_ai_response(phone, profile_name):
                     break
 
     return "Sorry, I am experiencing a temporary technical issue. Please try again shortly or contact KDI Power support directly at +91-9205333843."
+
 
