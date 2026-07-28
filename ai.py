@@ -13,11 +13,9 @@ from collections import defaultdict
 from logger import get_logger
 
 logger = get_logger(__name__)
-from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
-from langchain_community.vectorstores import SupabaseVectorStore
-from supabase.client import Client, create_client
 
 # Suppress some of the verbose langchain warnings
+
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -34,16 +32,21 @@ def load_env():
 # Load env variables on module import
 load_env()
 
-GROQ_API_KEY = os.environ.get("GROQ_API")
-GROQ_MODEL = "llama-3.1-8b-instant"
+GROQ_API_RAW = os.environ.get("GROQ_API", "")
+GROQ_API_KEYS = [k.strip() for k in re.split(r'[,;\s]+', GROQ_API_RAW) if k.strip()]
+GROQ_MODELS = ["llama-3.1-8b-instant", "llama-3.2-3b-preview", "gemma2-9b-it"]
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-http_client = httpx.Client(timeout=30.0)
+http_client = httpx.Client(timeout=15.0)
 
 
 # Initialize Vector DB globally to avoid reloading models per request
 try:
+    from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
+    from langchain_community.vectorstores import SupabaseVectorStore
+    from supabase.client import Client, create_client
+    
     # threads=1 limits ONNX runtime memory footprint to avoid 512MB limit on Render
     embeddings = FastEmbedEmbeddings(threads=1)
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -57,6 +60,7 @@ except Exception as e:
     logger.warning(f"Could not initialize Supabase vectorstore. {e}")
     vectorstore = None
 
+
 def get_ai_response(phone, profile_name):
     # Fetch chat history
     history = db.get_chat_history(phone)
@@ -68,7 +72,7 @@ def get_ai_response(phone, profile_name):
         last_msg = inbound_history[-1]["body"].strip().lower()
 
     last_msg_clean = re.sub(r'[^\w\s]', '', last_msg).strip()
-    greeting_words = {"hi", "hello", "hey", "hii", "helo", "yoo", "greetings", "dear", "sup", "hi there", "hello there", "good morning", "good evening", "good afternoon", "namaste", "namaskar", "pranam"}
+    greeting_words = {"hi", "hello", "hey", "hii", "helo", "yoo", "greetings", "dear", "sup", "hi there", "hello there", "good morning", "good evening", "good afternoon", "namaste", "namaskar", "pranam", "start"}
     is_greeting = last_msg_clean in greeting_words
 
     # conversation_start = True means this is the very first message (no prior history)
@@ -84,7 +88,7 @@ def get_ai_response(phone, profile_name):
     retrieved_context = ""
     if not conversation_start and last_msg_clean and vectorstore is not None:
         try:
-            docs = vectorstore.similarity_search(last_msg, k=3)
+            docs = vectorstore.similarity_search(last_msg, k=2)
             if docs:
                 raw_context = "\n".join(doc.page_content for doc in docs)
                 # Clean up raw website UI button/navigation phrases
@@ -105,7 +109,7 @@ def get_ai_response(phone, profile_name):
         except Exception as e:
             logger.error(f"Vector search error: {e}")
 
-    # --- Products: Only inject relevant products (or all if catalog is small) ---
+    # --- Products: Only inject relevant products (or top 8 fallback) ---
     all_products = db.get_all_products()
     products_txt = ""
     # Filter products by keyword match to keep prompt lean
@@ -120,8 +124,8 @@ def get_ai_response(phone, profile_name):
         ])
     ] or all_products  # fallback to all products if no keyword match
     
-    # Limit to top 15 to avoid Groq 413 Payload Too Large error
-    relevant_products = relevant_products[:15]
+    # Limit to top 8 to keep prompt lean and prevent 429 TPM errors
+    relevant_products = relevant_products[:8]
 
     for p in relevant_products:
         products_txt += (
@@ -152,10 +156,9 @@ def get_ai_response(phone, profile_name):
 
     messages = [{"role": "system", "content": system_prompt}]
     
-    # Append conversation history (limit to last 15 messages to stay within limits)
-    for msg in history[-15:]:
+    # Append conversation history (limit to last 8 messages to stay lean)
+    for msg in history[-8:]:
         role = "user" if msg["direction"] == "inbound" else "assistant"
-        # Skip internal tags if they were sent to the user, or clean them
         content = msg["body"]
         if "[LEAD_SUBMIT:" in content:
             content = "Your inquiry has been submitted successfully."
@@ -163,43 +166,60 @@ def get_ai_response(phone, profile_name):
             content = "Checking your lead status..."
         messages.append({"role": role, "content": content})
         
-    if not GROQ_API_KEY:
+    if not GROQ_API_KEYS:
         print("GROQ_API is missing. Returning mock AI response.")
-        time.sleep(1) # Simulate network delay
+        time.sleep(0.5)
         return "*(Mock AI Response)* Hello! I see you are testing the KDI Power Bot. We currently have *1.5 sq mm House Wire* and *2.5 sq mm Power Cable* in stock. Let me know if you need a quote or have any other questions!"
 
-    payload = {
-        "model": GROQ_MODEL,
-        "messages": messages,
-        "temperature": 0.5
-    }
-    
     url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "User-Agent": "Mozilla/5.0"
-    }
     
-    retries = 4
-    delay = 3.0
-    
-    for attempt in range(retries):
-        try:
-            response = http_client.post(url, json=payload, headers=headers)
-            response.raise_for_status()
-            res_data = response.json()
-            return res_data["choices"][0]["message"]["content"]
-        except httpx.HTTPStatusError as he:
-            if he.response.status_code == 429 and attempt < retries - 1:
-                logger.warning(f"Rate limited (429) by Groq. Retrying in {delay} seconds (attempt {attempt+1}/{retries})...")
-                time.sleep(delay)
-                delay *= 2.0  # Exponential backoff
-                continue
-            logger.error(f"Groq API HTTPStatusError {he.response.status_code}: {he.response.text}")
-            break
-        except Exception as e:
-            logger.error(f"Unexpected error calling Groq API: {e}")
-            break
+    # Try multi-key rotation and model fallback for ultimate 429 resilience
+    for model_name in GROQ_MODELS:
+        payload = {
+            "model": model_name,
+            "messages": messages,
+            "temperature": 0.5
+        }
+        
+        for key_idx, api_key in enumerate(GROQ_API_KEYS):
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+                "User-Agent": "Mozilla/5.0"
+            }
             
+            retries = 3
+            delay = 1.0
+            
+            for attempt in range(retries):
+                try:
+                    response = http_client.post(url, json=payload, headers=headers)
+                    response.raise_for_status()
+                    res_data = response.json()
+                    return res_data["choices"][0]["message"]["content"]
+                except httpx.HTTPStatusError as he:
+                    if he.response.status_code == 429:
+                        # Parse Retry-After header if provided by Groq
+                        retry_after = he.response.headers.get("retry-after")
+                        if retry_after and retry_after.isdigit():
+                            wait_sec = min(float(retry_after), 5.0)
+                        else:
+                            wait_sec = delay
+                            
+                        # If we have multiple keys, immediately switch key instead of sleeping long
+                        if len(GROQ_API_KEYS) > 1 and key_idx < len(GROQ_API_KEYS) - 1:
+                            logger.warning(f"Rate limited (429) on Groq key {key_idx+1}. Rotating to next API key immediately...")
+                            break  # Break retry loop to try next API key
+                        elif attempt < retries - 1:
+                            logger.warning(f"Rate limited (429) by Groq ({model_name}). Retrying in {wait_sec}s (attempt {attempt+1}/{retries})...")
+                            time.sleep(wait_sec)
+                            delay *= 2.0
+                            continue
+                    logger.error(f"Groq API HTTPStatusError {he.response.status_code}: {he.response.text}")
+                    break
+                except Exception as e:
+                    logger.error(f"Unexpected error calling Groq API: {e}")
+                    break
+
     return "Sorry, I am experiencing a temporary technical issue. Please try again shortly or contact KDI Power support directly at +91-9205333843."
+

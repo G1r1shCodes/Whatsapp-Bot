@@ -5,6 +5,7 @@ from fastapi import APIRouter, Request, Response, HTTPException, BackgroundTasks
 import db
 import ai
 import httpx
+import config_manager
 from logger import get_logger
 
 http_client = httpx.Client(timeout=10.0)
@@ -29,8 +30,8 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
         "Content-Type": "application/json"
     }
     
-    # 1. Send Image if present (but NOT if we are showing the main menu, since it will be embedded)
-    if image_url and not show_menu:
+    # 1. Send Image separately if present (ensures image delivery failure won't drop interactive text/menu)
+    if image_url:
         payload_img = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
@@ -41,7 +42,7 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
             }
         }
         # If no menu follows, put the text in the caption
-        if not show_categories_menu and text:
+        if not show_menu and not show_categories_menu and text:
             payload_img["image"]["caption"] = text
             
         try:
@@ -52,6 +53,7 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
             logger.error(f"Error sending Meta image: {e}")
 
     # 2. Send Main Menu if requested
+    menu_sent = False
     if show_menu:
         payload_menu = {
             "messaging_product": "whatsapp",
@@ -60,6 +62,10 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
             "type": "interactive",
             "interactive": {
                 "type": "button",
+                "header": {
+                    "type": "text",
+                    "text": "KDI Power"
+                },
                 "body": {
                     "text": text if text else "How can we assist you today?"
                 },
@@ -93,24 +99,31 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
                 }
             }
         }
-        
-        # Embed the image directly into the menu header
-        if image_url:
-            payload_menu["interactive"]["header"] = {
-                "type": "image",
-                "image": {
-                    "link": image_url
-                }
-            }
             
         try:
             response = http_client.post(url, json=payload_menu, headers=headers)
             response.raise_for_status()
             logger.info("Sent menu successfully")
+            menu_sent = True
         except httpx.HTTPStatusError as he:
             logger.error(f"Error sending Meta menu (HTTP {he.response.status_code}): {he.response.text}")
         except Exception as e:
             logger.error(f"Error sending Meta menu: {e}")
+
+        # Fallback: if interactive menu failed to send, send text body so customer receives message
+        if not menu_sent and text:
+            payload_text_fallback = {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": to_phone,
+                "type": "text",
+                "text": {"preview_url": False, "body": text}
+            }
+            try:
+                http_client.post(url, json=payload_text_fallback, headers=headers)
+                logger.info("Sent fallback text menu successfully")
+            except Exception as fe:
+                logger.error(f"Error sending fallback menu text: {fe}")
 
     # 3. Send Categories Menu if requested
     if show_categories_menu:
@@ -156,29 +169,29 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
             logger.error(f"Error sending Meta cat menu (HTTP {he.response.status_code}): {he.response.text}")
         except Exception as e:
             logger.error(f"Error sending Meta cat menu: {e}")
-            
 
-
-    # 5. If neither, just send text
-    if not image_url and not show_menu and not show_categories_menu and not show_call_cta and text:
-        payload_text = {
-            "messaging_product": "whatsapp",
-            "recipient_type": "individual",
-            "to": to_phone,
-            "type": "text",
-            "text": {
-                "preview_url": False,
-                "body": text
+    # 4. Standard Text Message (if no menu, and image wasn't sent with caption)
+    if not show_menu and not show_categories_menu and not show_call_cta and text:
+        # Don't double-send text if image already sent text as caption
+        if not (image_url and text):
+            payload_text = {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": to_phone,
+                "type": "text",
+                "text": {
+                    "preview_url": False,
+                    "body": text
+                }
             }
-        }
-        try:
-            response = http_client.post(url, json=payload_text, headers=headers)
-            response.raise_for_status()
-            logger.info("Sent text successfully")
-        except httpx.HTTPStatusError as he:
-            logger.error(f"Error sending Meta text (HTTP {he.response.status_code}): {he.response.text}")
-        except Exception as e:
-            logger.error(f"Error sending Meta text: {e}")
+            try:
+                response = http_client.post(url, json=payload_text, headers=headers)
+                response.raise_for_status()
+                logger.info("Sent text successfully")
+            except httpx.HTTPStatusError as he:
+                logger.error(f"Error sending Meta text (HTTP {he.response.status_code}): {he.response.text}")
+            except Exception as e:
+                logger.error(f"Error sending Meta text: {e}")
 
 @router.get("/webhook")
 async def verify_webhook(request: Request):
@@ -202,14 +215,28 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
         # Process Message
         db.log_chat_message(from_number, "inbound", incoming_msg)
         
-        # Intercept static buttons to save API calls
-        lower_msg = incoming_msg.lower()
+        # Intercept static buttons and greetings to save API calls & respond instantly
+        lower_msg = incoming_msg.lower().strip()
+        clean_msg = re.sub(r'[^\w\s]', '', lower_msg).strip()
+        
         image_file = None
         menu_match = False
         cat_match = False
         call_match = False
         
-        if lower_msg in ["contact sales", "call us"]:
+        greeting_words = {
+            "hi", "hello", "hey", "hii", "helo", "yoo", "greetings", "dear",
+            "sup", "hi there", "hello there", "good morning", "good evening",
+            "good afternoon", "namaste", "namaskar", "pranam", "start"
+        }
+        
+        if clean_msg in greeting_words or lower_msg in ["main menu", "menu", "help", "options"]:
+            cfg = config_manager.get_config()
+            welcome_template = cfg.get("welcome_text", "Hi {profile_name}! 👋\nWelcome to *KDI Power*!")
+            reply_text = welcome_template.format(profile_name=profile_name)
+            image_file = cfg.get("welcome_image", "kdi-logo-white-bg.jpg")
+            menu_match = True
+        elif lower_msg in ["contact sales", "call us"]:
             reply_text = "📞 *Sales & Support*\nTap the number below to call us directly:\n\n*+91-9205333843*\n👤 Vipul Kumar — Marketing Manager\n\n📍 *Factory Address*\nH-1243, DSIDC Industrial Area, Narela, New Delhi"
             call_match = False
         elif lower_msg == "track my inquiry":
@@ -222,9 +249,6 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
         elif lower_msg == "browse products":
             reply_text = ""
             cat_match = True
-        elif lower_msg in ["main menu", "menu"]:
-            reply_text = ""
-            menu_match = True
         else:
             # Get response from Groq AI
             ai_response = ai.get_ai_response(from_number, profile_name)
@@ -281,7 +305,8 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
         # Send image to Meta API if one was requested
         image_url = None
         if image_file:
-            image_url = f"https://whatsapp-bot-m3u1.onrender.com/static/images/{image_file}"
+            base_url = os.environ.get("BASE_URL", "https://whatsapp-bot-4ukk.onrender.com")
+            image_url = f"{base_url}/static/images/{image_file}"
             
         send_whatsapp_message(from_number, reply_text, image_url=image_url, show_menu=menu_match, show_categories_menu=cat_match, show_call_cta=call_match)
     except Exception as e:
@@ -300,7 +325,18 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
             for change in entry.get("changes", []):
                 value = change.get("value", {})
                 
-                # We only process if it contains messages
+                # Log Meta delivery statuses (Sent, Delivered, Read, Failed)
+                if "statuses" in value and value["statuses"]:
+                    for status in value["statuses"]:
+                        status_name = status.get("status")
+                        recipient = status.get("recipient_id")
+                        if status_name == "failed":
+                            errors = status.get("errors", [])
+                            logger.error(f"Meta delivery FAILED for recipient {recipient}: {errors}")
+                        else:
+                            logger.info(f"Meta delivery status for {recipient}: {status_name}")
+                
+                # We process incoming messages
                 if "messages" in value and value["messages"]:
                     msg = value["messages"][0]
                     from_number = msg.get("from")
@@ -329,3 +365,4 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
     except Exception as e:
         logger.error(f"Webhook error: {e}")
         return Response(status_code=500)
+
