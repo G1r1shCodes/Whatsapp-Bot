@@ -261,8 +261,17 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
                 "💡 *Tip:* You can reply with all 5 details in a single message or share them one by one!"
             )
             call_match = False
+        elif lower_msg in ["address", "location", "factory address", "where is factory", "factory location", "office address", "corporate office"]:
+            reply_text = (
+                "📍 *KDI Power — Location & Contact*\n\n"
+                "🏭 *Factory Address*\n"
+                "H-1243, DSIDC Industrial Area, Narela, New Delhi - 110040\n\n"
+                "🏢 *Corporate Office*\n"
+                "912, 9th Floor, D Mall, Netaji Subhash Place, Pitampura, Delhi - 110034\n\n"
+                "📞 *Sales Line:* +91-9205333843 (Vipul Kumar — Marketing Manager)"
+            )
+            call_match = False
         elif lower_msg == "track my inquiry":
-
             lead = db.get_lead_by_phone(from_number)
             if lead:
                 status_emoji = {"New": "🆕", "Contacted": "📞", "Quoted": "💰", "Won": "🎉", "Lost": "❌"}.get(lead["status"], "ℹ️")
@@ -272,9 +281,28 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
         elif lower_msg == "browse products":
             reply_text = ""
             cat_match = True
+        elif lower_msg in ["power cables", "electrical wires", "armoured cables", "unarmoured cables", "control cables"]:
+            # Fast-path for Category Selection
+            all_prods = db.get_all_products()
+            cat_keywords = {
+                "power cables": ["power"],
+                "electrical wires": ["wire", "house"],
+                "armoured cables": ["armoured", "armored"],
+                "unarmoured cables": ["unarmoured", "unarmored"],
+                "control cables": ["control"]
+            }
+            kws = cat_keywords.get(lower_msg, [lower_msg])
+            matching = [p for p in all_prods if any(kw in p.get("name", "").lower() or kw in p.get("category", "").lower() for kw in kws)]
+            
+            if matching:
+                lines = [f"🔹 *{p['name']}*: ~INR {p['price_per_meter']}/m | {p.get('conductor','')} {p.get('size','')}" for p in matching[:6]]
+                reply_text = f"📦 *{lower_msg.title()}*\n\n" + "\n".join(lines) + "\n\n💡 *Prices are indicative and subject to daily metal rates.* Reply with a product name to get a formal quote!"
+            else:
+                reply_text = f"📦 We offer various options for *{lower_msg.title()}*. Let us know your specific core, size, or conductor requirement!"
         else:
-            # Get response from Groq AI
+            # Questions requiring complex reasoning or general product knowledge call Groq AI
             ai_response = ai.get_ai_response(from_number, profile_name)
+
             
             reply_text = ai_response
             
