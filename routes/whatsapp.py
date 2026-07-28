@@ -30,31 +30,13 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
         "Content-Type": "application/json"
     }
     
-    # 1. Send Image separately if present (ensures image delivery failure won't drop interactive text/menu)
-    if image_url:
-        payload_img = {
-            "messaging_product": "whatsapp",
-            "recipient_type": "individual",
-            "to": to_phone,
-            "type": "image",
-            "image": {
-                "link": image_url
-            }
-        }
-        # If no menu follows, put the text in the caption
-        if not show_menu and not show_categories_menu and text:
-            payload_img["image"]["caption"] = text
-            
-        try:
-            response = http_client.post(url, json=payload_img, headers=headers)
-            response.raise_for_status()
-            logger.info("Sent image successfully")
-        except Exception as e:
-            logger.error(f"Error sending Meta image: {e}")
-
-    # 2. Send Main Menu if requested
+    # 1. Send Main Menu if requested (Embeds image directly at TOP of card if provided)
     menu_sent = False
     if show_menu:
+        header_obj = {"type": "text", "text": "KDI Power"}
+        if image_url:
+            header_obj = {"type": "image", "image": {"link": image_url}}
+
         payload_menu = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
@@ -62,10 +44,7 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
             "type": "interactive",
             "interactive": {
                 "type": "button",
-                "header": {
-                    "type": "text",
-                    "text": "KDI Power"
-                },
+                "header": header_obj,
                 "body": {
                     "text": text if text else "How can we assist you today?"
                 },
@@ -103,14 +82,22 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
         try:
             response = http_client.post(url, json=payload_menu, headers=headers)
             response.raise_for_status()
-            logger.info("Sent menu successfully")
+            logger.info("Sent menu with image header successfully")
             menu_sent = True
-        except httpx.HTTPStatusError as he:
-            logger.error(f"Error sending Meta menu (HTTP {he.response.status_code}): {he.response.text}")
         except Exception as e:
-            logger.error(f"Error sending Meta menu: {e}")
+            logger.error(f"Error sending Meta menu with image header: {e}")
+            # Fallback 1: Try sending menu with text header if image header failed
+            if image_url:
+                try:
+                    payload_menu["interactive"]["header"] = {"type": "text", "text": "KDI Power"}
+                    response = http_client.post(url, json=payload_menu, headers=headers)
+                    response.raise_for_status()
+                    logger.info("Sent fallback text-header menu successfully")
+                    menu_sent = True
+                except Exception as e2:
+                    logger.error(f"Error sending fallback text-header menu: {e2}")
 
-        # Fallback: if interactive menu failed to send, send text body so customer receives message
+        # Fallback 2: if interactive menu failed completely, send text body
         if not menu_sent and text:
             payload_text_fallback = {
                 "messaging_product": "whatsapp",
@@ -124,6 +111,29 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
                 logger.info("Sent fallback text menu successfully")
             except Exception as fe:
                 logger.error(f"Error sending fallback menu text: {fe}")
+
+    # 2. Send Standalone Image (only if menu was NOT sent, or for product images)
+    if image_url and not show_menu:
+        payload_img = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": to_phone,
+            "type": "image",
+            "image": {
+                "link": image_url
+            }
+        }
+        # If no menu follows, put the text in the caption
+        if not show_categories_menu and text:
+            payload_img["image"]["caption"] = text
+            
+        try:
+            response = http_client.post(url, json=payload_img, headers=headers)
+            response.raise_for_status()
+            logger.info("Sent image successfully")
+        except Exception as e:
+            logger.error(f"Error sending Meta image: {e}")
+
 
     # 3. Send Categories Menu if requested
     if show_categories_menu:
