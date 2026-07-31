@@ -617,6 +617,40 @@ async function clearAllLeads() {
 
 window.clearAllLeads = clearAllLeads;
 
+async function deleteSelectedLead() {
+    if (!selectedLead) {
+        showToast('Please select a lead to delete', true);
+        return;
+    }
+
+    const name = selectedLead.name || 'this lead';
+    if (!confirm(`Are you sure you want to delete lead for "${name}"?\n\nThis will remove their inquiry record and chat history.`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/leads/${selectedLead.id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast(`Lead "${name}" deleted successfully.`);
+            selectedLead = null;
+            const emptyState = document.getElementById('detail-empty-state');
+            const contentArea = document.getElementById('detail-content-area');
+            if (emptyState) emptyState.classList.remove('hidden');
+            if (contentArea) contentArea.classList.add('hidden');
+            loadLeadsData();
+            loadAnalyticsData();
+        } else {
+            showToast(data.detail || 'Failed to delete lead', true);
+        }
+    } catch (e) {
+        console.error('Error deleting lead:', e);
+        showToast('Error deleting lead', true);
+    }
+}
+
+window.deleteSelectedLead = deleteSelectedLead;
+
 // Global Event Delegation for Send Button & Enter Key
 document.addEventListener('click', (e) => {
     const btn = e.target.closest('#manager-send-btn');

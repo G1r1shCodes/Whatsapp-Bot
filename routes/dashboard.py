@@ -271,6 +271,13 @@ async def update_lead_status_api(lead_id: int, request: Request):
     db.update_lead_status(lead_id, status)
     return {"success": True, "lead_id": lead_id, "status": status}
 
+@router.delete("/api/leads/{lead_id}")
+def delete_lead_api(lead_id: int, request: Request):
+    """Deletes a single lead and its chat history by lead ID."""
+    auth.require_auth(request)
+    db.delete_lead(lead_id)
+    return {"success": True, "lead_id": lead_id, "message": "Lead deleted successfully."}
+
 @router.get("/api/leads/{phone}/history")
 def get_lead_history_api(phone: str, request: Request):
     auth.require_auth(request)

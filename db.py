@@ -610,6 +610,15 @@ def update_lead_status(lead_id, status):
     }
     request_supabase("leads", "PATCH", data=data, params={"id": f"eq.{lead_id}"})
 
+def delete_lead(lead_id):
+    params = {"id": f"eq.{lead_id}"}
+    lead = request_supabase("leads", "GET", params=params)
+    if lead:
+        phone = lead[0].get("phone")
+        if phone:
+            request_supabase("chat_history", "DELETE", params={"phone": f"eq.{phone}"})
+    request_supabase("leads", "DELETE", params=params)
+
 def get_lead_by_phone(phone):
     params = {
         "phone": f"eq.{phone}",
