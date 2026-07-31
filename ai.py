@@ -145,11 +145,41 @@ def get_ai_response(phone, profile_name):
             return True
         return False
 
-    relevant_products = [p for p in all_products if product_matches_query(p)] or all_products
+    def rank_product(p):
+        score = 0
+        q = last_msg_clean
+        p_name = p.get('name', '').lower()
+        p_size = str(p.get('size', '')).lower()
+        p_core = str(p.get('core', '')).lower()
+        
+        # Core count matching
+        if "1c" in q or "single core" in q or "1 core" in q:
+            if p_core == "1" or "1c" in p_name:
+                score += 50
+            elif "3.5c" in p_name or "3c" in p_name or "4c" in p_name:
+                score -= 30
+        elif "3.5c" in q or "3.5 core" in q:
+            if p_core == "3.5" or "3.5c" in p_name:
+                score += 50
+            elif "1c" in p_name or "3c" in p_name:
+                score -= 30
 
-    # Limit to top 6 items (was 4) — more coverage for multi-size cable families
-    relevant_products = relevant_products[:6]
+        # Conductor size matching
+        sizes_in_query = re.findall(r'\b(\d+)\b', q)
+        for num in sizes_in_query:
+            if num == p_size.replace("sq mm", "").strip() or f"{num} sq" in p_name or f"{num}sq" in p_name:
+                score += 40
 
+        # HT Cable Penalty if not explicitly asked for HT
+        if "ht" not in q and "11kv" not in q and "33kv" not in q:
+            if "ht" in p_name or "11kv" in p_name or "33kv" in p_name:
+                score -= 50
+
+        return score
+
+    matching_products = [p for p in all_products if product_matches_query(p)] or all_products
+    matching_products.sort(key=rank_product, reverse=True)
+    relevant_products = matching_products[:6]
 
     for p in relevant_products:
         products_txt += f"🔹 *{p['name']}* ({p['category']}): ~INR {p['price_per_meter']}/m | Specs: {p['conductor']} {p['size']}\n"
@@ -164,18 +194,40 @@ def get_ai_response(phone, profile_name):
     except Exception as e:
         logger.error(f"Error reading images directory: {e}")
 
+    # Fetch existing partial lead to inject remembered fields into prompt context
+    captured_lead_info = ""
+    existing_lead = db.get_lead_by_phone(phone)
+    if existing_lead:
+        captured_fields = []
+        if existing_lead.get("name") and existing_lead.get("name") != "Unknown":
+            captured_fields.append(f"Name: {existing_lead['name']}")
+        if existing_lead.get("company") and existing_lead.get("company") != "Unknown":
+            captured_fields.append(f"Company: {existing_lead['company']}")
+        if existing_lead.get("email") and existing_lead.get("email") not in ["Unknown", ""]:
+            captured_fields.append(f"Email: {existing_lead['email']}")
+        if existing_lead.get("location") and existing_lead.get("location") != "Unknown":
+            captured_fields.append(f"Delivery Location: {existing_lead['location']}")
+        if existing_lead.get("product_interest") and existing_lead.get("product_interest") != "Unknown":
+            captured_fields.append(f"Product: {existing_lead['product_interest']}")
+        if existing_lead.get("quantity") and existing_lead.get("quantity") != "Unknown":
+            captured_fields.append(f"Quantity: {existing_lead['quantity']}")
+            
+        if captured_fields:
+            captured_lead_info = "\n".join([f"🔹 {f}" for f in captured_fields])
+
     system_prompt = prompts.get_system_prompt(
         retrieved_context=retrieved_context,
         products_txt=products_txt,
         images_txt=images_txt,
         profile_name=profile_name,
         conversation_start=conversation_start,
+        captured_lead_info=captured_lead_info,
     )
 
     messages = [{"role": "system", "content": system_prompt}]
     
-    # Append conversation history (limit to last 4 messages to stay lean)
-    for msg in history[-4:]:
+    # Append conversation history (extended to last 10 messages to preserve context)
+    for msg in history[-10:]:
         role = "user" if msg["direction"] == "inbound" else "assistant"
         content = msg["body"]
         if "[LEAD_SUBMIT:" in content:

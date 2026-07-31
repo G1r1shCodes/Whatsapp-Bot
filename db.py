@@ -550,15 +550,22 @@ def create_lead(phone, name, company, email, location, product_interest, quantit
 
 def upsert_lead_from_chat(phone, profile_name, lead_data, status):
     existing = get_lead_by_phone(phone)
-    
+
+    def pick_val(new_val, existing_val, fallback="Unknown"):
+        if new_val and str(new_val).strip() not in ["Unknown", "", "None"]:
+            return str(new_val).strip()
+        if existing_val and str(existing_val).strip() not in ["Unknown", "", "None"]:
+            return str(existing_val).strip()
+        return fallback
+
     if existing and existing.get("status") in ["New", "Partial"]:
         data = {
-            "name": lead_data.get("name", existing.get("name", profile_name))[:200],
-            "company": lead_data.get("company", existing.get("company", "Unknown"))[:200],
-            "email": lead_data.get("email", existing.get("email", ""))[:200],
-            "location": lead_data.get("location", existing.get("location", "Unknown"))[:200],
-            "product_interest": lead_data.get("product", existing.get("product_interest", "Unknown"))[:200],
-            "quantity": lead_data.get("quantity", existing.get("quantity", "Unknown"))[:100],
+            "name": pick_val(lead_data.get("name"), existing.get("name"), profile_name)[:200],
+            "company": pick_val(lead_data.get("company"), existing.get("company"), "Unknown")[:200],
+            "email": pick_val(lead_data.get("email"), existing.get("email"), "")[:200],
+            "location": pick_val(lead_data.get("location"), existing.get("location"), "Unknown")[:200],
+            "product_interest": pick_val(lead_data.get("product"), existing.get("product_interest"), "Unknown")[:200],
+            "quantity": pick_val(lead_data.get("quantity"), existing.get("quantity"), "Unknown")[:100],
             "status": status,
             "updated_at": datetime.utcnow().isoformat() + "Z"
         }
@@ -567,12 +574,12 @@ def upsert_lead_from_chat(phone, profile_name, lead_data, status):
     else:
         data = {
             "phone": phone,
-            "name": lead_data.get("name", profile_name)[:200],
-            "company": lead_data.get("company", "Unknown")[:200],
-            "email": lead_data.get("email", "")[:200],
-            "location": lead_data.get("location", "Unknown")[:200],
-            "product_interest": lead_data.get("product", "Unknown")[:200],
-            "quantity": lead_data.get("quantity", "Unknown")[:100],
+            "name": pick_val(lead_data.get("name"), None, profile_name)[:200],
+            "company": pick_val(lead_data.get("company"), None, "Unknown")[:200],
+            "email": pick_val(lead_data.get("email"), None, "")[:200],
+            "location": pick_val(lead_data.get("location"), None, "Unknown")[:200],
+            "product_interest": pick_val(lead_data.get("product"), None, "Unknown")[:200],
+            "quantity": pick_val(lead_data.get("quantity"), None, "Unknown")[:100],
             "requirements": "Captured via AI chatbot.",
             "status": status,
             "created_at": datetime.utcnow().isoformat() + "Z",

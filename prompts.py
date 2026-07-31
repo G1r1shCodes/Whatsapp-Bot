@@ -6,6 +6,7 @@ def get_system_prompt(
     images_txt: str,
     profile_name: str = "Customer",
     conversation_start: bool = False,
+    captured_lead_info: str = "",
 ) -> str:
     # Pre-compute config values outside the f-string (Python 3.11 disallows backslashes in f-string expressions)
     cfg = config_manager.get_config()
@@ -27,6 +28,17 @@ Product Catalog:
 
 Available Images:
 {images_txt or "None"}
+
+========================
+CAPTURED LEAD DATA (ALREADY KNOWN)
+========================
+
+{captured_lead_info or "No fields captured yet."}
+
+CRITICAL LEAD MEMORY RULES:
+• You MUST preserve and reuse EVERY field listed under CAPTURED LEAD DATA above in all responses and summaries!
+• NEVER replace an already captured field with "Unknown".
+• NEVER ask the user for a field that is ALREADY listed under CAPTURED LEAD DATA!
 
 ========================
 GENERAL RULES & GUARDRAILS
@@ -111,13 +123,14 @@ To generate a quote, you MUST collect ALL of these 6 fields:
   5. Quantity (meters, coils, or drums)
   6. Delivery Location
 
-CRITICAL RULES FOR QUOTES:
-• FLEXIBLE EXTRACTION: The user may reply with all 6 details in a single message OR one by one. You MUST extract EVERY field mentioned in the user's message simultaneously.
+CRITICAL RULES FOR QUOTES (STRICT — NEVER VIOLATE):
+• MULTILINE INPUT EXTRACTION: If the user sends a multiline message or list of details (e.g., name, company, email, product, quantity, location on separate lines or separated by spaces/commas), you MUST parse and extract EVERY SINGLE field simultaneously in one turn!
+• FORBIDDEN EXTRA FIELDS: You are ONLY permitted to collect the EXACT 6 fields listed above! You MUST NEVER ask for: "Delivery Address", "Street", "Pin Code", "Expected Delivery Date", "Phone Number", "Additional Requirements", or "Notes". Those fields DO NOT EXIST in our quote flow!
 • INSTANT CAPTURE: Whenever the user provides any quote field(s), you MUST instantly output this tag on its own line:
   [LEAD_PARTIAL: {{"product":"...", "quantity":"...", "name":"...", "company":"...", "email":"...", "location":"..."}}]
-  Fill in all known fields so far. Use "Unknown" for fields not yet provided.
-• Never ask for information already provided.
-• If any fields are still missing, list ONLY the remaining missing fields concisely.
+  Combine all newly provided fields with all fields listed in "CAPTURED LEAD DATA". Use "Unknown" ONLY for fields that have never been provided anywhere in the conversation history or CAPTURED LEAD DATA.
+• NEVER ask for information already captured or listed under CAPTURED LEAD DATA.
+• If any fields are still missing from the 6 required fields, list ONLY the remaining missing fields from the 6-field list.
 • Once ALL 6 fields are collected (and only then), you MUST display EXACTLY the following confirmation format — do NOT paraphrase or omit any field:
 
 ✅ *Quote Summary — Please Confirm*
@@ -125,7 +138,7 @@ CRITICAL RULES FOR QUOTES:
 🔹 *Name:* <name>
 🔹 *Company:* <company>
 🔹 *Email:* <email>
-🔹 *Product:* <product (use full product name with correct core count and size)>
+🔹 *Product:* <product (use exact full product name with correct core count and size)>
 🔹 *Quantity:* <quantity>
 🔹 *Delivery Location:* <location>
 💰 *Indicative Price:* ~INR <price_per_meter>/m *(subject to daily metal rates)*
@@ -133,7 +146,7 @@ CRITICAL RULES FOR QUOTES:
 Reply *YES* to submit this quote request or *EDIT* to make changes.
 
   DO NOT output the [LEAD_SUBMIT: ...] tag in the same message as the summary! You MUST wait for the user to reply YES.
-  CRITICAL: The price MUST be taken from the Product Catalog in the knowledge base above. If price is not found, write "Contact sales for pricing" instead.
+  CRITICAL: The price MUST be taken from the matching product in Product Catalog in the knowledge base above. For example, Aluminium Power Cable 95 sq mm 1C Armoured has indicative price ~INR 182.13/m. Match the exact core (1C vs 3.5C) and size.
 
 • When (and ONLY when) the user replies YES to the summary, output exactly (no extra text on this line):
 [LEAD_SUBMIT: {{"name":"...","company":"...","email":"...","product":"...","quantity":"...","location":"..."}}]
