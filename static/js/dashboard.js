@@ -506,6 +506,12 @@ async function handleManagerSendMessage() {
     
     const messageText = managerChatInput.value.trim();
     if (!messageText) return;
+
+    const targetPhone = String(selectedLead.phone || selectedLead.phone_number || selectedLead.mobile || '').trim();
+    if (!targetPhone) {
+        showToast('Selected lead has no valid phone number', true);
+        return;
+    }
     
     managerSendBtn.disabled = true;
     managerChatInput.disabled = true;
@@ -515,7 +521,7 @@ async function handleManagerSendMessage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                phone: selectedLead.phone,
+                phone: targetPhone,
                 message: messageText
             })
         });
@@ -549,7 +555,13 @@ async function handleManagerSendMessage() {
                 loadLeadsData();
             }
         } else {
-            showToast(data.detail || 'Failed to send WhatsApp message', true);
+            let errorMsg = 'Failed to send WhatsApp message';
+            if (typeof data.detail === 'string') {
+                errorMsg = data.detail;
+            } else if (Array.isArray(data.detail) && data.detail.length > 0) {
+                errorMsg = data.detail.map(d => d.msg || d.message || JSON.stringify(d)).join(', ');
+            }
+            showToast(errorMsg, true);
         }
     } catch (err) {
         console.error('Error sending message:', err);

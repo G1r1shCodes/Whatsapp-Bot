@@ -214,51 +214,51 @@
                                         </select>
                                     </div>
                                 </div>
-            <div class="detail-grid">
+                                <div class="detail-grid" style="display: grid; grid-template-columns: 320px 1fr; flex-grow: 1; min-height: 0; overflow: hidden;">
                                     <!-- Customer Details Card -->
-                                    <div class="detail-card">
-                                        <h4>Inquiry Information</h4>
-                                         <div class="info-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-                                             <div>
-                                                 <span class="info-label"><i class="fa-solid fa-phone"></i> Phone:</span>
-                                                 <span class="info-val" id="detail-phone">+91 99999 99999</span>
-                                             </div>
-                                             <a id="detail-wa-btn" href="#" target="_blank" class="btn btn-sm" style="background: #25D366; color: #fff; text-decoration: none; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; border: none; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1.0'">
-                                                 <i class="fa-brands fa-whatsapp" style="font-size: 0.9rem;"></i> WhatsApp Web
-                                             </a>
-                                         </div>
-                                        <div class="info-row">
+                                    <div class="detail-card" style="padding: 1.25rem; border-right: 1px solid var(--border); overflow-y: auto; display: flex; flex-direction: column; gap: 1rem;">
+                                        <h4 style="margin-bottom: 0.25rem;">Inquiry Information</h4>
+                                        <div class="info-row" style="display: flex; flex-direction: column; gap: 0.25rem;">
+                                            <span class="info-label"><i class="fa-solid fa-phone"></i> Phone:</span>
+                                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;">
+                                                <span class="info-val" id="detail-phone">+91 99999 99999</span>
+                                                <a id="detail-wa-btn" href="#" target="_blank" class="btn btn-sm" style="background: #25D366; color: #fff; text-decoration: none; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; border: none; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1.0'">
+                                                    <i class="fa-brands fa-whatsapp" style="font-size: 0.9rem;"></i> WhatsApp Web
+                                                </a>
+                                            </div>
+                                        </div>
+                                        <div class="info-row" style="display: flex; flex-direction: column; gap: 0.25rem;">
                                             <span class="info-label"><i class="fa-solid fa-envelope"></i> Email:</span>
                                             <span class="info-val" id="detail-email">-</span>
                                         </div>
-                                        <div class="info-row">
+                                        <div class="info-row" style="display: flex; flex-direction: column; gap: 0.25rem;">
                                             <span class="info-label"><i class="fa-solid fa-location-dot"></i> Location:</span>
                                             <span class="info-val" id="detail-location">Noida Sector 62</span>
                                         </div>
-                                        <div class="info-row">
+                                        <div class="info-row" style="display: flex; flex-direction: column; gap: 0.25rem;">
                                             <span class="info-label"><i class="fa-solid fa-cubes"></i> Product:</span>
                                             <span class="info-val highlight-cyan" id="detail-product">KDI Single Core 1.5 sq mm FR</span>
                                         </div>
-                                        <div class="info-row">
+                                        <div class="info-row" style="display: flex; flex-direction: column; gap: 0.25rem;">
                                             <span class="info-label"><i class="fa-solid fa-calculator"></i> Quantity:</span>
                                             <span class="info-val" id="detail-qty">20 coils</span>
                                         </div>
-                                        <div class="info-row">
+                                        <div class="info-row" style="display: flex; flex-direction: column; gap: 0.25rem;">
                                             <span class="info-label"><i class="fa-solid fa-calendar"></i> Submitted:</span>
                                             <span class="info-val" id="detail-date">2026-06-29 15:30</span>
                                         </div>
                                     </div>
 
                                     <!-- Chat Transcript Card -->
-                                    <div class="chat-transcript-card" style="display: flex; flex-direction: column;">
-                                        <h4 style="margin-bottom: 0.75rem;">WhatsApp Chat Log</h4>
-                                        <div class="chat-container-bubble" id="chat-bubbles-container" style="flex-grow: 1; min-height: 250px; max-height: 350px; overflow-y: auto;">
+                                    <div class="chat-transcript-card" style="display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 1.25rem; overflow: hidden;">
+                                        <h4 style="margin-bottom: 0.75rem; flex-shrink: 0;">WhatsApp Chat Log</h4>
+                                        <div class="chat-container-bubble" id="chat-bubbles-container" style="flex: 1 1 0%; min-height: 0; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--border-radius-lg); background: linear-gradient(rgba(11, 20, 26, 0.94), rgba(11, 20, 26, 0.94)), url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png') repeat; background-size: 380px; padding: 1.25rem;">
                                             <!-- Conversation bubbles go here -->
                                         </div>
                                         <!-- Manager Reply Bar -->
-                                        <div class="chat-reply-bar" style="display: flex; gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                                        <div class="chat-reply-bar" style="display: flex; gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.1); flex-shrink: 0;">
                                             <input type="text" id="manager-chat-input" placeholder="Type a message to reply via WhatsApp..." style="flex-grow: 1; background: var(--bg-card, #1e293b); border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--primary, #10b981)'" onblur="this.style.borderColor='rgba(255,255,255,0.15)'">
-                                            <button id="manager-send-btn" class="btn btn-primary" style="background: #10b981; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.85rem; transition: background 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+                                            <button id="manager-send-btn" class="btn btn-primary" style="background: #10b981; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.85rem; flex-shrink: 0; transition: background 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
                                                 <i class="fa-solid fa-paper-plane"></i> Send
                                             </button>
                                         </div>
