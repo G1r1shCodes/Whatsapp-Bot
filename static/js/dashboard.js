@@ -498,7 +498,11 @@ async function loadChatHistory(phone) {
 const managerSendBtn = document.getElementById('manager-send-btn');
 const managerChatInput = document.getElementById('manager-chat-input');
 
+let isSendingManagerMessage = false;
+
 async function handleManagerSendMessage() {
+    if (isSendingManagerMessage) return;
+
     if (!selectedLead) {
         showToast('Please select a lead first from the inbox', true);
         return;
@@ -517,7 +521,8 @@ async function handleManagerSendMessage() {
         showToast('Selected lead has no valid phone number', true);
         return;
     }
-    
+
+    isSendingManagerMessage = true;
     if (sendBtn) sendBtn.disabled = true;
     chatInput.disabled = true;
     
@@ -574,6 +579,7 @@ async function handleManagerSendMessage() {
         console.error('Error sending message:', err);
         showToast('Error sending message via WhatsApp', true);
     } finally {
+        isSendingManagerMessage = false;
         if (sendBtn) sendBtn.disabled = false;
         chatInput.disabled = false;
         chatInput.focus();
