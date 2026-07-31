@@ -384,8 +384,14 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
                         clean_img = f"{clean_img}.png"
                     else:
                         clean_img = f"{clean_img}.jpg"
-                base_url = os.environ.get("BASE_URL", "https://whatsapp-bot-4ukk.onrender.com")
-                image_url = f"{base_url}/static/images/{clean_img}"
+                
+                local_path = os.path.join("static", "images", clean_img)
+                if os.path.exists(local_path):
+                    base_url = os.environ.get("BASE_URL", "https://whatsapp-bot-4ukk.onrender.com")
+                    image_url = f"{base_url}/static/images/{clean_img}"
+                else:
+                    logger.warning(f"Image file '{clean_img}' not found on disk at {local_path}. Omitting image to prevent Meta 404 error.")
+                    image_url = None
             
         send_whatsapp_message(from_number, reply_text, image_url=image_url, show_menu=menu_match, show_categories_menu=cat_match, show_call_cta=call_match)
     except Exception as e:
