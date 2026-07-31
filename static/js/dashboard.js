@@ -589,6 +589,34 @@ async function handleManagerSendMessage() {
 // Expose handleManagerSendMessage globally
 window.handleManagerSendMessage = handleManagerSendMessage;
 
+async function clearAllLeads() {
+    if (!confirm("⚠️ ARE YOU SURE?\n\nThis will permanently delete ALL leads and chat history from the database. This action cannot be undone!")) {
+        return;
+    }
+    
+    try {
+        const res = await fetch('/api/leads/clear-all', { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast('All leads and chat history cleared!');
+            selectedLead = null;
+            const emptyState = document.getElementById('detail-empty-state');
+            const contentArea = document.getElementById('detail-content-area');
+            if (emptyState) emptyState.classList.remove('hidden');
+            if (contentArea) contentArea.classList.add('hidden');
+            loadLeadsData();
+            loadAnalyticsData();
+        } else {
+            showToast(data.detail || 'Failed to clear leads', true);
+        }
+    } catch (e) {
+        console.error('Error clearing leads:', e);
+        showToast('Error clearing leads database', true);
+    }
+}
+
+window.clearAllLeads = clearAllLeads;
+
 // Global Event Delegation for Send Button & Enter Key
 document.addEventListener('click', (e) => {
     const btn = e.target.closest('#manager-send-btn');

@@ -316,6 +316,14 @@ async def send_manager_message_api(payload: ManagerMessagePayload, request: Requ
 
     return {"success": True, "message": "Message sent via WhatsApp successfully."}
 
+@router.delete("/api/leads/clear-all")
+def clear_all_leads_api(request: Request):
+    """Deletes all leads and chat history from Supabase database."""
+    auth.require_auth(request)
+    db.request_supabase("leads", "DELETE", params={"id": "gt.0"})
+    db.request_supabase("chat_history", "DELETE", params={"id": "gt.0"})
+    return {"success": True, "message": "All leads and chat history have been cleared."}
+
 
 @router.get("/api/dashboard/stats")
 def get_stats_api(request: Request):

@@ -159,9 +159,14 @@
                         <div class="leads-list-panel card" style="display: flex; flex-direction: column; height: 100%;">
                             <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.25rem 0.25rem 1.25rem; flex-shrink: 0;">
                                 <h3 style="margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--text-primary);">Leads Directory</h3>
-                                <a href="/api/leads/export" class="export-btn" title="Export Leads to CSV" style="background: #1e293b; color: #fff; padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 0.75rem; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(255,255,255,0.1); transition: var(--transition-smooth);" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='#1e293b'">
-                                    <i class="fa-solid fa-file-excel" style="color: #10b981;"></i> Export
-                                </a>
+                                <div style="display: flex; gap: 6px;">
+                                    <button id="clear-all-leads-btn" onclick="clearAllLeads()" title="Delete all leads from database" style="background: rgba(239, 68, 68, 0.15); color: #f87171; padding: 5px 10px; border-radius: 6px; font-size: 0.75rem; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(239, 68, 68, 0.3); cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='rgba(239, 68, 68, 0.3)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.15)'">
+                                        <i class="fa-solid fa-trash-can"></i> Clear All
+                                    </button>
+                                    <a href="/api/leads/export" class="export-btn" title="Export Leads to Excel" style="background: #1e293b; color: #fff; padding: 5px 10px; border-radius: 6px; text-decoration: none; font-size: 0.75rem; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(255,255,255,0.1); transition: var(--transition-smooth);" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='#1e293b'">
+                                        <i class="fa-solid fa-file-excel" style="color: #10b981;"></i> Export
+                                    </a>
+                                </div>
                             </div>
                             <div class="inbox-search" style="flex-shrink: 0;">
                                 <i class="fa-solid fa-magnifying-glass"></i>
