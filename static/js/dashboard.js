@@ -926,10 +926,16 @@ const previewText = document.getElementById('preview-text');
 const saveSettingsBtn = document.getElementById('save-settings-btn');
 
 function updateLivePreview() {
-    const imgVal = welcomeImageInput ? (welcomeImageInput.value || 'kdi-logo-white-bg.jpg') : 'kdi-logo-white-bg.jpg';
+    const imgVal = welcomeImageInput ? (welcomeImageInput.value.trim() || 'kdi-logo-white-bg.jpg') : 'kdi-logo-white-bg.jpg';
     const textVal = welcomeTextInput ? (welcomeTextInput.value || 'Hi {profile_name}! \ud83d\udc4b\nWelcome to *KDI Power*!') : '';
 
-    if (previewImageName) previewImageName.textContent = imgVal;
+    if (previewImageName) {
+        if (imgVal.startsWith('http://') || imgVal.startsWith('https://')) {
+            previewImageName.innerHTML = `<img src="${imgVal}" style="max-height: 120px; max-width: 100%; border-radius: 6px; object-fit: contain;" alt="Header Preview" onerror="this.onerror=null; this.parentElement.textContent='${imgVal}'">`;
+        } else {
+            previewImageName.textContent = imgVal;
+        }
+    }
 
     if (previewText) {
         let formattedText = textVal
@@ -981,12 +987,12 @@ if (saveSettingsBtn) {
         .then(data => {
             showToast('Configuration saved successfully!');
             saveSettingsBtn.disabled = false;
-            saveSettingsBtn.innerHTML = '<i class="fa-solid fa-save"></i> Save configuration';
+            saveSettingsBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Configuration';
         })
         .catch(err => {
             showToast('Failed to save configuration', true);
             saveSettingsBtn.disabled = false;
-            saveSettingsBtn.innerHTML = '<i class="fa-solid fa-save"></i> Save configuration';
+            saveSettingsBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Configuration';
         });
     });
 }
