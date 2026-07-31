@@ -500,11 +500,16 @@ const managerChatInput = document.getElementById('manager-chat-input');
 
 async function handleManagerSendMessage() {
     if (!selectedLead) {
-        showToast('Please select a lead first', true);
+        showToast('Please select a lead first from the inbox', true);
         return;
     }
     
-    const messageText = managerChatInput.value.trim();
+    const chatInput = document.getElementById('manager-chat-input');
+    const sendBtn = document.getElementById('manager-send-btn');
+    
+    if (!chatInput) return;
+    
+    const messageText = chatInput.value.trim();
     if (!messageText) return;
 
     const targetPhone = String(selectedLead.phone || selectedLead.phone_number || selectedLead.mobile || '').trim();
@@ -513,8 +518,8 @@ async function handleManagerSendMessage() {
         return;
     }
     
-    managerSendBtn.disabled = true;
-    managerChatInput.disabled = true;
+    if (sendBtn) sendBtn.disabled = true;
+    chatInput.disabled = true;
     
     try {
         const res = await fetch('/api/leads/send-message', {
@@ -529,7 +534,7 @@ async function handleManagerSendMessage() {
         const data = await res.json();
         if (res.ok && data.success) {
             showToast('Message sent via WhatsApp!');
-            managerChatInput.value = '';
+            chatInput.value = '';
             
             // Append message bubble to chat container
             const chatContainer = document.getElementById('chat-bubbles-container');
@@ -544,8 +549,10 @@ async function handleManagerSendMessage() {
                     </div>
                 </div>
             `;
-            chatContainer.insertAdjacentHTML('beforeend', bubbleHtml);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+            if (chatContainer) {
+                chatContainer.insertAdjacentHTML('beforeend', bubbleHtml);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
             
             // If lead status was New or Partial, auto-update to Contacted
             if (selectedLead.status === 'New' || selectedLead.status === 'Partial') {
@@ -567,21 +574,30 @@ async function handleManagerSendMessage() {
         console.error('Error sending message:', err);
         showToast('Error sending message via WhatsApp', true);
     } finally {
-        managerSendBtn.disabled = false;
-        managerChatInput.disabled = false;
-        managerChatInput.focus();
+        if (sendBtn) sendBtn.disabled = false;
+        chatInput.disabled = false;
+        chatInput.focus();
     }
 }
 
-if (managerSendBtn && managerChatInput) {
-    managerSendBtn.addEventListener('click', handleManagerSendMessage);
-    managerChatInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleManagerSendMessage();
-        }
-    });
-}
+// Expose handleManagerSendMessage globally
+window.handleManagerSendMessage = handleManagerSendMessage;
+
+// Global Event Delegation for Send Button & Enter Key
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('#manager-send-btn');
+    if (btn) {
+        e.preventDefault();
+        handleManagerSendMessage();
+    }
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.target && e.target.id === 'manager-chat-input' && e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleManagerSendMessage();
+    }
+});
 
 // -------------------------------------------------------------
 // 3. Cables Catalog

@@ -22,7 +22,7 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
     """Sends a message to the user via Meta Cloud API."""
     if not META_ACCESS_TOKEN or not META_PHONE_NUMBER_ID:
         logger.error("Missing Meta API credentials in environment variables.")
-        return
+        raise RuntimeError("Meta API credentials (META_ACCESS_TOKEN / META_PHONE_NUMBER_ID) are missing in environment variables.")
         
     url = f"https://graph.facebook.com/v21.0/{META_PHONE_NUMBER_ID}/messages"
     headers = {
