@@ -110,23 +110,46 @@ def get_ai_response(phone, profile_name):
         except Exception as e:
             logger.error(f"Vector search error: {e}")
 
-    # --- Products: Only inject relevant products (or top 4 fallback) ---
+    # --- Products: Only inject relevant products (or top 6 fallback) ---
     all_products = db.get_all_products()
     products_txt = ""
-    # Filter products by keyword match to keep prompt lean
-    relevant_products = [
-        p for p in all_products
-        if not last_msg_clean
-        or any(kw in last_msg_clean for kw in [
+
+    # Normalize the query to handle compact cable notation like "3.5cx70sqmm" or "3.5c x 70"
+    # Expand to multiple variant tokens for better matching
+    normalized_query = last_msg_clean
+    # Tokenize: split on common separators, keep numeric+unit parts
+    query_tokens = re.split(r'[\s\-_/,]+', last_msg_clean)
+    # Also add a de-x version: "3.5cx70" -> "3.5c 70"
+    query_tokens += re.split(r'x', last_msg_clean)
+    # Strip "sqmm" / "sq" variants to get bare numeric size tokens
+    query_tokens = [re.sub(r'sq\s*mm', '', t).strip() for t in query_tokens]
+    query_tokens = [t for t in query_tokens if t]
+
+    def product_matches_query(p):
+        if not last_msg_clean:
+            return True
+        search_fields = [
             p.get('name', '').lower(),
             p.get('category', '').lower(),
             p.get('conductor', '').lower(),
             p.get('size', '').lower(),
-        ])
-    ] or all_products
-    
-    # Limit to top 4 items and ultra-compact formatting to stay below 6000 TPM limit
-    relevant_products = relevant_products[:4]
+            str(p.get('core', '')),
+        ]
+        full_text = " ".join(search_fields)
+        # Check each query token against full product text
+        for token in query_tokens:
+            if token and token in full_text:
+                return True
+        # Also check the raw normalized query
+        if normalized_query and normalized_query in full_text:
+            return True
+        return False
+
+    relevant_products = [p for p in all_products if product_matches_query(p)] or all_products
+
+    # Limit to top 6 items (was 4) — more coverage for multi-size cable families
+    relevant_products = relevant_products[:6]
+
 
     for p in relevant_products:
         products_txt += f"🔹 *{p['name']}* ({p['category']}): ~INR {p['price_per_meter']}/m | Specs: {p['conductor']} {p['size']}\n"

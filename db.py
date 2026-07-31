@@ -104,119 +104,11 @@ def save_session(phone, current_state, state_data):
 def delete_session(phone):
     request_supabase("sessions", "DELETE", params={"phone": f"eq.{phone}"})
 
-DUMMY_STATUS_OVERRIDES = {}
-DUMMY_PRODUCT_OVERRIDES = {}
-
 def get_static_dummy_leads():
-    leads = []
-    
-    product_pool = [
-        {"product": "KDI 1.5 sq mm FR House Wire (Copper)", "category": "House Wires"},
-        {"product": "KDI 2.5 sq mm FRLS House Wire", "category": "House Wires"},
-        {"product": "KDI 1.0 sq mm PVC Insulated Wire", "category": "House Wires"},
-        {"product": "Single Core 4.0 sq mm House Wire", "category": "House Wires"},
-        {"product": "KDI Solar Cable 4 sq mm DC", "category": "Power Cable"},
-        {"product": "KDI Solar Cable 6 sq mm UV Resistant", "category": "Power Cable"},
-        {"product": "KDI Submersible Cable 3 Core 2.5 sq mm", "category": "Rubber Cable"},
-        {"product": "KDI 3 Core Flat Submersible Cable 4 sq mm", "category": "Rubber Cable"},
-        {"product": "Copper Control Cable 4 Core 1.5 sq mm", "category": "Control Cables"},
-        {"product": "Copper Control Cable 10 Core 2.5 sq mm", "category": "Control Cables"},
-        {"product": "Copper Flexible Cable 3 Core 1.5 sq mm", "category": "Rubber Cable"},
-        {"product": "Flexible PVC Insulated Cord Cable 2 Core", "category": "Rubber Cable"},
-        {"product": "11kV HT Armoured Cable 3C x 95 sq mm", "category": "Power Cable"},
-        {"product": "33kV HT Armoured Cable XLPE", "category": "Power Cable"},
-        {"product": "Copper Conductor XLPE Armoured Cable 4C x 16 sq mm", "category": "Power Cable"},
-        {"product": "Copper Armoured Cable 3 Core 35 sq mm", "category": "Power Cable"},
-        {"product": "Aluminium XLPE Armoured Cable 4C x 50 sq mm", "category": "Power Cable"},
-        {"product": "Aluminium Power Cable 3.5 Core 120 sq mm", "category": "Power Cable"},
-        {"product": "Thermocouple Extension Cable KX Type", "category": "Instrumentation Wires"},
-        {"product": "Compensating Cable J Type Shielded", "category": "Instrumentation Wires"},
-        {"product": "Wind Power Energy Cable 3C x 150 sq mm", "category": "Power Cable"},
-        {"product": "Triple Coated Multistrand House Wire 1.5 sq mm", "category": "House Wires"},
-        {"product": "KDI Aerial Bunched Cable 3C x 50 + 1C x 35 sq mm", "category": "Aerial Bunched Cable"},
-    ]
-    
-    names = [
-        "Rajesh Kumar", "Amit Sharma", "Sanjay Gupta", "Priya Patel", "Vikram Singh",
-        "Sunita Rao", "Deepak Mehta", "Anil Joshi", "Rahul Verma", "Sneha Reddy",
-        "Arjun Nair", "Manish Pandey", "Vijay Chawla", "Karan Malhotra", "Neha Gupta",
-        "Rohan Sobti", "Suresh Iyer", "Divya Deshmukh", "Abhishek Tiwari", "Pooja Hegde",
-        "Nitin Saxena", "Anjali Desai", "Rakesh Mishra", "Shweta Kapoor", "Harish Patel",
-        "Gaurav Sen", "Meera Krishnan", "Varun Dhawan", "Kiran Mazumdar", "Aditya Birla",
-        "Sandip Bose", "Kunal Kamra", "Rohit Shetty", "Ajay Devgn", "Siddharth Malhotra",
-        "Shraddha Kapoor", "Alia Bhatt", "Ranbir Kapoor", "Deepika Padukone", "Ranveer Singh",
-        "Pankaj Tripathi", "Manoj Bajpayee", "Nawazuddin Siddiqui", "Rajkummar Rao", "Ayushmann Khurrana",
-        "Vicky Kaushal", "Katrina Kaif", "Priyanka Chopra", "Nick Jonas", "Mahendra Singh Dhoni",
-        "Virat Kohli", "Sachin Tendulkar", "Rohit Sharma", "Jasprit Bumrah", "Hardik Pandya",
-        "Rishabh Pant", "Ravindra Jadeja", "Shikhar Dhawan", "Cheteshwar Pujara"
-    ]
-    
-    companies = [
-        "Apex Builders", "L&T Construction", "Tata Power", "Adani Energy", "Reliance Infrastructure",
-        "Siemens India", "Anchor Electricals", "Havells Distributor", "Sterling & Wilson", "Voltas Ltd",
-        "Bajaj Electricals", "KEC International", "Kalpataru Power", "Godrej Properties", "DLF Limited",
-        "Individual Contractor", "Local Retailer", "Electro Controls", "Power Grid Corp", "ABB India",
-        "GMR Infrastructure", "Shapoorji Pallonji", "JMC Projects", "NCC Limited", "Dilip Buildcon",
-        "Hindustan Construction", "Larsen & Toubro", "Tata Projects", "Engineers India", "BHEL"
-    ]
-    
-    locations = [
-        "Mumbai", "Delhi NCR", "Bangalore", "Chennai", "Hyderabad",
-        "Pune", "Ahmedabad", "Kolkata", "Noida Sector 62", "Gurgaon Phase 3",
-        "Jaipur", "Lucknow", "Coimbatore", "Surat", "Bhopal",
-        "Visakhapatnam", "Chandigarh", "Patna", "Indore", "Bhubaneswar",
-        "Nagpur", "Vadodara", "Thane", "Kochi", "Nashik",
-        "Faridabad", "Ghaziabad", "Rajkot", "Amritsar", "Jabalpur"
-    ]
-    
-    statuses = (
-        ["New"] * 15 +
-        ["Contacted"] * 12 +
-        ["Quoted"] * 10 +
-        ["Won"] * 8 +
-        ["Lost"] * 6 +
-        ["Partial"] * 8
-    )
-    
-    for i in range(59):
-        name = names[i % len(names)]
-        company = companies[(i * 3) % len(companies)]
-        location = locations[(i * 7) % len(locations)]
-        prod_info = product_pool[i % len(product_pool)]
-        status = statuses[i]
-        
-        # Override status if it exists
-        lead_id = 1000 + i
-        if lead_id in DUMMY_STATUS_OVERRIDES:
-            status = DUMMY_STATUS_OVERRIDES[lead_id]
-            
-        phone = f"9198765{i:03d}"
-        
-        qty_val = (i % 5 + 1) * 50
-        qty_unit = "coils" if "wire" in prod_info["product"].lower() else "meters"
-        quantity = f"{qty_val} {qty_unit}"
-        
-        requirements = f"Demo Lead {i+1}. Inquired for {prod_info['product']} ({quantity}) for site delivery at {location}."
-        
-        created_dt = datetime.utcnow() - timedelta(days=(59 - i) * 0.25)
-        created_at = created_dt.isoformat() + "Z"
-        updated_at = (created_dt + timedelta(hours=2)).isoformat() + "Z"
-        
-        leads.append({
-            "id": lead_id,
-            "phone": phone,
-            "name": name,
-            "company": company,
-            "email": f"{name.lower().replace(' ', '.')}@example.com",
-            "location": location,
-            "product_interest": prod_info["product"],
-            "quantity": quantity,
-            "requirements": requirements,
-            "status": status,
-            "created_at": created_at,
-            "updated_at": updated_at
-        })
-    return leads
+    """Removed — dummy data has been disabled."""
+    return []
+
+
 
 def get_static_dummy_products():
     return [
@@ -373,6 +265,83 @@ def get_static_dummy_products():
             "price_per_meter": 320.00,
             "stock_status": "In Stock",
             "specifications": "Low voltage aluminium armoured"
+        },
+        {
+            "name": "Aluminium Power Cable 3.5C x 50 sq mm Armoured",
+            "category": "Power Cable",
+            "conductor": "Aluminium",
+            "size": "50 sq mm",
+            "core": 3.5,
+            "insulation": "XLPE",
+            "price_per_meter": 285.00,
+            "stock_status": "In Stock",
+            "specifications": "3.5 Core (3 Full + 1 Half Neutral), LT distribution, XLPE insulated, PVC sheathed, armoured"
+        },
+        {
+            "name": "Aluminium Power Cable 3.5C x 70 sq mm Armoured",
+            "category": "Power Cable",
+            "conductor": "Aluminium",
+            "size": "70 sq mm",
+            "core": 3.5,
+            "insulation": "XLPE",
+            "price_per_meter": 375.00,
+            "stock_status": "In Stock",
+            "specifications": "3.5 Core (3 Full + 1 Half Neutral), LT distribution, XLPE insulated, PVC sheathed, armoured"
+        },
+        {
+            "name": "Aluminium Power Cable 3.5C x 95 sq mm Armoured",
+            "category": "Power Cable",
+            "conductor": "Aluminium",
+            "size": "95 sq mm",
+            "core": 3.5,
+            "insulation": "XLPE",
+            "price_per_meter": 480.00,
+            "stock_status": "In Stock",
+            "specifications": "3.5 Core (3 Full + 1 Half Neutral), LT distribution, XLPE insulated, PVC sheathed, armoured"
+        },
+        {
+            "name": "Aluminium Power Cable 3.5C x 120 sq mm Armoured",
+            "category": "Power Cable",
+            "conductor": "Aluminium",
+            "size": "120 sq mm",
+            "core": 3.5,
+            "insulation": "XLPE",
+            "price_per_meter": 590.00,
+            "stock_status": "In Stock",
+            "specifications": "3.5 Core (3 Full + 1 Half Neutral), LT distribution, XLPE insulated, PVC sheathed, armoured"
+        },
+        {
+            "name": "Aluminium Power Cable 3.5C x 150 sq mm Armoured",
+            "category": "Power Cable",
+            "conductor": "Aluminium",
+            "size": "150 sq mm",
+            "core": 3.5,
+            "insulation": "XLPE",
+            "price_per_meter": 720.00,
+            "stock_status": "In Stock",
+            "specifications": "3.5 Core (3 Full + 1 Half Neutral), LT distribution, XLPE insulated, PVC sheathed, armoured"
+        },
+        {
+            "name": "Aluminium Power Cable 3.5C x 185 sq mm Armoured",
+            "category": "Power Cable",
+            "conductor": "Aluminium",
+            "size": "185 sq mm",
+            "core": 3.5,
+            "insulation": "XLPE",
+            "price_per_meter": 870.00,
+            "stock_status": "In Stock",
+            "specifications": "3.5 Core (3 Full + 1 Half Neutral), LT distribution, XLPE insulated, PVC sheathed, armoured"
+        },
+        {
+            "name": "Aluminium Power Cable 3.5C x 240 sq mm Armoured",
+            "category": "Power Cable",
+            "conductor": "Aluminium",
+            "size": "240 sq mm",
+            "core": 3.5,
+            "insulation": "XLPE",
+            "price_per_meter": 1080.00,
+            "stock_status": "In Stock",
+            "specifications": "3.5 Core (3 Full + 1 Half Neutral), LT distribution, XLPE insulated, PVC sheathed, armoured"
         },
         {
             "name": "Thermocouple Extension Cable KX Type",
@@ -586,6 +555,7 @@ def upsert_lead_from_chat(phone, profile_name, lead_data, status):
         data = {
             "name": lead_data.get("name", existing.get("name", profile_name))[:200],
             "company": lead_data.get("company", existing.get("company", "Unknown"))[:200],
+            "email": lead_data.get("email", existing.get("email", ""))[:200],
             "location": lead_data.get("location", existing.get("location", "Unknown"))[:200],
             "product_interest": lead_data.get("product", existing.get("product_interest", "Unknown"))[:200],
             "quantity": lead_data.get("quantity", existing.get("quantity", "Unknown"))[:100],
@@ -599,7 +569,7 @@ def upsert_lead_from_chat(phone, profile_name, lead_data, status):
             "phone": phone,
             "name": lead_data.get("name", profile_name)[:200],
             "company": lead_data.get("company", "Unknown")[:200],
-            "email": "",
+            "email": lead_data.get("email", "")[:200],
             "location": lead_data.get("location", "Unknown")[:200],
             "product_interest": lead_data.get("product", "Unknown")[:200],
             "quantity": lead_data.get("quantity", "Unknown")[:100],
@@ -614,23 +584,15 @@ def upsert_lead_from_chat(phone, profile_name, lead_data, status):
         return None
 
 def get_leads(status_filter=None, search_query=None):
-    real_leads = request_supabase("leads", "GET", params={"order": "created_at.desc"})
-    if not real_leads:
-        real_leads = []
-        
-    num_dummies = max(0, 59 - len(real_leads))
-    dummy_leads = get_static_dummy_leads()[:num_dummies]
-    
-    combined = real_leads + dummy_leads
-    combined.sort(key=lambda x: x.get("created_at") or "", reverse=True)
-    
+    leads = request_supabase("leads", "GET", params={"order": "created_at.desc"}) or []
+
     if status_filter:
-        combined = [l for l in combined if l.get("status") == status_filter]
-        
+        leads = [l for l in leads if l.get("status") == status_filter]
+
     if search_query:
         q = search_query.lower()
-        combined = [
-            l for l in combined if (
+        leads = [
+            l for l in leads if (
                 q in (l.get("name") or "").lower() or
                 q in (l.get("phone") or "").lower() or
                 q in (l.get("company") or "").lower() or
@@ -639,13 +601,9 @@ def get_leads(status_filter=None, search_query=None):
                 q in (l.get("location") or "").lower()
             )
         ]
-    return combined
+    return leads
 
 def update_lead_status(lead_id, status):
-    if lead_id >= 1000:
-        DUMMY_STATUS_OVERRIDES[lead_id] = status
-        return
-        
     data = {
         "status": status,
         "updated_at": datetime.utcnow().isoformat() + "Z"
@@ -653,15 +611,6 @@ def update_lead_status(lead_id, status):
     request_supabase("leads", "PATCH", data=data, params={"id": f"eq.{lead_id}"})
 
 def get_lead_by_phone(phone):
-    if is_dummy_phone(phone):
-        cleaned = phone.replace("+", "").strip()
-        try:
-            idx = int(cleaned[-3:])
-        except Exception:
-            idx = 0
-        dummies = get_static_dummy_leads()
-        return dummies[idx] if idx < len(dummies) else dummies[0]
-
     params = {
         "phone": f"eq.{phone}",
         "order": "created_at.desc",
@@ -678,46 +627,22 @@ def get_all_products(category_filter=None):
     
     products = request_supabase("products", "GET", params=params)
     if not products:
-        dummy_products = get_static_dummy_products()
-        # Apply in-memory overrides
-        for dp in dummy_products:
-            name = dp["name"]
-            if name in DUMMY_PRODUCT_OVERRIDES:
-                overrides = DUMMY_PRODUCT_OVERRIDES[name]
-                if "price" in overrides:
-                    dp["price_per_meter"] = overrides["price"]
-                if "stock_status" in overrides:
-                    dp["stock_status"] = overrides["stock_status"]
-        # Apply category filter
+        # Fall back to local static catalog when Supabase is unavailable
+        local_products = get_static_dummy_products()
         if category_filter:
-            dummy_products = [p for p in dummy_products if p["category"] == category_filter]
-        return dummy_products
+            local_products = [p for p in local_products if p["category"] == category_filter]
+        return local_products
     return products
 
 def get_product_by_id(product_name):
     res = request_supabase("products", "GET", params={"name": f"eq.{product_name}"})
     if not res:
-        dummy_products = get_static_dummy_products()
-        matches = [p for p in dummy_products if p["name"] == product_name]
-        if matches:
-            dp = matches[0]
-            if product_name in DUMMY_PRODUCT_OVERRIDES:
-                overrides = DUMMY_PRODUCT_OVERRIDES[product_name]
-                if "price" in overrides:
-                    dp["price_per_meter"] = overrides["price"]
-                if "stock_status" in overrides:
-                    dp["stock_status"] = overrides["stock_status"]
-            return dp
-        return None
+        local_products = get_static_dummy_products()
+        matches = [p for p in local_products if p["name"] == product_name]
+        return matches[0] if matches else None
     return res[0] if res else None
 
 def update_product_price_and_stock(product_name, price, stock_status):
-    # Store in-memory override
-    DUMMY_PRODUCT_OVERRIDES[product_name] = {
-        "price": price,
-        "stock_status": stock_status
-    }
-    
     data = {
         "price_per_meter": price,
         "stock_status": stock_status
@@ -753,18 +678,12 @@ def log_chat_message(phone, direction, body):
     request_supabase("chat_history", "POST", data=data)
 
 def get_chat_history(phone, limit=30):
-    if is_dummy_phone(phone):
-        res = get_dummy_chat_history(phone)
-        for row in res:
-            row["timestamp"] = row["created_at"]
-        return res
-
     params = {
         "phone": f"eq.{phone}",
         "order": "created_at.desc",
         "limit": str(limit)
     }
-    res = request_supabase("chat_history", "GET", params=params)
+    res = request_supabase("chat_history", "GET", params=params) or []
     # Reverse to get chronological order (oldest first)
     res = list(reversed(res))
     for row in res:

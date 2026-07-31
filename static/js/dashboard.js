@@ -397,7 +397,12 @@ function selectLead(lead) {
     // Populate details
     document.getElementById('detail-name').textContent = lead.name;
     document.getElementById('detail-company').textContent = lead.company || 'Individual/Personal Use';
-    document.getElementById('detail-phone').textContent = `+${lead.phone}`;
+    document.getElementById('detail-phone').textContent = lead.phone ? (lead.phone.startsWith('+') ? lead.phone : `+${lead.phone}`) : '-';
+    const cleanDigits = (lead.phone || '').replace(/[^\d]/g, '');
+    const waBtn = document.getElementById('detail-wa-btn');
+    if (waBtn) waBtn.href = `https://wa.me/${cleanDigits}`;
+    const emailEl = document.getElementById('detail-email');
+    if (emailEl) emailEl.textContent = lead.email || '-';
     document.getElementById('detail-location').textContent = lead.location || '-';
     document.getElementById('detail-product').textContent = lead.product_interest;
     document.getElementById('detail-qty').textContent = lead.quantity || '-';
@@ -485,6 +490,85 @@ async function loadChatHistory(phone) {
         console.error('Error loading chats:', e);
         chatContainer.innerHTML = '<div class="text-center text-rose-500" style="padding: 2rem 0;">Failed to load chat history.</div>';
     }
+}
+
+// -------------------------------------------------------------
+// Manager WhatsApp Reply Handler
+// -------------------------------------------------------------
+const managerSendBtn = document.getElementById('manager-send-btn');
+const managerChatInput = document.getElementById('manager-chat-input');
+
+async function handleManagerSendMessage() {
+    if (!selectedLead) {
+        showToast('Please select a lead first', true);
+        return;
+    }
+    
+    const messageText = managerChatInput.value.trim();
+    if (!messageText) return;
+    
+    managerSendBtn.disabled = true;
+    managerChatInput.disabled = true;
+    
+    try {
+        const res = await fetch('/api/leads/send-message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                phone: selectedLead.phone,
+                message: messageText
+            })
+        });
+        
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast('Message sent via WhatsApp!');
+            managerChatInput.value = '';
+            
+            // Append message bubble to chat container
+            const chatContainer = document.getElementById('chat-bubbles-container');
+            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const formattedBody = `👤 <strong>Manager:</strong> ${messageText.replace(/\n/g, '<br>')}`;
+            
+            const bubbleHtml = `
+                <div class="chat-bubble-row outbound">
+                    <div class="chat-bubble" style="border-left: 3px solid #10b981;">
+                        <div class="chat-bubble-body">${formattedBody}</div>
+                        <span class="chat-bubble-time">${timeStr}</span>
+                    </div>
+                </div>
+            `;
+            chatContainer.insertAdjacentHTML('beforeend', bubbleHtml);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            
+            // If lead status was New or Partial, auto-update to Contacted
+            if (selectedLead.status === 'New' || selectedLead.status === 'Partial') {
+                selectedLead.status = 'Contacted';
+                const statusSelect = document.getElementById('lead-status-select');
+                if (statusSelect) statusSelect.value = 'Contacted';
+                loadLeadsData();
+            }
+        } else {
+            showToast(data.detail || 'Failed to send WhatsApp message', true);
+        }
+    } catch (err) {
+        console.error('Error sending message:', err);
+        showToast('Error sending message via WhatsApp', true);
+    } finally {
+        managerSendBtn.disabled = false;
+        managerChatInput.disabled = false;
+        managerChatInput.focus();
+    }
+}
+
+if (managerSendBtn && managerChatInput) {
+    managerSendBtn.addEventListener('click', handleManagerSendMessage);
+    managerChatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleManagerSendMessage();
+        }
+    });
 }
 
 // -------------------------------------------------------------

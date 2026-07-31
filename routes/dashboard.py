@@ -7,8 +7,8 @@ import re
 import json
 import auth
 import io
-import csv
 import config_manager
+from datetime import datetime
 
 router = APIRouter()
 
@@ -16,6 +16,11 @@ class TestChatMessage(BaseModel):
     phone: str
     message: str
     profile_name: str = "Tester"
+
+class ManagerMessagePayload(BaseModel):
+    phone: str
+    message: str
+
 
 @router.get("/dashboard")
 def get_dashboard(request: Request):
@@ -61,7 +66,7 @@ def api_test_chat(msg: TestChatMessage, request: Request):
                 phone=msg.phone,
                 name=lead_data.get("name", "Unknown")[:200],
                 company=lead_data.get("company", "Individual")[:200],
-                email="",
+                email=lead_data.get("email", "")[:200],
                 location=lead_data.get("location", "Unknown")[:200],
                 product_interest=lead_data.get("product", "Unknown")[:200],
                 quantity=lead_data.get("quantity", "Unknown")[:100],
@@ -93,41 +98,165 @@ def get_leads_api(request: Request, status: str = None, search: str = None):
     return db.get_leads(status_filter=status, search_query=search)
 
 @router.get("/api/leads/export")
-def export_leads_csv(request: Request):
+def export_leads_excel(request: Request):
     auth.require_auth(request)
+    from openpyxl import Workbook
+    from openpyxl.styles import (
+        Font, PatternFill, Alignment, Border, Side
+    )
+    from openpyxl.utils import get_column_letter
+
     leads = db.get_leads()
-    
-    # Create an in-memory string buffer for the CSV
-    output = io.StringIO()
-    writer = csv.writer(output)
-    
-    # Write header
-    writer.writerow([
-        "Lead ID", "Phone Number", "Name", "Company", "Location", 
-        "Product Interest", "Quantity", "Status", "Created At", "Updated At"
-    ])
-    
-    # Write data
-    for lead in leads:
-        writer.writerow([
-            lead.get("id"),
-            lead.get("phone_number"),
-            lead.get("name"),
-            lead.get("company"),
-            lead.get("location"),
-            lead.get("product_interest"),
-            lead.get("quantity"),
-            lead.get("status"),
-            lead.get("created_at"),
-            lead.get("updated_at")
-        ])
-        
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "KDI Leads"
+
+    # ── Styles ────────────────────────────────────────────────────────────────
+    HEADER_FILL   = PatternFill("solid", fgColor="C0521F")   # KDI orange
+    HEADER_FONT   = Font(name="Calibri", bold=True, color="FFFFFF", size=11)
+    ALT_ROW_FILL  = PatternFill("solid", fgColor="F5F5F5")   # light grey
+    WHITE_FILL    = PatternFill("solid", fgColor="FFFFFF")
+    CELL_FONT     = Font(name="Calibri", size=10)
+    CENTER_ALIGN  = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    LEFT_ALIGN    = Alignment(horizontal="left",   vertical="center", wrap_text=True)
+
+    thin = Side(style="thin", color="CCCCCC")
+    BORDER = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    STATUS_COLORS = {
+        "New":       "1A73E8",   # blue
+        "Contacted": "F9AB00",   # amber
+        "Quoted":    "9334E6",   # purple
+        "Won":       "1E8E3E",   # green
+        "Lost":      "D93025",   # red
+        "Partial":   "FA7B17",   # orange
+    }
+
+    # ── Headers ───────────────────────────────────────────────────────────────
+    headers = [
+        "#", "Status", "Name", "Company", "Phone", "Email", "Location",
+        "Product Required", "Quantity", "Requirements / Notes",
+        "Inquiry Date", "Days Open"
+    ]
+    ws.append(headers)
+
+    for col_idx, _ in enumerate(headers, start=1):
+        cell = ws.cell(row=1, column=col_idx)
+        cell.fill   = HEADER_FILL
+        cell.font   = HEADER_FONT
+        cell.border = BORDER
+        cell.alignment = CENTER_ALIGN
+
+    ws.row_dimensions[1].height = 22
+    ws.freeze_panes = "A2"   # freeze header row
+
+    # ── Data rows ─────────────────────────────────────────────────────────────
+    for row_num, lead in enumerate(leads, start=1):
+        status = lead.get("status", "")
+
+        # Robust phone extraction checking multiple possible schema keys
+        raw_phone = str(lead.get("phone") or lead.get("phone_number") or lead.get("mobile") or "").strip()
+        if raw_phone and not raw_phone.startswith("+"):
+            formatted_phone = f"+{raw_phone}"
+        else:
+            formatted_phone = raw_phone
+
+        # Inquiry date — just the date, no time clutter
+        def fmt_date(val):
+            if not val:
+                return ""
+            try:
+                return datetime.fromisoformat(val.replace("Z", "+00:00")).strftime("%d %b %Y")
+            except Exception:
+                return str(val)
+
+        # Days open — how many days since the inquiry was submitted
+        def days_open(val):
+            if not val:
+                return ""
+            try:
+                created = datetime.fromisoformat(val.replace("Z", "+00:00"))
+                delta = (datetime.utcnow().replace(tzinfo=created.tzinfo) - created).days
+                return delta
+            except Exception:
+                return ""
+
+        row_data = [
+            row_num,
+            status,
+            lead.get("name", ""),
+            lead.get("company", ""),
+            formatted_phone,
+            lead.get("email", ""),
+            lead.get("location", ""),
+            lead.get("product_interest", ""),
+            lead.get("quantity", ""),
+            lead.get("requirements", ""),
+            fmt_date(lead.get("created_at")),
+            days_open(lead.get("created_at")),
+        ]
+        ws.append(row_data)
+
+        excel_row = row_num + 1   # +1 because header is row 1
+        row_fill = ALT_ROW_FILL if row_num % 2 == 0 else WHITE_FILL
+
+        # Columns centred: #(1), Status(2), Phone(5), Inquiry Date(11), Days Open(12)
+        CENTRE_COLS = {1, 2, 5, 11, 12}
+
+        for col_idx in range(1, len(headers) + 1):
+            cell = ws.cell(row=excel_row, column=col_idx)
+            cell.border    = BORDER
+            cell.alignment = CENTER_ALIGN if col_idx in CENTRE_COLS else LEFT_ALIGN
+            cell.font      = CELL_FONT
+
+            # Ensure Phone column (5) is formatted as text so Excel displays it properly
+            if col_idx == 5:
+                cell.number_format = '@'
+
+            # Status column (col 2) gets colour-coded bold text
+            if col_idx == 2 and status in STATUS_COLORS:
+                cell.font = Font(name="Calibri", size=10, bold=True,
+                                 color=STATUS_COLORS[status])
+                cell.fill = WHITE_FILL
+            # Days Open (col 12) — highlight if > 3 days with a warm tint
+            elif col_idx == 12:
+                days = row_data[11]
+                if isinstance(days, int) and days > 3:
+                    cell.fill = PatternFill("solid", fgColor="FFF3CD")   # soft amber
+                    cell.font = Font(name="Calibri", size=10, bold=True, color="7B5800")
+                else:
+                    cell.fill = row_fill
+            else:
+                cell.fill = row_fill
+
+        ws.row_dimensions[excel_row].height = 18
+
+    # ── Auto-fit column widths ─────────────────────────────────────────────────
+    MIN_WIDTH = 10
+    MAX_WIDTH = 45
+    for col in ws.columns:
+        max_len = 0
+        col_letter = get_column_letter(col[0].column)
+        for cell in col:
+            try:
+                cell_len = len(str(cell.value)) if cell.value is not None else 0
+                max_len = max(max_len, cell_len)
+            except Exception:
+                pass
+        adjusted = min(MAX_WIDTH, max(MIN_WIDTH, max_len + 3))
+        ws.column_dimensions[col_letter].width = adjusted
+
+    # ── Stream response ────────────────────────────────────────────────────────
+    output = io.BytesIO()
+    wb.save(output)
     output.seek(0)
-    
+
+    filename = f"KDI_Leads_{datetime.utcnow().strftime('%Y%m%d_%H%M')}.xlsx"
     return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=kdi_leads_export.csv"}
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
 @router.patch("/api/leads/{lead_id}/status")
@@ -146,6 +275,47 @@ async def update_lead_status_api(lead_id: int, request: Request):
 def get_lead_history_api(phone: str, request: Request):
     auth.require_auth(request)
     return db.get_chat_history(phone)
+
+@router.post("/api/leads/send-message")
+async def send_manager_message_api(payload: ManagerMessagePayload, request: Request):
+    """Allows a manager/admin to send a direct WhatsApp reply to a customer."""
+    auth.require_auth(request)
+    msg_text = payload.message.strip()
+    if not msg_text:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Message content cannot be empty.")
+    
+    phone = payload.phone.strip()
+    if not phone:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Phone number is required.")
+
+    # 1. Send via WhatsApp Meta Cloud API
+    from routes.whatsapp import send_whatsapp_message
+    try:
+        send_whatsapp_message(to_phone=phone, text=f"👤 *Manager:* {msg_text}")
+    except RuntimeError as re_err:
+        from fastapi import HTTPException
+        if "24H_WINDOW_EXPIRED" in str(re_err):
+            raise HTTPException(
+                status_code=400,
+                detail="Meta 24-hour messaging window expired. Click 'Chat on WhatsApp Web' button above to send a direct message."
+            )
+        raise HTTPException(status_code=400, detail=str(re_err))
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=f"Failed to send WhatsApp message: {str(e)}")
+
+    # 2. Log in chat history DB as outbound message
+    db.log_chat_message(phone, "outbound", f"👤 *Manager:* {msg_text}")
+
+    # 3. Auto-update lead status to "Contacted" if it was "New" or "Partial"
+    lead = db.get_lead_by_phone(phone)
+    if lead and lead.get("status") in ["New", "Partial"]:
+        db.update_lead_status(lead["id"], "Contacted")
+
+    return {"success": True, "message": "Message sent via WhatsApp successfully."}
+
 
 @router.get("/api/dashboard/stats")
 def get_stats_api(request: Request):
@@ -172,19 +342,11 @@ def get_stats_api(request: Request):
     except Exception:
         pass
         
-    # Inject static dummy products list to ensure mapping is complete
-    try:
-        from db import get_static_dummy_products
-        for p in get_static_dummy_products():
-            prod_to_cat[p["name"]] = p["category"]
-    except Exception:
-        pass
-
     for l in leads:
         prod = l.get("product_interest")
         if not prod:
             continue
-            
+
         cat = prod_to_cat.get(prod)
         if not cat:
             prod_lower = prod.lower()
@@ -200,9 +362,9 @@ def get_stats_api(request: Request):
                 cat = "House Wires"
             else:
                 cat = "Power Cable"
-        
+
         categories[cat] = categories.get(cat, 0) + 1
-        
+
     return {
         "total_leads": total_leads,
         "new_leads": new_leads,

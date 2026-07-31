@@ -198,10 +198,16 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
                 response = http_client.post(url, json=payload_text, headers=headers)
                 response.raise_for_status()
                 logger.info("Sent text successfully")
+                return True
             except httpx.HTTPStatusError as he:
-                logger.error(f"Error sending Meta text (HTTP {he.response.status_code}): {he.response.text}")
+                res_text = he.response.text
+                logger.error(f"Error sending Meta text (HTTP {he.response.status_code}): {res_text}")
+                if "131047" in res_text or "24 hour" in res_text.lower() or "outside the allowed window" in res_text.lower():
+                    raise RuntimeError("24H_WINDOW_EXPIRED")
+                raise RuntimeError(f"Meta API Error: {res_text}")
             except Exception as e:
                 logger.error(f"Error sending Meta text: {e}")
+                raise e
 
 @router.get("/webhook")
 async def verify_webhook(request: Request):
@@ -255,10 +261,11 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
                 "To get you the best bulk pricing, please reply with your requirements:\n\n"
                 "1️⃣ *Your Name*\n"
                 "2️⃣ *Company / Firm Name*\n"
-                "3️⃣ *Product & Specification* (e.g. 1.5 sq mm Copper Wire)\n"
-                "4️⃣ *Quantity* (meters, coils, or drums)\n"
-                "5️⃣ *Delivery Location / City*\n\n"
-                "💡 *Tip:* You can reply with all 5 details in a single message or share them one by one!"
+                "3️⃣ *Email Address*\n"
+                "4️⃣ *Product & Specification* (e.g. 1.5 sq mm Copper Wire)\n"
+                "5️⃣ *Quantity* (meters, coils, or drums)\n"
+                "6️⃣ *Delivery Location / City*\n\n"
+                "💡 *Tip:* You can reply with all details in a single message or share them one by one!"
             )
             call_match = False
         elif lower_msg in ["address", "location", "factory address", "where is factory", "factory location", "office address", "corporate office"]:
@@ -295,10 +302,20 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
             matching = [p for p in all_prods if any(kw in p.get("name", "").lower() or kw in p.get("category", "").lower() for kw in kws)]
             
             if matching:
-                lines = [f"🔹 *{p['name']}*: ~INR {p['price_per_meter']}/m | {p.get('conductor','')} {p.get('size','')}" for p in matching[:6]]
-                reply_text = f"📦 *{lower_msg.title()}*\n\n" + "\n".join(lines) + "\n\n💡 *Prices are indicative and subject to daily metal rates.* Reply with a product name to get a formal quote!"
+                show = matching[:5]
+                total = len(matching)
+                lines = [f"🔹 *{p['name']}*: ~INR {p['price_per_meter']}/m | {p.get('conductor','')} {p.get('size','')} | {p.get('core','')} Core(s)" for p in show]
+                more_note = f"\n\n📋 *Showing {len(show)} of {total} available options.*" if total > len(show) else ""
+                reply_text = (
+                    f"📦 *{lower_msg.title()}*\n\n"
+                    + "\n".join(lines)
+                    + more_note
+                    + "\n\n💡 *Prices are indicative and subject to daily metal rates.*"
+                    + "\n💬 Reply with a specific product name or size (e.g. *3.5C x 70 sqmm*) to get a formal quote!"
+                    + "\n🏭 *Custom specifications also available on request.*"
+                )
             else:
-                reply_text = f"📦 We offer various options for *{lower_msg.title()}*. Let us know your specific core, size, or conductor requirement!"
+                reply_text = f"📦 We offer various options for *{lower_msg.title()}*. Please share your specific core count, conductor size, or conductor type (Copper/Aluminium) and we'll find the right product for you!"
         else:
             # Questions requiring complex reasoning or general product knowledge call Groq AI
             ai_response = ai.get_ai_response(from_number, profile_name)
