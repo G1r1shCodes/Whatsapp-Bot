@@ -271,6 +271,14 @@ async def update_lead_status_api(lead_id: int, request: Request):
     db.update_lead_status(lead_id, status)
     return {"success": True, "lead_id": lead_id, "status": status}
 
+@router.delete("/api/leads/clear-all")
+def clear_all_leads_api(request: Request):
+    """Deletes all leads and chat history from Supabase database."""
+    auth.require_auth(request)
+    db.request_supabase("leads", "DELETE", params={"id": "gt.0"})
+    db.request_supabase("chat_history", "DELETE", params={"id": "gt.0"})
+    return {"success": True, "message": "All leads and chat history have been cleared."}
+
 @router.delete("/api/leads/{lead_id}")
 def delete_lead_api(lead_id: int, request: Request):
     """Deletes a single lead and its chat history by lead ID."""
@@ -322,14 +330,6 @@ async def send_manager_message_api(payload: ManagerMessagePayload, request: Requ
         db.update_lead_status(lead["id"], "Contacted")
 
     return {"success": True, "message": "Message sent via WhatsApp successfully."}
-
-@router.delete("/api/leads/clear-all")
-def clear_all_leads_api(request: Request):
-    """Deletes all leads and chat history from Supabase database."""
-    auth.require_auth(request)
-    db.request_supabase("leads", "DELETE", params={"id": "gt.0"})
-    db.request_supabase("chat_history", "DELETE", params={"id": "gt.0"})
-    return {"success": True, "message": "All leads and chat history have been cleared."}
 
 
 @router.get("/api/dashboard/stats")
