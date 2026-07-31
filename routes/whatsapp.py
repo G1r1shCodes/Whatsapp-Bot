@@ -376,8 +376,16 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
             if image_file.startswith("http://") or image_file.startswith("https://"):
                 image_url = image_file
             else:
+                clean_img = image_file.strip()
+                if not any(clean_img.lower().endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".webp", ".gif"]):
+                    if os.path.exists(os.path.join("static", "images", f"{clean_img}.jpg")):
+                        clean_img = f"{clean_img}.jpg"
+                    elif os.path.exists(os.path.join("static", "images", f"{clean_img}.png")):
+                        clean_img = f"{clean_img}.png"
+                    else:
+                        clean_img = f"{clean_img}.jpg"
                 base_url = os.environ.get("BASE_URL", "https://whatsapp-bot-4ukk.onrender.com")
-                image_url = f"{base_url}/static/images/{image_file}"
+                image_url = f"{base_url}/static/images/{clean_img}"
             
         send_whatsapp_message(from_number, reply_text, image_url=image_url, show_menu=menu_match, show_categories_menu=cat_match, show_call_cta=call_match)
     except Exception as e:
