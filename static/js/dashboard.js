@@ -544,7 +544,7 @@ async function handleManagerSendMessage() {
             // Append message bubble to chat container
             const chatContainer = document.getElementById('chat-bubbles-container');
             const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const formattedBody = `👤 <strong>Manager:</strong> ${messageText.replace(/\n/g, '<br>')}`;
+            const formattedBody = `👤 <strong>Marketing Manager:</strong> ${messageText.replace(/\n/g, '<br>')}`;
             
             const bubbleHtml = `
                 <div class="chat-bubble-row outbound">

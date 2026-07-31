@@ -300,7 +300,7 @@ async def send_manager_message_api(payload: ManagerMessagePayload, request: Requ
     # 1. Send via WhatsApp Meta Cloud API
     from routes.whatsapp import send_whatsapp_message
     try:
-        send_whatsapp_message(to_phone=phone, text=f"👤 *Manager:* {msg_text}")
+        send_whatsapp_message(to_phone=phone, text=f"👤 *Marketing Manager:* {msg_text}")
     except RuntimeError as re_err:
         from fastapi import HTTPException
         if "24H_WINDOW_EXPIRED" in str(re_err):
@@ -314,7 +314,7 @@ async def send_manager_message_api(payload: ManagerMessagePayload, request: Requ
         raise HTTPException(status_code=500, detail=f"Failed to send WhatsApp message: {str(e)}")
 
     # 2. Log in chat history DB as outbound message
-    db.log_chat_message(phone, "outbound", f"👤 *Manager:* {msg_text}")
+    db.log_chat_message(phone, "outbound", f"👤 *Marketing Manager:* {msg_text}")
 
     # 3. Auto-update lead status to "Contacted" if it was "New" or "Partial"
     lead = db.get_lead_by_phone(phone)
