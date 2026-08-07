@@ -996,3 +996,248 @@ if (saveSettingsBtn) {
         });
     });
 }
+
+// -------------------------------------------------------------
+// Browse Categories Manager
+// -------------------------------------------------------------
+const MAX_CATEGORIES = 10;
+let browseCategories = [];
+
+const categoriesList = document.getElementById('categories-list');
+const catCountBadge = document.getElementById('cat-count-badge');
+const catLimitWarning = document.getElementById('cat-limit-warning');
+const addCategoryBtn = document.getElementById('add-category-btn');
+const saveCategoriesBtn = document.getElementById('save-categories-btn');
+const waListPreviewItems = document.getElementById('wa-list-preview-items');
+
+function generateCatId(title) {
+    return 'cat_' + title.toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\s+/g, '_')
+        .substring(0, 20);
+}
+
+function updateCatCountBadge() {
+    const count = browseCategories.length;
+    catCountBadge.textContent = `${count} / ${MAX_CATEGORIES}`;
+    
+    if (count >= MAX_CATEGORIES) {
+        catCountBadge.classList.add('at-limit');
+        catLimitWarning.style.display = 'block';
+        addCategoryBtn.disabled = true;
+        addCategoryBtn.style.opacity = '0.4';
+    } else {
+        catCountBadge.classList.remove('at-limit');
+        catLimitWarning.style.display = 'none';
+        addCategoryBtn.disabled = false;
+        addCategoryBtn.style.opacity = '1';
+    }
+}
+
+function renderCategoriesList() {
+    categoriesList.innerHTML = '';
+    
+    if (browseCategories.length === 0) {
+        categoriesList.innerHTML = `
+            <div style="text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.85rem;">
+                <i class="fa-solid fa-list" style="font-size: 1.5rem; opacity: 0.3; display: block; margin-bottom: 0.75rem;"></i>
+                No categories configured. Click "Add Category" to begin.
+            </div>
+        `;
+        updateCatCountBadge();
+        renderCatPreview();
+        return;
+    }
+    
+    browseCategories.forEach((cat, index) => {
+        const row = document.createElement('div');
+        row.className = 'category-row';
+        row.setAttribute('data-index', index);
+        
+        row.innerHTML = `
+            <span class="cat-drag-handle" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
+            <span class="cat-order-num">${index + 1}</span>
+            <input type="text" class="cat-title-input" value="${escapeHtml(cat.title)}" placeholder="Category name..." maxlength="24">
+            <span class="cat-id-display" title="${escapeHtml(cat.id)}">${escapeHtml(cat.id)}</span>
+            <div class="cat-move-btns">
+                <button class="cat-move-btn" data-dir="up" title="Move up" ${index === 0 ? 'disabled style="opacity:0.2"' : ''}><i class="fa-solid fa-chevron-up"></i></button>
+                <button class="cat-move-btn" data-dir="down" title="Move down" ${index === browseCategories.length - 1 ? 'disabled style="opacity:0.2"' : ''}><i class="fa-solid fa-chevron-down"></i></button>
+            </div>
+            <button class="cat-delete-btn" title="Remove category"><i class="fa-solid fa-xmark"></i></button>
+        `;
+        
+        // Title input — update ID on change and re-render preview
+        const titleInput = row.querySelector('.cat-title-input');
+        titleInput.addEventListener('input', () => {
+            const newTitle = titleInput.value.trim();
+            browseCategories[index].title = newTitle;
+            browseCategories[index].id = generateCatId(newTitle);
+            row.querySelector('.cat-id-display').textContent = browseCategories[index].id;
+            row.querySelector('.cat-id-display').title = browseCategories[index].id;
+            renderCatPreview();
+        });
+        
+        // Move buttons
+        row.querySelectorAll('.cat-move-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const dir = btn.getAttribute('data-dir');
+                if (dir === 'up' && index > 0) {
+                    [browseCategories[index], browseCategories[index - 1]] = [browseCategories[index - 1], browseCategories[index]];
+                } else if (dir === 'down' && index < browseCategories.length - 1) {
+                    [browseCategories[index], browseCategories[index + 1]] = [browseCategories[index + 1], browseCategories[index]];
+                }
+                renderCategoriesList();
+            });
+        });
+        
+        // Delete button
+        row.querySelector('.cat-delete-btn').addEventListener('click', () => {
+            browseCategories.splice(index, 1);
+            renderCategoriesList();
+        });
+        
+        categoriesList.appendChild(row);
+    });
+    
+    updateCatCountBadge();
+    renderCatPreview();
+}
+
+function renderCatPreview() {
+    waListPreviewItems.innerHTML = '';
+    
+    if (browseCategories.length === 0) {
+        waListPreviewItems.innerHTML = '<div class="wa-list-empty">No categories to display</div>';
+        return;
+    }
+    
+    browseCategories.forEach(cat => {
+        const item = document.createElement('div');
+        item.className = 'wa-list-item';
+        item.innerHTML = `
+            <div class="wa-list-item-radio"></div>
+            <span class="wa-list-item-title">${escapeHtml(cat.title || 'Untitled')}</span>
+        `;
+        waListPreviewItems.appendChild(item);
+    });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+}
+
+// Add category button
+if (addCategoryBtn) {
+    addCategoryBtn.addEventListener('click', () => {
+        if (browseCategories.length >= MAX_CATEGORIES) {
+            showToast('Maximum 10 categories allowed by WhatsApp', true);
+            return;
+        }
+        
+        const newCat = {
+            id: `cat_new_${Date.now().toString(36)}`,
+            title: ''
+        };
+        browseCategories.push(newCat);
+        renderCategoriesList();
+        
+        // Focus the new input
+        const inputs = categoriesList.querySelectorAll('.cat-title-input');
+        if (inputs.length > 0) {
+            const lastInput = inputs[inputs.length - 1];
+            lastInput.focus();
+        }
+    });
+}
+
+// Save categories button
+if (saveCategoriesBtn) {
+    saveCategoriesBtn.addEventListener('click', () => {
+        // Validate: remove categories with empty titles
+        const validCategories = browseCategories.filter(cat => cat.title && cat.title.trim());
+        
+        if (validCategories.length === 0) {
+            showToast('Please add at least one category with a name', true);
+            return;
+        }
+        
+        // Regenerate IDs for final save
+        validCategories.forEach(cat => {
+            cat.title = cat.title.trim();
+            cat.id = generateCatId(cat.title);
+        });
+        
+        // Check for duplicate IDs
+        const ids = validCategories.map(c => c.id);
+        const uniqueIds = new Set(ids);
+        if (uniqueIds.size !== ids.length) {
+            // Append numeric suffix to dedupe
+            const seen = {};
+            validCategories.forEach(cat => {
+                if (seen[cat.id]) {
+                    cat.id = cat.id + '_' + (++seen[cat.id]);
+                } else {
+                    seen[cat.id] = 1;
+                }
+            });
+        }
+        
+        saveCategoriesBtn.disabled = true;
+        saveCategoriesBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...';
+        
+        fetch('/api/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ browse_categories: validCategories })
+        })
+        .then(res => {
+            if (!res.ok) throw new Error('Network response was not ok');
+            return res.json();
+        })
+        .then(data => {
+            browseCategories = validCategories;
+            renderCategoriesList();
+            showToast('Browse categories saved successfully!');
+            saveCategoriesBtn.disabled = false;
+            saveCategoriesBtn.innerHTML = '<i class="fa-solid fa-save"></i> Save Categories';
+        })
+        .catch(err => {
+            showToast('Failed to save categories', true);
+            saveCategoriesBtn.disabled = false;
+            saveCategoriesBtn.innerHTML = '<i class="fa-solid fa-save"></i> Save Categories';
+        });
+    });
+}
+
+// Load categories when settings tab opens
+const _origLoadSettings = loadSettingsData;
+loadSettingsData = function() {
+    _origLoadSettings();
+    
+    // Also load browse categories
+    fetch('/api/settings')
+        .then(res => res.json())
+        .then(data => {
+            if (data.browse_categories && Array.isArray(data.browse_categories)) {
+                browseCategories = data.browse_categories.map(cat => ({
+                    id: cat.id || generateCatId(cat.title || ''),
+                    title: cat.title || ''
+                }));
+            } else {
+                // Defaults
+                browseCategories = [
+                    {id: 'cat_power', title: 'Power Cables'},
+                    {id: 'cat_wires', title: 'Electrical Wires'},
+                    {id: 'cat_armour', title: 'Armoured Cables'},
+                    {id: 'cat_unarmour', title: 'Unarmoured Cables'},
+                    {id: 'cat_control', title: 'Control Cables'}
+                ];
+            }
+            renderCategoriesList();
+        })
+        .catch(err => {
+            console.error('Failed to load browse categories:', err);
+        });
+};

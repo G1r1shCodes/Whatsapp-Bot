@@ -316,6 +316,7 @@
                 
                 <!-- Tab: Settings -->
                 <section id="settings-tab" class="tab-panel">
+                    <!-- Greeting Configuration -->
                     <div class="settings-grid">
                         <div class="settings-form card">
                             <h3 style="margin-bottom: 20px; font-weight: 600; color: #fff;">WhatsApp Greeting Configuration</h3>
@@ -350,6 +351,56 @@
                                         <div class="wa-button">Request a Quote</div>
                                         <div class="wa-button">Call Us</div>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Browse Categories Manager -->
+                    <div class="settings-grid" style="margin-top: 0;">
+                        <div class="settings-form card" id="categories-form-card">
+                            <div class="categories-header">
+                                <div>
+                                    <h3 style="font-weight: 600; color: #fff; margin: 0;">WhatsApp Browse Categories</h3>
+                                    <p class="help-text" style="margin-top: 4px;">These categories appear when a customer taps <strong style="color: var(--accent-emerald);">Browse Products</strong> in WhatsApp.</p>
+                                </div>
+                                <span class="cat-count-badge" id="cat-count-badge">0 / 10</span>
+                            </div>
+                            
+                            <div class="categories-list" id="categories-list">
+                                <!-- Dynamic category rows rendered by JS -->
+                            </div>
+                            
+                            <div class="categories-actions">
+                                <button id="add-category-btn" class="btn btn-secondary" style="gap: 0.4rem; font-size: 0.82rem; padding: 0.55rem 1rem;">
+                                    <i class="fa-solid fa-plus"></i> Add Category
+                                </button>
+                                <button id="save-categories-btn" class="action-btn primary" style="margin-left: auto;">
+                                    <i class="fa-solid fa-save"></i> Save Categories
+                                </button>
+                            </div>
+                            <p class="help-text" id="cat-limit-warning" style="color: var(--accent-rose); display: none;">
+                                <i class="fa-solid fa-triangle-exclamation"></i> WhatsApp allows a maximum of 10 categories per list menu.
+                            </p>
+                        </div>
+                        
+                        <div class="settings-preview card">
+                            <h3 style="margin-bottom: 20px; font-weight: 600; color: #fff;">
+                                <i class="fa-brands fa-whatsapp" style="color: #25d366; margin-right: 6px;"></i> List Menu Preview
+                            </h3>
+                            <div class="wa-list-preview">
+                                <div class="wa-list-header">
+                                    <span class="wa-list-title">KDI Products</span>
+                                </div>
+                                <div class="wa-list-body" id="wa-list-preview-body">
+                                    Browse our product categories:
+                                </div>
+                                <div class="wa-list-footer">Tap the button below</div>
+                                <div class="wa-list-action-btn">
+                                    <i class="fa-solid fa-list-ul" style="font-size: 0.75rem;"></i> Categories
+                                </div>
+                                <div class="wa-list-items" id="wa-list-preview-items">
+                                    <!-- Dynamic preview items rendered by JS -->
                                 </div>
                             </div>
                         </div>

@@ -137,6 +137,18 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
 
     # 3. Send Categories Menu if requested
     if show_categories_menu:
+        # Load categories dynamically from config
+        import config_manager
+        cfg = config_manager.get_config()
+        browse_cats = cfg.get("browse_categories", [
+            {"id": "cat_power", "title": "Power Cables"},
+            {"id": "cat_wires", "title": "Electrical Wires"},
+            {"id": "cat_armour", "title": "Armoured Cables"},
+            {"id": "cat_unarmour", "title": "Unarmoured Cables"},
+            {"id": "cat_control", "title": "Control Cables"}
+        ])
+        category_rows = [{"id": cat["id"], "title": cat["title"]} for cat in browse_cats[:10]]
+
         payload_cat = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
@@ -159,13 +171,7 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
                     "sections": [
                         {
                             "title": "Select a Category",
-                            "rows": [
-                                {"id": "cat_power", "title": "Power Cables"},
-                                {"id": "cat_wires", "title": "Electrical Wires"},
-                                {"id": "cat_armour", "title": "Armoured Cables"},
-                                {"id": "cat_unarmour", "title": "Unarmoured Cables"},
-                                {"id": "cat_control", "title": "Control Cables"}
-                            ]
+                            "rows": category_rows
                         }
                     ]
                 }

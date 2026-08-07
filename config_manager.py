@@ -5,7 +5,14 @@ CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.j
 
 DEFAULT_CONFIG = {
     "welcome_text": "Hi {profile_name}! 👋\nWelcome to *KDI Power*!",
-    "welcome_image": "kdi-logo-white-bg.jpg"
+    "welcome_image": "kdi-logo-white-bg.jpg",
+    "browse_categories": [
+        {"id": "cat_power", "title": "Power Cables"},
+        {"id": "cat_wires", "title": "Electrical Wires"},
+        {"id": "cat_armour", "title": "Armoured Cables"},
+        {"id": "cat_unarmour", "title": "Unarmoured Cables"},
+        {"id": "cat_control", "title": "Control Cables"}
+    ]
 }
 
 def get_config():

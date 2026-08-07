@@ -1,4 +1,26 @@
 {
     "welcome_text": "Hi {profile_name}! 👋\nWelcome to *KDI Power*!",
-    "welcome_image": "BOT-IMAGE.jpg"
+    "welcome_image": "BOT-IMAGE.jpg",
+    "browse_categories": [
+        {
+            "id": "cat_power",
+            "title": "Power Cables"
+        },
+        {
+            "id": "cat_wires",
+            "title": "Electrical Wires"
+        },
+        {
+            "id": "cat_armour",
+            "title": "Armoured Cables"
+        },
+        {
+            "id": "cat_unarmour",
+            "title": "Unarmoured Cables"
+        },
+        {
+            "id": "cat_control",
+            "title": "Control Cables"
+        }
+    ]
 }
