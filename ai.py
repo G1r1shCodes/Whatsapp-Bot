@@ -30,6 +30,31 @@ load_env()
 GROQ_API_RAW = os.environ.get("GROQ_API", "")
 GROQ_API_KEYS = [k.strip() for k in re.split(r'[,;\s]+', GROQ_API_RAW) if k.strip()]
 GROQ_MODELS = ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "groq/compound-mini"]
+
+# Deterministic out-of-scope guard: obvious non-KDI requests are declined
+# before the LLM is called, so the model never gets a chance to answer or
+# hallucinate an answer to them. The decline phrase MUST match the prompt.
+OUT_OF_SCOPE_REPLY = (
+    "I am the KDI Power assistant, and I can only help you with our electrical cables, "
+    "wires, and quotes. Let me know if you need product information!"
+)
+
+OUT_OF_SCOPE_PATTERNS = [
+    # Coding / programming / homework
+    r"\bleetcode\b", r"\bpython\b", r"\bjava(script)?\b", r"\bc\+\+\b", r"\bc#\b",
+    r"\bsql\b", r"\bhtml\b", r"\bregex\b", r"\bprogram(ming|mer)?\b", r"\balgorithm",
+    r"\bsyntax\b", r"\bdebug", r"\bcompile", r"\bhomework\b",
+    r"\bcode (snippet|solution|problem|challenge|question)\b",
+    r"write (a |me )?(code|program|script|function|algorithm)",
+    r"\bsolve (this |the )?(problem|question|equation|math)",
+    # General knowledge / lifestyle
+    r"\bweather\b", r"\bmovie(s)?\b", r"\bsong(s)?\b", r"\brecipe", r"\btranslate",
+    r"\bresume\b", r"\bcover letter\b", r"\bessay\b", r"\bhoroscope\b", r"\bstory(ies)?\b",
+    r"\bnews (today|headlines)\b",
+    # Travel itineraries / bookings
+    r"\bitinerary\b", r"\bitenary\b", r"\bflight (booking|ticket|reservation)\b",
+    r"\bhotel (booking|reservation)\b",
+]
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
@@ -68,6 +93,13 @@ def get_ai_response(phone, profile_name):
         last_msg = inbound_history[-1]["body"].strip().lower()
 
     last_msg_clean = re.sub(r'[^\w\s]', '', last_msg).strip()
+
+    # Hard stop: deterministically decline obvious out-of-domain requests so the
+    # LLM never gets a chance to answer (or hallucinate an answer to) them.
+    if last_msg:
+        if any(re.search(p, last_msg) for p in OUT_OF_SCOPE_PATTERNS):
+            return OUT_OF_SCOPE_REPLY
+
     greeting_words = {"hi", "hello", "hey", "hii", "helo", "yoo", "greetings", "dear", "sup", "hi there", "hello there", "good morning", "good evening", "good afternoon", "namaste", "namaskar", "pranam", "start"}
     is_greeting = last_msg_clean in greeting_words
 
