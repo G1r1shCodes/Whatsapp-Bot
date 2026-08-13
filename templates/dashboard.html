@@ -397,6 +397,7 @@
                             <div class="form-group">
                                 <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Message Text</label>
                                 <textarea id="outbound-text-input" rows="4" placeholder="Type your WhatsApp message here..." style="background: rgba(10, 14, 23, 0.7); border: 1px solid var(--border); border-radius: 8px; color: #fff; padding: 0.75rem; font-size: 0.85rem; outline: none; font-family: inherit; resize: vertical;"></textarea>
+                                <div class="outbound-textarea-footer"><span id="outbound-char-count">0 / 4096</span></div>
                             </div>
 
                             <!-- File / Media Attachment Dropzone -->
@@ -439,6 +440,26 @@
                         </div>
                     </div>
                 </section>
+
+                <!-- Outbound Message Viewer Modal -->
+                <div class="modal-overlay hidden" id="outbound-message-modal">
+                    <div class="modal-card" style="max-width: 560px;">
+                        <div class="modal-header">
+                            <h3><i class="fa-solid fa-message text-cyan"></i> Message Details</h3>
+                            <button class="modal-close-btn" onclick="closeOutboundMessageModal()"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="outbound-modal-meta">
+                                <span><i class="fa-solid fa-user"></i> <strong id="outbound-message-phone">-</strong></span>
+                                <span><i class="fa-solid fa-clock"></i> <span id="outbound-message-time">-</span></span>
+                            </div>
+                            <div class="outbound-modal-message" id="outbound-message-body"></div>
+                            <button class="btn btn-primary" onclick="copyOutboundMessage()" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-indigo)); color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 1rem;">
+                                <i class="fa-solid fa-copy"></i> Copy Message
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- 3. Cables Catalog Tab -->
                 <section id="catalog-tab" class="tab-panel">

@@ -1840,12 +1840,26 @@ async function loadOutboundData() {
             
             logs.forEach(log => {
                 const tr = document.createElement('tr');
+                tr.className = 'outbound-log-row';
                 const timeStr = formatDateTime(log.created_at);
+                const cleanPhone = String(log.phone || '').replace(/[^0-9]/g, '');
+                const displayPhone = cleanPhone ? '+' + cleanPhone : (log.phone || '-');
+                const hasImage = /\[Attached Image:/i.test(log.body || '');
+                const hasDoc = /\[Attached Document:/i.test(log.body || '');
+                const attachBadge = hasImage
+                    ? '<span class="outbound-attach-badge image"><i class="fa-solid fa-image"></i> Image</span>'
+                    : hasDoc
+                        ? '<span class="outbound-attach-badge doc"><i class="fa-solid fa-file-pdf"></i> PDF</span>'
+                        : '';
                 tr.innerHTML = `
-                    <td><strong>+${log.phone}</strong></td>
-                    <td style="max-width: 300px; font-size: 0.8rem;">${escapeHtml(log.body)}</td>
-                    <td style="font-size: 0.75rem; color: var(--text-muted);">${timeStr}</td>
+                    <td><strong class="outbound-recipient">${displayPhone}</strong></td>
+                    <td class="outbound-msg-cell">
+                        <span class="outbound-msg-preview" title="Click to view full message">${formatWhatsAppText(log.body)}</span>
+                        ${attachBadge}
+                    </td>
+                    <td class="outbound-time">${timeStr}</td>
                 `;
+                tr.addEventListener('click', () => openOutboundMessageModal(log));
                 outboundHistoryTbody.appendChild(tr);
             });
         } catch (e) {
@@ -1862,6 +1876,80 @@ if (outboundContactSelect) {
         }
     });
 }
+
+// WhatsApp-format a message for display: escape HTML first, then *bold* and newlines
+function formatWhatsAppText(text) {
+    return escapeHtml(text || '')
+        .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
+}
+
+// Character counter for the message textarea (WhatsApp limit is 4096)
+const outboundCharCount = document.getElementById('outbound-char-count');
+function updateOutboundCharCount() {
+    if (outboundCharCount) {
+        const len = outboundTextInput ? outboundTextInput.value.length : 0;
+        outboundCharCount.textContent = `${len} / 4096`;
+        outboundCharCount.style.color = len > 4096 ? '#f87171' : '';
+    }
+}
+if (outboundTextInput && outboundCharCount) {
+    outboundTextInput.addEventListener('input', updateOutboundCharCount);
+    updateOutboundCharCount();
+}
+
+// Full-message viewer modal
+let activeOutboundLog = null;
+
+function openOutboundMessageModal(log) {
+    activeOutboundLog = log;
+    const modal = document.getElementById('outbound-message-modal');
+    const phoneEl = document.getElementById('outbound-message-phone');
+    const timeEl = document.getElementById('outbound-message-time');
+    const bodyEl = document.getElementById('outbound-message-body');
+    if (phoneEl) phoneEl.textContent = '+' + String(log.phone || '').replace(/[^0-9]/g, '');
+    if (timeEl) timeEl.textContent = formatDateTime(log.created_at);
+    if (bodyEl) bodyEl.innerHTML = formatWhatsAppText(log.body);
+    if (modal) modal.classList.remove('hidden');
+}
+
+function closeOutboundMessageModal() {
+    const modal = document.getElementById('outbound-message-modal');
+    if (modal) modal.classList.add('hidden');
+    activeOutboundLog = null;
+}
+
+function copyOutboundMessage() {
+    if (!activeOutboundLog) return;
+    const raw = activeOutboundLog.body || '';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(raw).then(() => showToast('Message copied to clipboard'));
+    } else {
+        const ta = document.createElement('textarea');
+        ta.value = raw;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('Message copied to clipboard');
+    }
+}
+
+window.openOutboundMessageModal = openOutboundMessageModal;
+window.closeOutboundMessageModal = closeOutboundMessageModal;
+window.copyOutboundMessage = copyOutboundMessage;
+
+const outboundMsgModal = document.getElementById('outbound-message-modal');
+if (outboundMsgModal) {
+    outboundMsgModal.addEventListener('click', (e) => {
+        if (e.target === outboundMsgModal) closeOutboundMessageModal();
+    });
+}
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && outboundMsgModal && !outboundMsgModal.classList.contains('hidden')) {
+        closeOutboundMessageModal();
+    }
+});
 
 // Outbound Dropzone file handling
 if (outboundDropzone && outboundFileInput) {
@@ -1927,6 +2015,7 @@ if (outboundSendBtn) {
                 showToast('Outbound message sent via WhatsApp!');
                 if (outboundTextInput) outboundTextInput.value = '';
                 if (outboundRemoveFileBtn) outboundRemoveFileBtn.click();
+                updateOutboundCharCount();
                 loadOutboundData();
             } else {
                 showToast(data.detail || 'Failed to send outbound message', true);
