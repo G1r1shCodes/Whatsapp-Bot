@@ -63,6 +63,10 @@ def request_supabase(endpoint, method="GET", data=None, params=None):
         if res_content:
             return response.json()
         return []
+    except httpx.HTTPStatusError as http_err:
+        error_body = http_err.response.text if http_err.response else 'No response body'
+        logger.error(f"Supabase HTTP error on {endpoint} [{method}]: {http_err.response.status_code} - {error_body}")
+        return None
     except Exception as e:
         logger.error(f"Supabase API error on {endpoint} [{method}]: {e}")
         return None  # Return None on error so callers can distinguish from empty results

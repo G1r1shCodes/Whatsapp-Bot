@@ -437,7 +437,7 @@ async def create_product_api(request: Request):
         "category": category[:100],
         "conductor": conductor[:100],
         "size": size[:50],
-        "core": float(core) if core else 1,
+        "core": int(float(core)) if core else 1,
         "insulation": insulation[:100],
         "price_per_meter": float(price) if price else 0,
         "stock_status": stock_status,

@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS chat_history (
     body TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE chat_history ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all access via service key" ON chat_history FOR ALL USING (true) WITH CHECK (true);
 
 -- 2. Create sessions table for managing conversational state
 CREATE TABLE IF NOT EXISTS sessions (
@@ -15,6 +17,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     data JSONB,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all access via service key" ON sessions FOR ALL USING (true) WITH CHECK (true);
 
 -- 3. Create leads table to store customer inquiries
 CREATE TABLE IF NOT EXISTS leads (
@@ -31,6 +35,8 @@ CREATE TABLE IF NOT EXISTS leads (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all access via service key" ON leads FOR ALL USING (true) WITH CHECK (true);
 
 -- 4. Create products table for the catalog
 CREATE TABLE IF NOT EXISTS products (
@@ -44,6 +50,8 @@ CREATE TABLE IF NOT EXISTS products (
     stock_status TEXT,
     specifications TEXT
 );
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all access via service key" ON products FOR ALL USING (true) WITH CHECK (true);
 
 -- Optional: Insert a couple of sample products so your catalog isn't empty!
 INSERT INTO products (name, category, conductor, size, core, insulation, price_per_meter, stock_status)
