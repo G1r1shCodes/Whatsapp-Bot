@@ -2063,7 +2063,7 @@ if (pdfDropzone && pdfFileInput) {
         pdfDropzone.style.borderColor = 'var(--accent-cyan)';
         if (e.dataTransfer.files.length > 0) {
             const file = e.dataTransfer.files[0];
-            if (file.name.toLowerCase().endswith('.pdf')) {
+            if (file.name.toLowerCase().endsWith('.pdf')) {
                 pdfFileInput.files = e.dataTransfer.files;
                 handlePdfSelect(file);
             } else {
@@ -2124,3 +2124,159 @@ if (uploadPdfBtn) {
         }
     });
 }
+
+// -------------------------------------------------------------
+// Quick Message Templates Management
+// -------------------------------------------------------------
+let quickTemplates = [];
+
+async function loadQuickTemplates() {
+    try {
+        const res = await fetch('/api/settings');
+        const data = await res.json();
+        if (data.quick_templates && Array.isArray(data.quick_templates) && data.quick_templates.length > 0) {
+            quickTemplates = data.quick_templates;
+        } else {
+            quickTemplates = [
+                {
+                    id: "tpl_address",
+                    title: "📍 Factory & Corporate Address",
+                    text: "🏢 *KDI Power — Corporate Office & Factory*\n📍 Factory Address: H-1243, DSIDC Industrial Area, Narela, New Delhi - 110040\n🏢 Corporate Office: 912, 9th Floor, D Mall, NSP, Pitampura, Delhi - 110034\n📞 +91-9205333843 (Vipul Kumar — Marketing Manager)\n🌐 https://kdipower.com/"
+                },
+                {
+                    id: "tpl_catalogue",
+                    title: "📑 Official Product Catalogue PDF",
+                    text: "📑 *KDI Power Official Product Catalogue*\nDownload our official product catalogue featuring high-grade Aluminium/Copper XLPE Armoured Cables, House Wires, and HT Cables:\n🌐 https://kdipower.com/catalogue/CATALOUGE.pdf"
+                },
+                {
+                    id: "tpl_export",
+                    title: "🚢 Export & International Logistics Info",
+                    text: "🚢 *KDI Power Export Information*\nYes, we export our electrical cables and wires globally with logistics & customs support.\nContact Manager Vipul Kumar (+91-9205333843) for customized export quotes and shipping lead times.\n🌐 https://kdipower.com/"
+                },
+                {
+                    id: "tpl_quote",
+                    title: "💰 Commercial Quote Follow-up",
+                    text: "🎉 *KDI Power Quote Update*\nHi! Our sales team has reviewed your cable requirements. Please let us know if you need a formal commercial quotation or technical datasheet.\n📞 Call/WhatsApp: +91-9205333843\n🌐 https://kdipower.com/"
+                }
+            ];
+        }
+        renderOutboundTemplates();
+        renderTemplatesConfigList();
+    } catch (e) {
+        console.error('Failed to load quick templates:', e);
+    }
+}
+
+function renderOutboundTemplates() {
+    const select = document.getElementById('outbound-template-select');
+    const pillsContainer = document.getElementById('quick-template-pills');
+    
+    if (select) {
+        select.innerHTML = '<option value="">⚡ Load Quick Template...</option>';
+        quickTemplates.forEach(t => {
+            select.innerHTML += `<option value="${t.id}">${escapeHtml(t.title)}</option>`;
+        });
+    }
+    
+    if (pillsContainer) {
+        pillsContainer.innerHTML = '';
+        quickTemplates.forEach(t => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn';
+            btn.style.cssText = 'background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.25); color: var(--accent-cyan); padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 500; cursor: pointer; transition: all 0.2s;';
+            btn.innerHTML = escapeHtml(t.title);
+            btn.addEventListener('click', () => applyQuickTemplate(t.id));
+            pillsContainer.appendChild(btn);
+        });
+    }
+}
+
+function applyQuickTemplate(templateId) {
+    const template = quickTemplates.find(t => t.id === templateId);
+    if (!template) return;
+    const textInput = document.getElementById('outbound-text-input');
+    if (textInput) {
+        textInput.value = template.text;
+        updateOutboundCharCount();
+        updateOutboundLivePreview();
+        showToast(`Loaded template: ${template.title}`);
+    }
+}
+
+const outboundTemplateSelect = document.getElementById('outbound-template-select');
+if (outboundTemplateSelect) {
+    outboundTemplateSelect.addEventListener('change', () => {
+        if (outboundTemplateSelect.value) {
+            applyQuickTemplate(outboundTemplateSelect.value);
+            outboundTemplateSelect.value = '';
+        }
+    });
+}
+
+function renderTemplatesConfigList() {
+    const container = document.getElementById('templates-list-container');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    quickTemplates.forEach((t, idx) => {
+        const item = document.createElement('div');
+        item.style.cssText = 'background: rgba(10, 14, 23, 0.5); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;';
+        item.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <input type="text" value="${escapeHtml(t.title)}" class="tpl-title-input" data-idx="${idx}" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 4px; color: #fff; padding: 4px 8px; font-size: 0.85rem; font-weight: 600; width: 60%;">
+                <span style="font-size: 0.7rem; color: var(--text-muted);">Template #${idx + 1}</span>
+            </div>
+            <textarea class="tpl-text-input" data-idx="${idx}" rows="3" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; color: var(--text-secondary); padding: 8px; font-size: 0.8rem; font-family: inherit; resize: vertical;">${escapeHtml(t.text)}</textarea>
+        `;
+        container.appendChild(item);
+    });
+}
+
+const saveTemplatesBtn = document.getElementById('save-templates-btn');
+if (saveTemplatesBtn) {
+    saveTemplatesBtn.addEventListener('click', async () => {
+        const titleInputs = document.querySelectorAll('.tpl-title-input');
+        const textInputs = document.querySelectorAll('.tpl-text-input');
+        
+        const updatedTemplates = [];
+        titleInputs.forEach((ti, idx) => {
+            const txtEl = textInputs[idx];
+            if (ti && txtEl) {
+                updatedTemplates.push({
+                    id: quickTemplates[idx] ? quickTemplates[idx].id : `tpl_${idx}`,
+                    title: ti.value.trim() || `Template ${idx + 1}`,
+                    text: txtEl.value.trim()
+                });
+            }
+        });
+        
+        saveTemplatesBtn.disabled = true;
+        saveTemplatesBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        
+        try {
+            const res = await fetch('/api/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ quick_templates: updatedTemplates })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                quickTemplates = updatedTemplates;
+                renderOutboundTemplates();
+                showToast('Quick message templates saved successfully!');
+            } else {
+                showToast('Failed to save templates', true);
+            }
+        } catch (e) {
+            console.error('Error saving templates:', e);
+            showToast('Error saving templates', true);
+        } finally {
+            saveTemplatesBtn.disabled = false;
+            saveTemplatesBtn.innerHTML = '<i class="fa-solid fa-save"></i> Save Templates';
+        }
+    });
+}
+
+// Automatically load quick templates on load
+loadQuickTemplates();

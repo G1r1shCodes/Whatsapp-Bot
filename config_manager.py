@@ -12,6 +12,28 @@ DEFAULT_CONFIG = {
         {"id": "cat_armour", "title": "Armoured Cables"},
         {"id": "cat_unarmour", "title": "Unarmoured Cables"},
         {"id": "cat_control", "title": "Control Cables"}
+    ],
+    "quick_templates": [
+        {
+            "id": "tpl_address",
+            "title": "📍 Factory & Corporate Address",
+            "text": "🏢 *KDI Power — Corporate Office & Factory*\n📍 Factory Address: H-1243, DSIDC Industrial Area, Narela, New Delhi - 110040\n🏢 Corporate Office: 912, 9th Floor, D Mall, NSP, Pitampura, Delhi - 110034\n📞 +91-9205333843 (Vipul Kumar — Marketing Manager)\n🌐 https://kdipower.com/"
+        },
+        {
+            "id": "tpl_catalogue",
+            "title": "📑 Official Product Catalogue PDF",
+            "text": "📑 *KDI Power Official Product Catalogue*\nDownload our official product catalogue featuring high-grade Aluminium/Copper XLPE Armoured Cables, House Wires, and HT Cables:\n🌐 https://kdipower.com/catalogue/CATALOUGE.pdf"
+        },
+        {
+            "id": "tpl_export",
+            "title": "🚢 Export & International Logistics Info",
+            "text": "🚢 *KDI Power Export Information*\nYes, we export our electrical cables and wires globally with logistics & customs support.\nContact Manager Vipul Kumar (+91-9205333843) for customized export quotes and shipping lead times.\n🌐 https://kdipower.com/"
+        },
+        {
+            "id": "tpl_quote",
+            "title": "💰 Commercial Quote Follow-up",
+            "text": "🎉 *KDI Power Quote Update*\nHi! Our sales team has reviewed your cable requirements. Please let us know if you need a formal commercial quotation or technical datasheet.\n📞 Call/WhatsApp: +91-9205333843\n🌐 https://kdipower.com/"
+        }
     ]
 }
 
