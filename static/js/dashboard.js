@@ -690,16 +690,26 @@ async function loadCatalogData() {
         const res = await fetch('/api/products');
         catalogData = await res.json();
         
-        // Dynamically rebuild category dropdown filter options to match actual product data
-        if (catalogData.length > 0) {
-            const uniqueCategories = ['All', ...new Set(catalogData.map(p => p.category).filter(Boolean))].sort();
-            const currentSelected = categorySelect.value;
-            categorySelect.innerHTML = uniqueCategories.map(cat => {
-                const label = cat === 'All' ? 'All Categories' : cat;
-                const selected = cat === currentSelected ? 'selected' : '';
-                return `<option value="${cat}" ${selected}>${label}</option>`;
-            }).join('');
-        }
+        // Dynamically rebuild category dropdown filter with ALL known categories
+        const knownCategories = [
+            'Aluminium XLPE Armoured Cables', 'Aluminium Unarmoured Cables', 'Aerial Bunched Cable',
+            'Armoured Cables', 'Control Cables', 'Copper Armoured Cables', 'Copper Unarmoured Cables',
+            'Copper XLPE Armoured Cables', 'Copper XLPE Unarmoured Cables', 'Flexible Cables',
+            'House Wires', 'HT Cables', 'Industrial Wires', 'Insulated Cables',
+            'Instrumentation Wires', 'Multi Core Wires', 'Power Cable', 'Power Cables',
+            'Rubber Cable', 'Solar Cables', 'Submersible Cables', 'Thermocouple Cables',
+            'Triple Coating Cables', 'Wind Power Cables'
+        ];
+        const dataCategories = catalogData.map(p => p.category).filter(Boolean);
+        const allCategories = ['All', ...new Set([...knownCategories, ...dataCategories])].sort();
+        // Move 'All' back to front after sort
+        const sortedCats = ['All', ...allCategories.filter(c => c !== 'All')];
+        const currentSelected = categorySelect.value;
+        categorySelect.innerHTML = sortedCats.map(cat => {
+            const label = cat === 'All' ? 'All Categories' : cat;
+            const selected = cat === currentSelected ? 'selected' : '';
+            return `<option value="${cat}" ${selected}>${label}</option>`;
+        }).join('');
         
         const filter = categorySelect.value;
         const filteredProducts = filter === 'All' 

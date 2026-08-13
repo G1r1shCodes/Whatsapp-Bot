@@ -65,7 +65,7 @@ def request_supabase(endpoint, method="GET", data=None, params=None):
         return []
     except Exception as e:
         logger.error(f"Supabase API error on {endpoint} [{method}]: {e}")
-        return []
+        return None  # Return None on error so callers can distinguish from empty results
 
 def init_db():
     # Database tables are initialized on Supabase via MCP SQL execute
@@ -642,8 +642,8 @@ def get_all_products(category_filter=None):
         params["category"] = f"eq.{category_filter}"
     
     products = request_supabase("products", "GET", params=params)
-    if not products:
-        # Fall back to local static catalog when Supabase is unavailable
+    if products is None:
+        # Supabase error — fall back to local static catalog
         local_products = get_static_dummy_products()
         if category_filter:
             local_products = [p for p in local_products if p["category"] == category_filter]
@@ -652,7 +652,8 @@ def get_all_products(category_filter=None):
 
 def get_product_by_id(product_name):
     res = request_supabase("products", "GET", params={"name": f"eq.{product_name}"})
-    if not res:
+    if res is None:
+        # Supabase error — fall back to static data
         local_products = get_static_dummy_products()
         matches = [p for p in local_products if p["name"] == product_name]
         return matches[0] if matches else None
@@ -675,8 +676,25 @@ def upsert_product(product_data):
         request_supabase("products", "PATCH", data=product_data, params={"name": f"eq.{name}"})
         return "updated"
     else:
-        request_supabase("products", "POST", data=product_data)
-        return "created"
+        result = request_supabase("products", "POST", data=product_data)
+        return "created" if result is not None else None
+
+def create_product(product_data):
+    """Directly create a product in Supabase (no fallback confusion)."""
+    name = product_data.get("name")
+    if not name:
+        return None
+    
+    # Check Supabase directly — don't use get_product_by_id which has static fallback
+    existing = request_supabase("products", "GET", params={"name": f"eq.{name}"})
+    if existing is None:
+        logger.error(f"Cannot check for existing product — Supabase error")
+        return None
+    if existing:  # Product already exists in Supabase
+        return "exists"
+    
+    result = request_supabase("products", "POST", data=product_data)
+    return "created" if result is not None else None
 
 def get_product_categories():
     products = get_all_products()

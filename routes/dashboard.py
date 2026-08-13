@@ -432,12 +432,6 @@ async def create_product_api(request: Request):
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="Price must be a non-negative number.")
     
-    # Check if product already exists
-    existing = db.get_product_by_id(name)
-    if existing:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=409, detail=f"A product with the name '{name}' already exists. Use the edit feature to update it.")
-    
     product_data = {
         "name": name[:200],
         "category": category[:100],
@@ -450,12 +444,15 @@ async def create_product_api(request: Request):
         "specifications": specifications[:500]
     }
     
-    result = db.upsert_product(product_data)
-    if result:
-        return {"success": True, "product": name, "action": result}
+    result = db.create_product(product_data)
+    if result == "exists":
+        from fastapi import HTTPException
+        raise HTTPException(status_code=409, detail=f"A product with the name '{name}' already exists. Use the edit feature to update it.")
+    elif result == "created":
+        return {"success": True, "product": name, "action": "created"}
     else:
         from fastapi import HTTPException
-        raise HTTPException(status_code=500, detail="Failed to create product.")
+        raise HTTPException(status_code=500, detail="Failed to create product. Please check Supabase connection.")
 
 @router.delete("/api/products/{product_name}")
 async def delete_product_api(product_name: str, request: Request):
