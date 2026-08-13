@@ -324,7 +324,7 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
                 reply_text = f"📄 *Your Inquiry Status*\n\n🔹 *Inquiry ID:* #{lead['id']}\n🔹 *Product:* {lead['product_interest']}\n🔹 *Quantity:* {lead['quantity']}\n🔹 *Status:* {status_emoji} *{lead['status']}*\n🔹 *Updated:* {lead['updated_at'][:16]}"
             else:
                 reply_text = "❌ No active inquiry found for your number. Feel free to request a quote by chatting with me!"
-        elif lower_msg in ["catalogue", "catalog", "catalouge", "cataloge", "brochure", "pdf", "product catalogue", "product catalog", "send catalogue", "send catalog", "download catalogue", "download catalog", "price list pdf"]:
+        elif any(kw in lower_msg for kw in ["catalogue", "catalog", "catalouge", "cataloge", "brochure"]) or lower_msg in ["pdf", "price list pdf", "product pdf"]:
             # Send the catalogue PDF directly
             base_url = os.environ.get("BASE_URL", "https://whatsapp-bot-4ukk.onrender.com")
             catalogue_url = f"{base_url}/catalogue/CATALOUGE.pdf"
@@ -332,6 +332,8 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
             db.log_chat_message(from_number, "outbound", reply_text)
             send_whatsapp_document(from_number, catalogue_url, "KDI_Power_Catalogue.pdf", caption=reply_text)
             return  # Early return — document is sent, no further processing needed
+        elif lower_msg in ["website", "website link", "link", "company website", "share website", "share link", "company link", "your website", "share your website", "share website link"]:
+            reply_text = "🌐 *KDI Power Website*\n\nVisit us at: https://kdipower.com/\n\nBrowse our full range of electrical cables, wires, and get instant quotes! 💡"
         elif lower_msg == "browse products":
             reply_text = ""
             cat_match = True
