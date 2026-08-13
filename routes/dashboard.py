@@ -310,7 +310,7 @@ async def send_manager_message_api(payload: ManagerMessagePayload, request: Requ
     # 1. Send via WhatsApp Meta Cloud API
     from routes.whatsapp import send_whatsapp_message
     try:
-        send_whatsapp_message(to_phone=phone, text=f"👤 *Marketing Manager:* {msg_text}")
+        send_whatsapp_message(to_phone=phone, text=msg_text)
     except RuntimeError as re_err:
         from fastapi import HTTPException
         if "24H_WINDOW_EXPIRED" in str(re_err):
@@ -324,7 +324,7 @@ async def send_manager_message_api(payload: ManagerMessagePayload, request: Requ
         raise HTTPException(status_code=500, detail=f"Failed to send WhatsApp message: {str(e)}")
 
     # 2. Log in chat history DB as outbound message
-    db.log_chat_message(phone, "outbound", f"👤 *Marketing Manager:* {msg_text}")
+    db.log_chat_message(phone, "outbound", msg_text)
 
     # 3. Auto-update lead status to "Contacted" if it was "New" or "Partial"
     lead = db.get_lead_by_phone(phone)
@@ -433,15 +433,15 @@ async def send_manager_media_api(
 
     from routes.whatsapp import send_whatsapp_message, send_whatsapp_document
     
-    caption_text = f"👤 *Marketing Manager:* {message_text}" if message_text else "👤 *Marketing Manager*"
+    caption_text = message_text
     
     try:
         if file_type == "image":
             send_whatsapp_message(to_phone=phone, text=caption_text if message_text else "", image_url=file_url)
-            log_body = f"{caption_text}\n🖼️ [Attached Image: {saved_filename}]"
+            log_body = f"{caption_text}\n🖼️ [Attached Image: {saved_filename}]".strip()
         elif file_type == "document":
             send_whatsapp_document(to_phone=phone, document_url=file_url, filename=file.filename, caption=caption_text if message_text else "")
-            log_body = f"{caption_text}\n📄 [Attached Document: {file.filename}]"
+            log_body = f"{caption_text}\n📄 [Attached Document: {file.filename}]".strip()
         else:
             send_whatsapp_message(to_phone=phone, text=caption_text)
             log_body = caption_text

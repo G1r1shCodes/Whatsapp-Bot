@@ -420,22 +420,38 @@
                             </button>
                         </div>
 
-                        <!-- Outbound History Table -->
-                        <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; overflow: hidden;">
-                            <h3 style="color: #fff; font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem;"><i class="fa-solid fa-clock-rotate-left text-cyan"></i> Sent Outbound Direct Messages</h3>
-                            <div class="table-responsive" style="flex-grow: 1; overflow-y: auto;">
-                                <table class="catalog-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Recipient</th>
-                                            <th>Message Log</th>
-                                            <th>Sent Time</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="outbound-history-tbody">
-                                        <!-- Sent outbound rows -->
-                                    </tbody>
-                                </table>
+                        <!-- Outbound WhatsApp Live Preview Card -->
+                        <div class="settings-preview card" style="padding: 1.5rem; display: flex; flex-direction: column; align-items: center;">
+                            <h3 style="margin-bottom: 1.25rem; font-weight: 600; color: #fff; width: 100%; text-align: left; display: flex; align-items: center; justify-content: space-between;">
+                                <span><i class="fa-brands fa-whatsapp text-emerald" style="color: #25d366; margin-right: 6px;"></i> Live Message Preview</span>
+                                <span class="badge" style="background: rgba(37, 211, 102, 0.15); color: #25d366; border: 1px solid rgba(37, 211, 102, 0.3); font-size: 0.7rem;">Outbound</span>
+                            </h3>
+                            <div class="whatsapp-preview" style="width: 100%; max-width: 360px; min-height: 380px; flex-grow: 1; display: flex; flex-direction: column; align-items: flex-end;">
+                                <div class="whatsapp-bubble outbound-bubble" id="outbound-preview-bubble" style="width: 92%; background: #ffffff; border-radius: 8px 0px 8px 8px; margin-top: 0.5rem; position: relative; z-index: 2; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); padding: 0.75rem;">
+                                    <!-- Recipient Indicator Banner -->
+                                    <div id="outbound-preview-recipient" style="font-size: 0.72rem; color: #667781; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px dashed rgba(0,0,0,0.1); font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
+                                        <span>To: <strong id="preview-recipient-phone" style="color: #111b21;">Select Recipient...</strong></span>
+                                        <span style="color: #00a884; font-size: 0.68rem;"><i class="fa-solid fa-paper-plane"></i> Direct</span>
+                                    </div>
+
+                                    <!-- Media / File Attachment Preview Placeholder -->
+                                    <div id="outbound-preview-media-box" style="display: none; background: #f0f2f5; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; align-items: center; gap: 8px; border: 1px solid #e4e6eb;">
+                                        <i class="fa-solid fa-file-pdf" id="outbound-preview-media-icon" style="font-size: 1.4rem; color: #ea4335;"></i>
+                                        <div style="flex-grow: 1; overflow: hidden;">
+                                            <strong id="outbound-preview-media-name" style="font-size: 0.78rem; color: #111b21; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">document.pdf</strong>
+                                            <span id="outbound-preview-media-type" style="font-size: 0.68rem; color: #667781;">Attached File</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Message Text Body -->
+                                    <div class="wa-text" id="outbound-preview-text" style="font-size: 0.88rem; color: #111b21; line-height: 1.45; white-space: pre-wrap; word-break: break-word;">Type your WhatsApp message on the left to see live preview...</div>
+
+                                    <!-- WhatsApp Timestamp & Blue Double Check -->
+                                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 6px; font-size: 0.68rem; color: #667781;">
+                                        <span id="outbound-preview-time">19:37</span>
+                                        <i class="fa-solid fa-check-double" style="color: #53bdeb; font-size: 0.78rem;"></i>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

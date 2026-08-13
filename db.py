@@ -665,6 +665,4 @@ def clear_visitor_chats():
 def get_all_outbound_messages():
     """Returns history of direct manager outbound messages."""
     chats = request_supabase("chat_history", "GET", params={"direction": "eq.outbound", "order": "created_at.desc", "limit": "100"}) or []
-    # Filter for manager sent messages
-    outbound = [c for c in chats if "Marketing Manager" in (c.get("body") or "")]
-    return outbound
+    return chats

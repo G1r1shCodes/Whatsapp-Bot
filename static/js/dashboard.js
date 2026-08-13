@@ -556,7 +556,7 @@ async function handleManagerSendMessage() {
             // Append message bubble to chat container
             const chatContainer = document.getElementById('chat-bubbles-container');
             const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const formattedBody = `👤 <strong>Marketing Manager:</strong> ${messageText.replace(/\n/g, '<br>')}`;
+            const formattedBody = messageText.replace(/\*(.*?)\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
             
             const bubbleHtml = `
                 <div class="chat-bubble-row outbound">
@@ -1869,12 +1869,75 @@ async function loadOutboundData() {
     }
 }
 
+// Outbound Live WhatsApp Preview Handler
+function updateOutboundLivePreview() {
+    const textInput = document.getElementById('outbound-text-input');
+    const phoneInput = document.getElementById('outbound-phone-input');
+    const previewText = document.getElementById('outbound-preview-text');
+    const previewRecipient = document.getElementById('preview-recipient-phone');
+    const previewTime = document.getElementById('outbound-preview-time');
+    const previewMediaBox = document.getElementById('outbound-preview-media-box');
+    const previewMediaName = document.getElementById('outbound-preview-media-name');
+    const previewMediaType = document.getElementById('outbound-preview-media-type');
+    const previewMediaIcon = document.getElementById('outbound-preview-media-icon');
+
+    // 1. Text preview
+    if (textInput && previewText) {
+        const val = textInput.value;
+        if (!val.trim()) {
+            previewText.innerHTML = '<span style="color: #8696a0; font-style: italic;">Type your WhatsApp message on the left to see live preview...</span>';
+        } else {
+            let formatted = escapeHtml(val);
+            formatted = formatted.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
+            formatted = formatted.replace(/_(.*?)_/g, '<em>$1</em>');
+            formatted = formatted.replace(/~(.*?)~/g, '<del>$1</del>');
+            formatted = formatted.replace(/\n/g, '<br>');
+            previewText.innerHTML = formatted;
+        }
+    }
+
+    // 2. Recipient phone preview
+    if (previewRecipient) {
+        const phone = phoneInput ? phoneInput.value.trim() : '';
+        previewRecipient.textContent = phone ? `+${phone.replace(/[^0-9]/g, '')}` : 'Select Recipient...';
+    }
+
+    // 3. Media file preview
+    if (previewMediaBox && previewMediaName) {
+        if (outboundSelectedFile) {
+            previewMediaBox.style.display = 'flex';
+            previewMediaName.textContent = outboundSelectedFile.name;
+            const ext = outboundSelectedFile.name.split('.').pop().toLowerCase();
+            if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) {
+                if (previewMediaIcon) previewMediaIcon.className = 'fa-solid fa-image text-cyan';
+                if (previewMediaType) previewMediaType.textContent = 'Image File';
+            } else {
+                if (previewMediaIcon) previewMediaIcon.className = 'fa-solid fa-file-pdf text-rose';
+                if (previewMediaType) previewMediaType.textContent = 'PDF Document';
+            }
+        } else {
+            previewMediaBox.style.display = 'none';
+        }
+    }
+
+    // 4. Timestamp
+    if (previewTime) {
+        const now = new Date();
+        previewTime.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+}
+
 if (outboundContactSelect) {
     outboundContactSelect.addEventListener('change', () => {
         if (outboundContactSelect.value && outboundPhoneInput) {
             outboundPhoneInput.value = outboundContactSelect.value;
+            updateOutboundLivePreview();
         }
     });
+}
+
+if (outboundPhoneInput) {
+    outboundPhoneInput.addEventListener('input', updateOutboundLivePreview);
 }
 
 // WhatsApp-format a message for display: escape HTML first, then *bold* and newlines
@@ -1892,64 +1955,12 @@ function updateOutboundCharCount() {
         outboundCharCount.textContent = `${len} / 4096`;
         outboundCharCount.style.color = len > 4096 ? '#f87171' : '';
     }
+    updateOutboundLivePreview();
 }
-if (outboundTextInput && outboundCharCount) {
+if (outboundTextInput) {
     outboundTextInput.addEventListener('input', updateOutboundCharCount);
     updateOutboundCharCount();
 }
-
-// Full-message viewer modal
-let activeOutboundLog = null;
-
-function openOutboundMessageModal(log) {
-    activeOutboundLog = log;
-    const modal = document.getElementById('outbound-message-modal');
-    const phoneEl = document.getElementById('outbound-message-phone');
-    const timeEl = document.getElementById('outbound-message-time');
-    const bodyEl = document.getElementById('outbound-message-body');
-    if (phoneEl) phoneEl.textContent = '+' + String(log.phone || '').replace(/[^0-9]/g, '');
-    if (timeEl) timeEl.textContent = formatDateTime(log.created_at);
-    if (bodyEl) bodyEl.innerHTML = formatWhatsAppText(log.body);
-    if (modal) modal.classList.remove('hidden');
-}
-
-function closeOutboundMessageModal() {
-    const modal = document.getElementById('outbound-message-modal');
-    if (modal) modal.classList.add('hidden');
-    activeOutboundLog = null;
-}
-
-function copyOutboundMessage() {
-    if (!activeOutboundLog) return;
-    const raw = activeOutboundLog.body || '';
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(raw).then(() => showToast('Message copied to clipboard'));
-    } else {
-        const ta = document.createElement('textarea');
-        ta.value = raw;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        showToast('Message copied to clipboard');
-    }
-}
-
-window.openOutboundMessageModal = openOutboundMessageModal;
-window.closeOutboundMessageModal = closeOutboundMessageModal;
-window.copyOutboundMessage = copyOutboundMessage;
-
-const outboundMsgModal = document.getElementById('outbound-message-modal');
-if (outboundMsgModal) {
-    outboundMsgModal.addEventListener('click', (e) => {
-        if (e.target === outboundMsgModal) closeOutboundMessageModal();
-    });
-}
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && outboundMsgModal && !outboundMsgModal.classList.contains('hidden')) {
-        closeOutboundMessageModal();
-    }
-});
 
 // Outbound Dropzone file handling
 if (outboundDropzone && outboundFileInput) {
@@ -1977,6 +1988,7 @@ function handleOutboundFileSelect(file) {
     outboundSelectedFile = file;
     if (outboundFileNameTxt) outboundFileNameTxt.textContent = file.name;
     if (outboundFilePreview) { outboundFilePreview.style.display = 'flex'; outboundFilePreview.classList.remove('hidden'); }
+    updateOutboundLivePreview();
 }
 
 if (outboundRemoveFileBtn) {
@@ -1984,6 +1996,7 @@ if (outboundRemoveFileBtn) {
         outboundSelectedFile = null;
         if (outboundFileInput) outboundFileInput.value = '';
         if (outboundFilePreview) { outboundFilePreview.style.display = 'none'; outboundFilePreview.classList.add('hidden'); }
+        updateOutboundLivePreview();
     });
 }
 
@@ -2016,6 +2029,7 @@ if (outboundSendBtn) {
                 if (outboundTextInput) outboundTextInput.value = '';
                 if (outboundRemoveFileBtn) outboundRemoveFileBtn.click();
                 updateOutboundCharCount();
+                updateOutboundLivePreview();
                 loadOutboundData();
             } else {
                 showToast(data.detail || 'Failed to send outbound message', true);
