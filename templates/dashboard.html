@@ -295,16 +295,17 @@
 
                 <!-- 2b. Visitor Chats (Non-Leads) Tab -->
                 <section id="visitors-tab" class="tab-panel">
-                    <div class="leads-container card">
-                        <div class="leads-inbox card" style="width: 380px; flex-shrink: 0;">
+                    <div class="inbox-layout">
+                        <div class="leads-list-panel card">
                             <div class="inbox-header">
                                 <h3><i class="fa-solid fa-users text-cyan"></i> Visitor Chats <span class="badge" id="visitor-count-badge">0</span></h3>
                                 <p class="help-text">People who chatted with the bot without submitting a quote inquiry</p>
                             </div>
-                            <div class="leads-search-filter" style="padding: 0 1.25rem 0.75rem 1.25rem;">
-                                <input type="text" id="visitor-search" class="search-input" placeholder="Search visitor phone..." style="width: 100%; background: rgba(10, 14, 23, 0.6); border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; color: #fff; font-size: 0.8rem;">
+                            <div class="inbox-search" style="flex-shrink: 0;">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" id="visitor-search" placeholder="Search visitor phone...">
                             </div>
-                            <div class="leads-list-scroll" style="flex-grow: 1; overflow-y: auto; min-height: 0; padding: 0 1.25rem 1.25rem 1.25rem;">
+                            <div class="leads-list-scroll">
                                 <div class="leads-loading text-center" id="visitors-list-loading">
                                     <i class="fa-solid fa-spinner fa-spin"></i> Loading visitor chats...
                                 </div>
@@ -334,8 +335,8 @@
                                         <i class="fa-brands fa-whatsapp" style="font-size: 1rem;"></i> Chat on WhatsApp Web
                                     </a>
                                 </div>
-                                <div class="chat-transcript-card" style="display: flex; flex-direction: column; height: calc(100% - 70px); padding: 1.25rem; overflow: hidden;">
-                                    <div class="chat-container-bubble" id="visitor-chat-bubbles" style="flex: 1 1 0%; min-height: 0; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--border-radius-lg); background: linear-gradient(rgba(11, 20, 26, 0.94), rgba(11, 20, 26, 0.94)), url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png') repeat; background-size: 380px; padding: 1.25rem;">
+                                <div class="chat-transcript-card">
+                                    <div class="chat-container-bubble" id="visitor-chat-bubbles">
                                         <!-- Visitor chat bubbles -->
                                     </div>
                                     <!-- Visitor Reply Bar -->
@@ -361,7 +362,7 @@
 
                 <!-- 2c. Outbound Direct Messaging Tab -->
                 <section id="outbound-tab" class="tab-panel">
-                    <div class="outbound-grid" style="display: grid; grid-template-columns: 460px 1fr; gap: 1.5rem; height: calc(100vh - 190px);">
+                    <div class="outbound-grid">
                         <!-- Direct Message Composer Card -->
                         <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; overflow-y: auto;">
                             <div>

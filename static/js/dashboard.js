@@ -1453,25 +1453,32 @@ function renderVisitorsList(visitors) {
     
     visitors.forEach(v => {
         const card = document.createElement('div');
-        card.className = `lead-card ${selectedVisitor && selectedVisitor.phone === v.phone ? 'active' : ''}`;
+        const isActive = selectedVisitor && selectedVisitor.phone === v.phone;
+        card.className = `lead-item visitor ${isActive ? 'active' : ''}`;
         
         const cleanPhone = v.phone.replace(/[^0-9]/g, '');
         const timeStr = formatDateTime(v.last_active);
+        const directionIcon = v.direction === 'outbound' ? 'fa-arrow-up-right-from-square' : 'fa-arrow-down-left';
         
         card.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
-                <strong style="color: #fff; font-size: 0.88rem;">+${cleanPhone}</strong>
-                <span class="badge badge-visitor" style="font-size: 0.7rem;">${v.message_count} msgs</span>
+            <div class="lead-item-header">
+                <span class="lead-item-name" style="font-size: 0.9rem;">+${cleanPhone}</span>
+                <span class="badge badge-visitor"><i class="fa-solid fa-comment-dots"></i> ${v.message_count} msgs</span>
             </div>
-            <p style="color: var(--text-muted); font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;">
-                ${v.direction === 'outbound' ? '↗️ ' : '↙️ '} ${escapeHtml(v.last_message || 'Chat message')}
-            </p>
-            <span style="font-size: 0.72rem; color: rgba(255,255,255,0.4); display: block;">${timeStr}</span>
+            <div class="lead-item-body">
+                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <i class="fa-solid ${directionIcon}" style="opacity: 0.65; margin-right: 4px;"></i>${escapeHtml(v.last_message || 'Chat message')}
+                </span>
+            </div>
+            <div class="lead-item-meta">
+                <span>Visitor</span>
+                <span>${timeStr}</span>
+            </div>
         `;
         
         card.addEventListener('click', () => {
             selectedVisitor = v;
-            document.querySelectorAll('#visitors-list-container .lead-card').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('#visitors-list-container .lead-item').forEach(c => c.classList.remove('active'));
             card.classList.add('active');
             renderVisitorChat(v);
         });
@@ -1499,7 +1506,7 @@ async function renderVisitorChat(visitor) {
     }
     
     try {
-        const res = await fetch(`/api/leads/history?phone=${encodeURIComponent(visitor.phone)}`);
+        const res = await fetch(`/api/leads/${encodeURIComponent(visitor.phone)}/history`);
         const chatLogs = await res.json();
         
         if (!bubblesContainer) return;
@@ -1537,7 +1544,7 @@ const visitorSearch = document.getElementById('visitor-search');
 if (visitorSearch) {
     visitorSearch.addEventListener('input', (e) => {
         const q = e.target.value.toLowerCase();
-        const filtered = visitorsData.filter(v => v.phone.toLowerCase().includes(q) || v.last_message.toLowerCase().includes(q));
+        const filtered = visitorsData.filter(v => v.phone.toLowerCase().includes(q) || (v.last_message || '').toLowerCase().includes(q));
         renderVisitorsList(filtered);
     });
 }
@@ -1689,6 +1696,21 @@ const outboundSendBtn = document.getElementById('outbound-send-btn');
 const outboundHistoryTbody = document.getElementById('outbound-history-tbody');
 
 async function loadOutboundData() {
+    // 0. Ensure leads + visitors are fetched so the contact picker works even
+    //    when this tab is opened before Leads / Visitor Chats.
+    try {
+        if (leadsData.length === 0) {
+            const lr = await fetch('/api/leads');
+            leadsData = await lr.json();
+        }
+        if (visitorsData.length === 0) {
+            const vr = await fetch('/api/visitors');
+            visitorsData = await vr.json();
+        }
+    } catch (e) {
+        console.error('Failed to load contacts for outbound messaging:', e);
+    }
+    
     // 1. Populate contact dropdown
     if (outboundContactSelect) {
         outboundContactSelect.innerHTML = '<option value="">Pick Contact...</option>';
