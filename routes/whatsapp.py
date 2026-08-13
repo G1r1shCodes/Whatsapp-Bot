@@ -291,7 +291,7 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
             image_file = cfg.get("welcome_image", "kdi-logo-white-bg.jpg")
             menu_match = True
         elif lower_msg in ["contact sales", "call us"]:
-            reply_text = "📞 *Sales & Support*\nTap the number below to call us directly:\n\n*+91-9205333843*\n👤 Vipul Kumar — Marketing Manager\n\n📍 *Factory Address*\nH-1243, DSIDC Industrial Area, Narela, New Delhi"
+            reply_text = "📞 *Sales & Support*\nTap the number below to call us directly:\n\n*+91-9205333843*\n👤 Vipul Kumar — Marketing Manager\n\n📍 *Factory Address*\nH-1243, DSIDC Industrial Area, Narela, New Delhi\n\n🌐 https://kdipower.com/"
             call_match = False
         elif lower_msg in ["request a quote", "request quote", "get quote", "quote"]:
             reply_text = (
@@ -313,7 +313,8 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
                 "H-1243, DSIDC Industrial Area, Narela, New Delhi - 110040\n\n"
                 "🏢 *Corporate Office*\n"
                 "912, 9th Floor, D Mall, Netaji Subhash Place, Pitampura, Delhi - 110034\n\n"
-                "📞 *Sales Line:* +91-9205333843 (Vipul Kumar — Marketing Manager)"
+                "📞 *Sales Line:* +91-9205333843 (Vipul Kumar — Marketing Manager)\n\n"
+                "🌐 *Website:* https://kdipower.com/"
             )
             call_match = False
         elif lower_msg == "track my inquiry":
