@@ -481,7 +481,7 @@ async def upload_catalogue_pdf_api(request: Request, file: UploadFile = File(...
     shutil.copyfile(target_path, static_copy)
 
     # Update settings config with filename & timestamp
-    cfg = config_manager.load_config()
+    cfg = config_manager.get_config()
     cfg["catalogue_filename"] = file.filename
     cfg["catalogue_updated_at"] = datetime.utcnow().isoformat() + "Z"
     config_manager.save_config(cfg)
