@@ -1404,6 +1404,7 @@ loadSettingsData = function() {
         .catch(err => {
             console.error('Failed to load browse categories:', err);
         });
+};
 // -------------------------------------------------------------
 // Visitor Chats (Non-Leads) Logic
 // -------------------------------------------------------------
