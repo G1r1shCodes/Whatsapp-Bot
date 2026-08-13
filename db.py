@@ -626,6 +626,29 @@ def delete_visitor_chats(phone):
     """Deletes chat history for a single non-lead visitor phone."""
     request_supabase("chat_history", "DELETE", params={"phone": f"eq.{phone}"})
 
+def convert_visitor_to_lead(phone, context=""):
+    """Creates a lead record from a non-lead visitor chat.
+    Returns 'created', 'exists' (phone already has a lead), or None on error."""
+    existing = get_lead_by_phone(phone)
+    if existing:
+        return "exists"
+
+    data = {
+        "phone": phone,
+        "name": "Unknown",
+        "company": "Unknown",
+        "email": "",
+        "location": "Unknown",
+        "product_interest": "Unknown",
+        "quantity": "Unknown",
+        "requirements": context or "Converted from visitor chat.",
+        "status": "New",
+        "created_at": datetime.utcnow().isoformat() + "Z",
+        "updated_at": datetime.utcnow().isoformat() + "Z"
+    }
+    res = request_supabase("leads", "POST", data=data)
+    return "created" if res else None
+
 def clear_visitor_chats():
     """Deletes chat history for every phone that is not a registered lead.
     Returns the number of visitor chats deleted."""

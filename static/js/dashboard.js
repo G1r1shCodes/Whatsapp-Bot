@@ -1638,6 +1638,42 @@ if (visitorSendBtn) {
     });
 }
 
+// Convert visitor into a tracked lead
+async function convertVisitorToLead() {
+    if (!selectedVisitor) {
+        showToast('Please select a visitor chat first', true);
+        return;
+    }
+    
+    const cleanPhone = String(selectedVisitor.phone || '').replace(/[^0-9]/g, '');
+    if (!confirm(`Convert visitor +${cleanPhone} into a lead?\n\nThey will move to the Leads Inbox where you can track and manage the inquiry.`)) {
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/api/visitors/${encodeURIComponent(selectedVisitor.phone)}/convert`, { method: 'POST' });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            showToast(`Visitor +${cleanPhone} converted to lead`);
+            selectedVisitor = null;
+            const emptyState = document.getElementById('visitor-empty-state');
+            const contentArea = document.getElementById('visitor-content-area');
+            if (emptyState) emptyState.classList.remove('hidden');
+            if (contentArea) contentArea.classList.add('hidden');
+            loadVisitorData();
+            leadsData = [];  // force contact picker / analytics to refetch on next open
+        } else {
+            showToast(data.detail || 'Failed to convert visitor to lead', true);
+        }
+    } catch (e) {
+        console.error('Error converting visitor to lead:', e);
+        showToast('Error converting visitor to lead', true);
+    }
+}
+
+window.convertVisitorToLead = convertVisitorToLead;
+
 // Delete single visitor chat
 async function deleteSelectedVisitor() {
     if (!selectedVisitor) {

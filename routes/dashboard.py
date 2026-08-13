@@ -361,6 +361,29 @@ def delete_visitor_api(phone: str, request: Request):
     db.delete_visitor_chats(phone)
     return {"success": True, "phone": phone}
 
+@router.post("/api/visitors/{phone}/convert")
+def convert_visitor_api(phone: str, request: Request):
+    """Converts a visitor chat into a tracked sales lead in the Leads Inbox."""
+    auth.require_auth(request)
+
+    # Carry over the visitor's most recent inbound message as context
+    context = "Converted from visitor chat."
+    chats = db.get_chat_history(phone, limit=5)
+    inbound_msgs = [c for c in chats if c.get("direction") == "inbound"]
+    if inbound_msgs:
+        body = (inbound_msgs[-1].get("body") or "").strip()
+        if body:
+            context = f"Converted from visitor chat. Last message: {body[:200]}"
+
+    result = db.convert_visitor_to_lead(phone, context)
+    if result == "exists":
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="This phone already has a lead record in the Leads Inbox.")
+    if result != "created":
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail="Failed to convert visitor to lead. Please check the Supabase connection.")
+    return {"success": True, "phone": phone, "message": "Visitor converted to lead successfully."}
+
 @router.get("/api/outbound-messages")
 def get_outbound_messages_api(request: Request):
     """Returns list of manager direct outbound messages."""

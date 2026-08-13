@@ -336,7 +336,10 @@
                                             <p><span class="badge badge-visitor"><i class="fa-solid fa-user-clock"></i> Visitor (No Quote Submitted)</span></p>
                                         </div>
                                     </div>
-                                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                                        <button id="convert-visitor-btn" onclick="convertVisitorToLead()" title="Convert this visitor into a sales lead" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.35); padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.2s;" onmouseover="this.style.background='rgba(16, 185, 129, 0.3)'" onmouseout="this.style.background='rgba(16, 185, 129, 0.15)'">
+                                            <i class="fa-solid fa-user-plus"></i> Convert to Lead
+                                        </button>
                                         <a id="visitor-wa-btn" href="#" target="_blank" class="btn btn-sm" style="background: #25D366; color: #fff; text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
                                             <i class="fa-brands fa-whatsapp" style="font-size: 1rem;"></i> Chat on WhatsApp Web
                                         </a>
