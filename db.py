@@ -1,8 +1,6 @@
 import os
-import json
 import httpx
-import urllib.parse
-from datetime import datetime, timedelta
+from datetime import datetime
 # Helper to load .env variables manually
 def load_env():
     env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -75,45 +73,6 @@ def init_db():
     # Database tables are initialized on Supabase via MCP SQL execute
     pass
 
-# Session Management helpers
-def get_session(phone):
-    res = request_supabase("sessions", "GET", params={"phone": f"eq.{phone}"})
-    if res:
-        row = res[0]
-        # Parse data JSON
-        state_data = row["data"]
-        if isinstance(state_data, str):
-            state_data = json.loads(state_data)
-        return {
-            "current_state": row["state"],
-            "state_data": state_data,
-            "last_active": row["updated_at"]
-        }
-    return None
-
-def save_session(phone, current_state, state_data):
-    exists = get_session(phone)
-    data = {
-        "phone": phone,
-        "state": current_state,
-        "step": state_data.get("step", 0),
-        "data": state_data,
-        "updated_at": datetime.utcnow().isoformat() + "Z"
-    }
-    if exists:
-        request_supabase("sessions", "PATCH", data=data, params={"phone": f"eq.{phone}"})
-    else:
-        request_supabase("sessions", "POST", data=data)
-
-def delete_session(phone):
-    request_supabase("sessions", "DELETE", params={"phone": f"eq.{phone}"})
-
-def get_static_dummy_leads():
-    """Removed — dummy data has been disabled."""
-    return []
-
-
-
 def get_static_dummy_products():
     return [
         {
@@ -140,7 +99,7 @@ def get_static_dummy_products():
         },
         {
             "name": "KDI Solar Cable 4 sq mm DC",
-            "category": "Power Cable",
+            "category": "Power Cables",
             "conductor": "Copper",
             "size": "4.0 sq mm",
             "core": 1,
@@ -151,7 +110,7 @@ def get_static_dummy_products():
         },
         {
             "name": "KDI Solar Cable 6 sq mm UV Resistant",
-            "category": "Power Cable",
+            "category": "Power Cables",
             "conductor": "Copper",
             "size": "6.0 sq mm",
             "core": 1,
@@ -228,7 +187,7 @@ def get_static_dummy_products():
         },
         {
             "name": "11kV HT Armoured Cable 3C x 95 sq mm",
-            "category": "Power Cable",
+            "category": "Power Cables",
             "conductor": "Aluminium",
             "size": "95 sq mm",
             "core": 3,
@@ -239,7 +198,7 @@ def get_static_dummy_products():
         },
         {
             "name": "33kV HT Armoured Cable XLPE",
-            "category": "Power Cable",
+            "category": "Power Cables",
             "conductor": "Aluminium",
             "size": "240 sq mm",
             "core": 3,
@@ -250,7 +209,7 @@ def get_static_dummy_products():
         },
         {
             "name": "Copper Conductor XLPE Armoured Cable 4C x 16 sq mm",
-            "category": "Power Cable",
+            "category": "Power Cables",
             "conductor": "Copper",
             "size": "16 sq mm",
             "core": 4,
@@ -261,7 +220,7 @@ def get_static_dummy_products():
         },
         {
             "name": "Aluminium XLPE Armoured Cable 4C x 50 sq mm",
-            "category": "Power Cable",
+            "category": "Power Cables",
             "conductor": "Aluminium",
             "size": "50 sq mm",
             "core": 4,
@@ -272,7 +231,7 @@ def get_static_dummy_products():
         },
         {
             "name": "Aluminium Power Cable 3.5C x 50 sq mm Armoured",
-            "category": "Power Cable",
+            "category": "Power Cables",
             "conductor": "Aluminium",
             "size": "50 sq mm",
             "core": 3.5,
@@ -283,7 +242,7 @@ def get_static_dummy_products():
         },
         {
             "name": "Aluminium Power Cable 3.5C x 70 sq mm Armoured",
-            "category": "Power Cable",
+            "category": "Power Cables",
             "conductor": "Aluminium",
             "size": "70 sq mm",
             "core": 3.5,
@@ -294,7 +253,7 @@ def get_static_dummy_products():
         },
         {
             "name": "Aluminium Power Cable 3.5C x 95 sq mm Armoured",
-            "category": "Power Cable",
+            "category": "Power Cables",
             "conductor": "Aluminium",
             "size": "95 sq mm",
             "core": 3.5,
@@ -305,7 +264,7 @@ def get_static_dummy_products():
         },
         {
             "name": "Aluminium Power Cable 3.5C x 120 sq mm Armoured",
-            "category": "Power Cable",
+            "category": "Power Cables",
             "conductor": "Aluminium",
             "size": "120 sq mm",
             "core": 3.5,
@@ -316,7 +275,7 @@ def get_static_dummy_products():
         },
         {
             "name": "Aluminium Power Cable 3.5C x 150 sq mm Armoured",
-            "category": "Power Cable",
+            "category": "Power Cables",
             "conductor": "Aluminium",
             "size": "150 sq mm",
             "core": 3.5,
@@ -327,7 +286,7 @@ def get_static_dummy_products():
         },
         {
             "name": "Aluminium Power Cable 3.5C x 185 sq mm Armoured",
-            "category": "Power Cable",
+            "category": "Power Cables",
             "conductor": "Aluminium",
             "size": "185 sq mm",
             "core": 3.5,
@@ -338,7 +297,7 @@ def get_static_dummy_products():
         },
         {
             "name": "Aluminium Power Cable 3.5C x 240 sq mm Armoured",
-            "category": "Power Cable",
+            "category": "Power Cables",
             "conductor": "Aluminium",
             "size": "240 sq mm",
             "core": 3.5,
@@ -360,7 +319,7 @@ def get_static_dummy_products():
         },
         {
             "name": "Wind Power Energy Cable 3C x 150 sq mm",
-            "category": "Power Cable",
+            "category": "Power Cables",
             "conductor": "Copper",
             "size": "150 sq mm",
             "core": 3,
@@ -392,145 +351,6 @@ def get_static_dummy_products():
             "specifications": "Overhead distribution cable"
         }
     ]
-
-def is_dummy_phone(phone):
-    if not phone:
-        return False
-    cleaned = phone.replace("+", "").strip()
-    return cleaned.startswith("9198765") and len(cleaned) == 10
-
-def get_dummy_chat_history(phone):
-    cleaned = phone.replace("+", "").strip()
-    try:
-        idx = int(cleaned[-3:])
-    except Exception:
-        idx = 0
-        
-    dummies = get_static_dummy_leads()
-    lead = dummies[idx] if idx < len(dummies) else dummies[0]
-    
-    name = lead["name"]
-    product = lead["product_interest"]
-    qty = lead["quantity"]
-    loc = lead["location"]
-    status = lead["status"]
-    
-    history = []
-    base_time = datetime.fromisoformat(lead["created_at"].replace("Z", ""))
-    
-    history.append({
-        "phone": phone,
-        "direction": "inbound",
-        "body": "Hello, I am interested in purchasing some cables.",
-        "created_at": base_time.isoformat() + "Z"
-    })
-    
-    history.append({
-        "phone": phone,
-        "direction": "outbound",
-        "body": f"Hello {name}! 👋\nWelcome to *KDI Power*!\nI would be happy to help you with your query. Could you please specify which cable/wire you are looking for?",
-        "created_at": (base_time + timedelta(minutes=1)).isoformat() + "Z"
-    })
-    
-    history.append({
-        "phone": phone,
-        "direction": "inbound",
-        "body": f"I need {product}.",
-        "created_at": (base_time + timedelta(minutes=2)).isoformat() + "Z"
-    })
-    
-    history.append({
-        "phone": phone,
-        "direction": "outbound",
-        "body": f"Got it! What quantity of *{product}* do you require?",
-        "created_at": (base_time + timedelta(minutes=3)).isoformat() + "Z"
-    })
-    
-    history.append({
-        "phone": phone,
-        "direction": "inbound",
-        "body": f"We require around {qty}.",
-        "created_at": (base_time + timedelta(minutes=4)).isoformat() + "Z"
-    })
-    
-    history.append({
-        "phone": phone,
-        "direction": "outbound",
-        "body": "Understood. Please share your delivery location and company name if applicable.",
-        "created_at": (base_time + timedelta(minutes=5)).isoformat() + "Z"
-    })
-    
-    if status == "Partial":
-        return history
-        
-    history.append({
-        "phone": phone,
-        "direction": "inbound",
-        "body": f"Delivery is at {loc}. Company name is {lead['company']}.",
-        "created_at": (base_time + timedelta(minutes=6)).isoformat() + "Z"
-    })
-    
-    history.append({
-        "phone": phone,
-        "direction": "outbound",
-        "body": f"Thank you for the details, {name}. Your inquiry has been logged successfully with ID #{lead['id']}.\n\nOur sales representative will reach out to you shortly to provide the quote.",
-        "created_at": (base_time + timedelta(minutes=7)).isoformat() + "Z"
-    })
-    
-    if status == "New":
-        return history
-        
-    history.append({
-        "phone": phone,
-        "direction": "outbound",
-        "body": "📞 *Sales Representative Update*\nOur sales team has reviewed your inquiry and is preparing your quotation.",
-        "created_at": (base_time + timedelta(hours=1)).isoformat() + "Z"
-    })
-    
-    if status == "Contacted":
-        return history
-        
-    history.append({
-        "phone": phone,
-        "direction": "outbound",
-        "body": f"📄 *Quotation Sent*\nWe have emailed the quotation to {lead['email']}.\n\n*Summary:*\nProduct: {product}\nQuantity: {qty}\nPrice: Special Project Pricing applied.",
-        "created_at": (base_time + timedelta(hours=2)).isoformat() + "Z"
-    })
-    
-    if status == "Quoted":
-        return history
-        
-    if status == "Won":
-        history.append({
-            "phone": phone,
-            "direction": "inbound",
-            "body": "Thank you, we accept the quote and have processed the purchase order.",
-            "created_at": (base_time + timedelta(hours=3)).isoformat() + "Z"
-        })
-        history.append({
-            "phone": phone,
-            "direction": "outbound",
-            "body": "🎉 *Deal Closed!*\nPayment received. Dispatch is being scheduled. Thank you for doing business with KDI Power!",
-            "created_at": (base_time + timedelta(hours=3, minutes=10)).isoformat() + "Z"
-        })
-        return history
-        
-    if status == "Lost":
-        history.append({
-            "phone": phone,
-            "direction": "inbound",
-            "body": "Sorry, we have selected another vendor with a lower price.",
-            "created_at": (base_time + timedelta(hours=4)).isoformat() + "Z"
-        })
-        history.append({
-            "phone": phone,
-            "direction": "outbound",
-            "body": "Thank you for the update. We hope to work with you on future projects.",
-            "created_at": (base_time + timedelta(hours=4, minutes=5)).isoformat() + "Z"
-        })
-        return history
-        
-    return history
 
 # Lead Management helpers
 def create_lead(phone, name, company, email, location, product_interest, quantity, requirements):
@@ -640,6 +460,39 @@ def get_lead_by_phone(phone):
     return res[0] if res else None
 
 # Product Catalog Management helpers
+
+# Canonical category names — legacy/imported aliases are mapped here so the
+# catalog, dashboard filters, analytics, and the AI all see one consistent set.
+CATEGORY_ALIASES = {
+    "Power Cable": "Power Cables",
+    "HT Cables": "Power Cables",
+    "Solar Cables": "Power Cables",
+    "Wind Power Cables": "Power Cables",
+    "Insulated Cables": "Power Cables",
+    "Armoured Cables": "Power Cables",
+    "Copper Armoured Cables": "Power Cables",
+    "Copper Unarmoured Cables": "Power Cables",
+    "Copper XLPE Armoured Cables": "Power Cables",
+    "Copper XLPE Unarmoured Cables": "Power Cables",
+    "Aluminium XLPE Armoured Cables": "Power Cables",
+    "Aluminium Unarmoured Cables": "Power Cables",
+    "Electrical Wires": "House Wires",
+    "Industrial Wires": "House Wires",
+    "Multi Core Wires": "House Wires",
+    "Triple Coating Cables": "House Wires",
+    "General Cables": "House Wires",
+    "Flexible Cables": "Rubber Cable",
+    "Submersible Cables": "Rubber Cable",
+    "Thermocouple Cables": "Instrumentation Wires",
+}
+
+def normalize_category(category):
+    """Map a category name to its canonical form (unknown names pass through)."""
+    if not category:
+        return category
+    return CATEGORY_ALIASES.get(category, category)
+
+
 def get_all_products(category_filter=None):
     params = {}
     if category_filter:
@@ -652,6 +505,8 @@ def get_all_products(category_filter=None):
         if category_filter:
             local_products = [p for p in local_products if p["category"] == category_filter]
         return local_products
+    for product in products:
+        product["category"] = normalize_category(product.get("category"))
     return products
 
 def get_product_by_id(product_name):
@@ -661,19 +516,27 @@ def get_product_by_id(product_name):
         local_products = get_static_dummy_products()
         matches = [p for p in local_products if p["name"] == product_name]
         return matches[0] if matches else None
+    if res:
+        res[0]["category"] = normalize_category(res[0].get("category"))
     return res[0] if res else None
 
 def update_product_price_and_stock(product_name, price, stock_status):
-    data = {
-        "price_per_meter": price,
-        "stock_status": stock_status
-    }
-    request_supabase("products", "PATCH", data=data, params={"name": f"eq.{product_name}"})
+    # Only update the fields that were actually provided, so a stock-only edit
+    # can never overwrite the price with a stale/null value (and vice versa).
+    data = {}
+    if price is not None:
+        data["price_per_meter"] = price
+    if stock_status is not None:
+        data["stock_status"] = stock_status
+    if data:
+        request_supabase("products", "PATCH", data=data, params={"name": f"eq.{product_name}"})
 
 def upsert_product(product_data):
     name = product_data.get("name")
     if not name:
         return None
+    
+    product_data["category"] = normalize_category(product_data.get("category"))
     
     existing = get_product_by_id(name)
     if existing:
@@ -688,6 +551,8 @@ def create_product(product_data):
     name = product_data.get("name")
     if not name:
         return None
+    
+    product_data["category"] = normalize_category(product_data.get("category"))
     
     # Check Supabase directly — don't use get_product_by_id which has static fallback
     existing = request_supabase("products", "GET", params={"name": f"eq.{name}"})
@@ -715,7 +580,7 @@ def log_chat_message(phone, direction, body):
     }
     request_supabase("chat_history", "POST", data=data)
 
-def get_chat_history(phone, limit=30):
+def get_chat_history(phone, limit=50):
     params = {
         "phone": f"eq.{phone}",
         "order": "created_at.desc",
@@ -727,3 +592,39 @@ def get_chat_history(phone, limit=30):
     for row in res:
         row["timestamp"] = row["created_at"]
     return res
+
+def get_visitor_chats():
+    """Returns a list of chat contacts who are NOT registered in the leads table."""
+    all_chats = request_supabase("chat_history", "GET", params={"order": "created_at.desc", "limit": "500"}) or []
+    all_leads = request_supabase("leads", "GET", params={"limit": "500"}) or []
+    
+    lead_phones = set(l.get("phone") for l in all_leads if l.get("phone"))
+    
+    visitors_map = {}
+    for chat in all_chats:
+        phone = chat.get("phone")
+        if not phone or phone in lead_phones:
+            continue
+        
+        if phone not in visitors_map:
+            visitors_map[phone] = {
+                "phone": phone,
+                "name": f"Visitor ({phone[-4:] if len(phone)>=4 else phone})",
+                "last_message": chat.get("body", ""),
+                "direction": chat.get("direction", "inbound"),
+                "last_active": chat.get("created_at", ""),
+                "message_count": 1
+            }
+        else:
+            visitors_map[phone]["message_count"] += 1
+            
+    visitors_list = list(visitors_map.values())
+    visitors_list.sort(key=lambda x: x["last_active"], reverse=True)
+    return visitors_list
+
+def get_all_outbound_messages():
+    """Returns history of direct manager outbound messages."""
+    chats = request_supabase("chat_history", "GET", params={"direction": "eq.outbound", "order": "created_at.desc", "limit": "100"}) or []
+    # Filter for manager sent messages
+    outbound = [c for c in chats if "Marketing Manager" in (c.get("body") or "")]
+    return outbound

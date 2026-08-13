@@ -127,7 +127,7 @@ def extract_flexible_cables(lines):
                 name = f"Copper Flexible Cable {size} sq mm {core}C"
                 products.append({
                     "name": name.strip(),
-                    "category": "Flexible Cables",
+                    "category": "Rubber Cable",
                     "conductor": "Copper",
                     "size": f"{size} sq mm",
                     "core": int(float(core)),

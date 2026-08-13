@@ -18,7 +18,7 @@ META_VERIFY_TOKEN = os.environ.get("META_VERIFY_TOKEN", "default_verify_token")
 META_ACCESS_TOKEN = os.environ.get("META_ACCESS_TOKEN")
 META_PHONE_NUMBER_ID = os.environ.get("META_PHONE_NUMBER_ID")
 
-def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_menu: bool = False, show_categories_menu: bool = False, show_call_cta: bool = False):
+def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_menu: bool = False, show_categories_menu: bool = False):
     """Sends a message to the user via Meta Cloud API."""
     if not META_ACCESS_TOKEN or not META_PHONE_NUMBER_ID:
         logger.error("Missing Meta API credentials in environment variables.")
@@ -187,7 +187,7 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
             logger.error(f"Error sending Meta cat menu: {e}")
 
     # 4. Standard Text Message (if no menu, and image wasn't sent with caption)
-    if not show_menu and not show_categories_menu and not show_call_cta and text:
+    if not show_menu and not show_categories_menu and text:
         # Don't double-send text if image already sent text as caption
         if not (image_url and text):
             payload_text = {
@@ -276,7 +276,6 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
         image_file = None
         menu_match = False
         cat_match = False
-        call_match = False
         
         greeting_words = {
             "hi", "hello", "hey", "hii", "helo", "yoo", "greetings", "dear",
@@ -292,7 +291,6 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
             menu_match = True
         elif lower_msg in ["contact sales", "call us"]:
             reply_text = "📞 *Sales & Support*\nTap the number below to call us directly:\n\n*+91-9205333843*\n👤 Vipul Kumar — Marketing Manager\n\n📍 *Factory Address*\nH-1243, DSIDC Industrial Area, Narela, New Delhi\n\n🌐 https://kdipower.com/"
-            call_match = False
         elif lower_msg in ["request a quote", "request quote", "get quote", "quote"]:
             reply_text = (
                 "📝 *Request a Price Quote*\n\n"
@@ -305,7 +303,6 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
                 "6️⃣ *Delivery Location / City*\n\n"
                 "💡 *Tip:* You can reply with all details in a single message or share them one by one!"
             )
-            call_match = False
         elif lower_msg in ["address", "location", "factory address", "where is factory", "factory location", "office address", "corporate office"]:
             reply_text = (
                 "📍 *KDI Power — Location & Contact*\n\n"
@@ -316,7 +313,6 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
                 "📞 *Sales Line:* +91-9205333843 (Vipul Kumar — Marketing Manager)\n\n"
                 "🌐 *Website:* https://kdipower.com/"
             )
-            call_match = False
         elif lower_msg == "track my inquiry":
             lead = db.get_lead_by_phone(from_number)
             if lead:
@@ -456,7 +452,7 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
                     logger.warning(f"Image file '{clean_img}' not found on disk at {local_path}. Omitting image to prevent Meta 404 error.")
                     image_url = None
             
-        send_whatsapp_message(from_number, reply_text, image_url=image_url, show_menu=menu_match, show_categories_menu=cat_match, show_call_cta=call_match)
+        send_whatsapp_message(from_number, reply_text, image_url=image_url, show_menu=menu_match, show_categories_menu=cat_match)
     except Exception as e:
         logger.error(f"Error in background task: {e}")
 

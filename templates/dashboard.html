@@ -38,6 +38,14 @@
                     <i class="fa-solid fa-inbox"></i>
                     <span>Leads Inbox</span>
                 </button>
+                <button class="nav-item" data-tab="visitors-tab">
+                    <i class="fa-solid fa-users"></i>
+                    <span>Visitor Chats</span>
+                </button>
+                <button class="nav-item" data-tab="outbound-tab">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    <span>Outbound Direct</span>
+                </button>
                 <button class="nav-item" data-tab="catalog-tab">
                     <i class="fa-solid fa-cubes"></i>
                     <span>Cables Catalog</span>
@@ -264,7 +272,15 @@
                                             <!-- Conversation bubbles go here -->
                                         </div>
                                         <!-- Manager Reply Bar -->
-                                        <div class="chat-reply-bar" style="display: flex; gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.1); flex-shrink: 0;">
+                                        <div class="chat-reply-bar" style="display: flex; gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; align-items: center;">
+                                            <input type="file" id="lead-file-input" style="display: none;" accept="image/*,.pdf">
+                                            <button id="lead-attach-btn" type="button" class="btn" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: var(--accent-cyan); padding: 10px 14px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;" title="Attach Image or PDF file">
+                                                <i class="fa-solid fa-paperclip"></i>
+                                            </button>
+                                            <div id="lead-file-pill" class="file-preview-pill hidden" style="display: none; align-items: center; gap: 6px; background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); color: var(--accent-cyan); padding: 4px 10px; border-radius: 6px; font-size: 0.78rem;">
+                                                <i class="fa-solid fa-file"></i> <span id="lead-file-name">file.pdf</span>
+                                                <i class="fa-solid fa-xmark" id="lead-remove-file" style="cursor: pointer; opacity: 0.7;" title="Remove file"></i>
+                                            </div>
                                             <input type="text" id="manager-chat-input" placeholder="Type a message to reply via WhatsApp..." style="flex-grow: 1; background: var(--bg-card, #1e293b); border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--primary, #10b981)'" onblur="this.style.borderColor='rgba(255,255,255,0.15)'">
                                             <button id="manager-send-btn" class="btn btn-primary" style="background: #10b981; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.85rem; flex-shrink: 0; transition: background 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
                                                 <i class="fa-solid fa-paper-plane"></i> Send
@@ -272,6 +288,139 @@
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2b. Visitor Chats (Non-Leads) Tab -->
+                <section id="visitors-tab" class="tab-panel">
+                    <div class="leads-container card">
+                        <div class="leads-inbox card" style="width: 380px; flex-shrink: 0;">
+                            <div class="inbox-header">
+                                <h3><i class="fa-solid fa-users text-cyan"></i> Visitor Chats <span class="badge" id="visitor-count-badge">0</span></h3>
+                                <p class="help-text">People who chatted with the bot without submitting a quote inquiry</p>
+                            </div>
+                            <div class="leads-search-filter" style="padding: 0 1.25rem 0.75rem 1.25rem;">
+                                <input type="text" id="visitor-search" class="search-input" placeholder="Search visitor phone..." style="width: 100%; background: rgba(10, 14, 23, 0.6); border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; color: #fff; font-size: 0.8rem;">
+                            </div>
+                            <div class="leads-list-scroll" style="flex-grow: 1; overflow-y: auto; min-height: 0; padding: 0 1.25rem 1.25rem 1.25rem;">
+                                <div class="leads-loading text-center" id="visitors-list-loading">
+                                    <i class="fa-solid fa-spinner fa-spin"></i> Loading visitor chats...
+                                </div>
+                                <div class="leads-list" id="visitors-list-container">
+                                    <!-- Dynamic visitor rows go here -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Visitor Detail / Chat Panel -->
+                        <div class="lead-detail-panel card" id="visitor-detail-panel">
+                            <div class="empty-state" id="visitor-empty-state">
+                                <i class="fa-solid fa-comments"></i>
+                                <h3>Select a Visitor Chat</h3>
+                                <p>Click on any visitor conversation to view full chat history and reply directly</p>
+                            </div>
+                            <div class="detail-content hidden" id="visitor-content-area">
+                                <div class="detail-header">
+                                    <div class="customer-profile">
+                                        <div class="customer-avatar" id="visitor-avatar" style="background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan);">VC</div>
+                                        <div class="customer-info">
+                                            <h3 id="visitor-phone-header">+91 98765 43210</h3>
+                                            <p><span class="badge badge-visitor"><i class="fa-solid fa-user-clock"></i> Visitor (No Quote Submitted)</span></p>
+                                        </div>
+                                    </div>
+                                    <a id="visitor-wa-btn" href="#" target="_blank" class="btn btn-sm" style="background: #25D366; color: #fff; text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                                        <i class="fa-brands fa-whatsapp" style="font-size: 1rem;"></i> Chat on WhatsApp Web
+                                    </a>
+                                </div>
+                                <div class="chat-transcript-card" style="display: flex; flex-direction: column; height: calc(100% - 70px); padding: 1.25rem; overflow: hidden;">
+                                    <div class="chat-container-bubble" id="visitor-chat-bubbles" style="flex: 1 1 0%; min-height: 0; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--border-radius-lg); background: linear-gradient(rgba(11, 20, 26, 0.94), rgba(11, 20, 26, 0.94)), url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png') repeat; background-size: 380px; padding: 1.25rem;">
+                                        <!-- Visitor chat bubbles -->
+                                    </div>
+                                    <!-- Visitor Reply Bar -->
+                                    <div class="chat-reply-bar" style="display: flex; gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; align-items: center;">
+                                        <input type="file" id="visitor-file-input" style="display: none;" accept="image/*,.pdf">
+                                        <button id="visitor-attach-btn" type="button" class="btn" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: var(--accent-cyan); padding: 10px 14px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;" title="Attach Image or PDF file">
+                                            <i class="fa-solid fa-paperclip"></i>
+                                        </button>
+                                        <div id="visitor-file-pill" class="file-preview-pill hidden" style="display: none; align-items: center; gap: 6px; background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); color: var(--accent-cyan); padding: 4px 10px; border-radius: 6px; font-size: 0.78rem;">
+                                            <i class="fa-solid fa-file"></i> <span id="visitor-file-name">file.pdf</span>
+                                            <i class="fa-solid fa-xmark" id="visitor-remove-file" style="cursor: pointer; opacity: 0.7;" title="Remove file"></i>
+                                        </div>
+                                        <input type="text" id="visitor-chat-input" placeholder="Type a message to reply to visitor via WhatsApp..." style="flex-grow: 1; background: var(--bg-card, #1e293b); border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--accent-cyan)'" onblur="this.style.borderColor='rgba(255,255,255,0.15)'">
+                                        <button id="visitor-send-btn" class="btn btn-primary" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-indigo)); color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.85rem; flex-shrink: 0;">
+                                            <i class="fa-solid fa-paper-plane"></i> Send
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2c. Outbound Direct Messaging Tab -->
+                <section id="outbound-tab" class="tab-panel">
+                    <div class="outbound-grid" style="display: grid; grid-template-columns: 460px 1fr; gap: 1.5rem; height: calc(100vh - 190px);">
+                        <!-- Direct Message Composer Card -->
+                        <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; overflow-y: auto;">
+                            <div>
+                                <h3 style="color: #fff; font-size: 1.1rem; font-weight: 700; margin-bottom: 0.25rem;"><i class="fa-solid fa-paper-plane text-cyan"></i> Outbound Message Sender</h3>
+                                <p style="color: var(--text-muted); font-size: 0.82rem;">Send direct text, images, or PDF documents directly to any WhatsApp contact.</p>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Recipient Phone Number <span class="required" style="color: var(--accent-rose);">*</span></label>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <input type="text" id="outbound-phone-input" placeholder="e.g. 919876543210" style="flex-grow: 1; background: rgba(10, 14, 23, 0.7); border: 1px solid var(--border); border-radius: 8px; color: #fff; padding: 0.6rem 0.85rem; font-size: 0.88rem; outline: none;">
+                                    <select id="outbound-contact-select" style="width: 140px; background: rgba(10, 14, 23, 0.7); border: 1px solid var(--border); border-radius: 8px; color: #fff; padding: 0.6rem; font-size: 0.8rem; outline: none;">
+                                        <option value="">Pick Contact...</option>
+                                    </select>
+                                </div>
+                                <p class="help-text" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Enter phone with country code (e.g. 919876543210)</p>
+                            </div>
+
+                            <div class="form-group">
+                                <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Message Text</label>
+                                <textarea id="outbound-text-input" rows="4" placeholder="Type your WhatsApp message here..." style="background: rgba(10, 14, 23, 0.7); border: 1px solid var(--border); border-radius: 8px; color: #fff; padding: 0.75rem; font-size: 0.85rem; outline: none; font-family: inherit; resize: vertical;"></textarea>
+                            </div>
+
+                            <!-- File / Media Attachment Dropzone -->
+                            <div class="form-group">
+                                <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Attach File (Image / PDF Document)</label>
+                                <div id="outbound-dropzone" class="media-dropzone" style="border: 2px dashed var(--glass-border); border-radius: 10px; padding: 1.5rem; text-align: center; background: rgba(10, 14, 23, 0.4); cursor: pointer; transition: all 0.2s;">
+                                    <input type="file" id="outbound-file-input" style="display: none;" accept="image/*,.pdf,.doc,.docx">
+                                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 1.8rem; color: var(--accent-cyan); opacity: 0.7; margin-bottom: 0.5rem; display: block;"></i>
+                                    <span style="font-size: 0.85rem; color: #fff; font-weight: 500; display: block;">Click or Drag & Drop File</span>
+                                    <span style="font-size: 0.75rem; color: var(--text-muted);">Supports JPG, PNG, WEBP, and PDF files</span>
+                                </div>
+                                <div id="outbound-file-preview" class="hidden" style="display: none; align-items: center; justify-content: space-between; margin-top: 0.5rem; padding: 8px 12px; background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 6px; color: var(--accent-cyan); font-size: 0.82rem;">
+                                    <span style="display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-paperclip"></i> <strong id="outbound-file-name-txt">file.pdf</strong></span>
+                                    <i class="fa-solid fa-xmark" id="outbound-remove-file-btn" style="cursor: pointer;" title="Remove attachment"></i>
+                                </div>
+                            </div>
+
+                            <button id="outbound-send-btn" class="btn btn-primary" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-indigo)); color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: auto;">
+                                <i class="fa-solid fa-paper-plane"></i> Send Direct Message
+                            </button>
+                        </div>
+
+                        <!-- Outbound History Table -->
+                        <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; overflow: hidden;">
+                            <h3 style="color: #fff; font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem;"><i class="fa-solid fa-clock-rotate-left text-cyan"></i> Sent Outbound Direct Messages</h3>
+                            <div class="table-responsive" style="flex-grow: 1; overflow-y: auto;">
+                                <table class="catalog-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Recipient</th>
+                                            <th>Message Log</th>
+                                            <th>Sent Time</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="outbound-history-tbody">
+                                        <!-- Sent outbound rows -->
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -287,7 +436,7 @@
                                     <option value="All">All Categories</option>
                                     <option value="House Wires">House Wires</option>
                                     <option value="Power Cables">Power Cables</option>
-                                    <option value="Submersible Cables">Submersible Cables</option>
+                                    <option value="Rubber Cable">Rubber Cable</option>
                                     <option value="Control Cables">Control Cables</option>
                                 </select>
                                 <button class="btn-add-cable" id="add-cable-btn" title="Add a new cable to the catalog">
@@ -336,7 +485,6 @@
                                     <select id="new-cable-category">
                                         <option value="">Select category...</option>
                                         <option value="Power Cables">Power Cables</option>
-                                        <option value="Power Cable">Power Cable</option>
                                         <option value="House Wires">House Wires</option>
                                         <option value="Control Cables">Control Cables</option>
                                         <option value="Rubber Cable">Rubber Cable</option>
@@ -482,6 +630,44 @@
                                 </div>
                                 <div class="wa-list-items" id="wa-list-preview-items">
                                     <!-- Dynamic preview items rendered by JS -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Catalogue PDF Manager -->
+                    <div class="settings-grid" style="margin-top: 0;">
+                        <div class="settings-form card" style="grid-column: 1 / -1;">
+                            <div class="categories-header">
+                                <div>
+                                    <h3 style="font-weight: 600; color: #fff; margin: 0;"><i class="fa-solid fa-file-pdf text-cyan" style="margin-right: 8px;"></i> Product Catalogue PDF Configuration</h3>
+                                    <p class="help-text" style="margin-top: 4px;">Upload and replace the official PDF product catalogue sent to WhatsApp users when requested.</p>
+                                </div>
+                                <a href="/catalogue/CATALOUGE.pdf" target="_blank" class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; border-radius: 6px;">
+                                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Preview Current PDF
+                                </a>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1rem; align-items: center;">
+                                <div id="catalogue-pdf-dropzone" style="border: 2px dashed var(--accent-cyan); border-radius: 12px; padding: 2rem; text-align: center; background: rgba(6, 182, 212, 0.04); cursor: pointer; transition: all 0.2s;">
+                                    <input type="file" id="catalogue-pdf-file-input" style="display: none;" accept=".pdf">
+                                    <i class="fa-solid fa-file-arrow-up" style="font-size: 2.5rem; color: var(--accent-cyan); margin-bottom: 0.75rem; display: block;"></i>
+                                    <span style="font-weight: 600; color: #fff; font-size: 0.95rem; display: block; margin-bottom: 4px;">Click to Select or Drop New Catalogue PDF</span>
+                                    <span style="font-size: 0.78rem; color: var(--text-muted);">Must be a valid PDF file (.pdf) • Up to 25MB</span>
+                                </div>
+
+                                <div style="display: flex; flex-direction: column; gap: 1rem; padding: 1rem; background: rgba(10, 14, 23, 0.4); border-radius: 10px; border: 1px solid var(--border);">
+                                    <div>
+                                        <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Active Catalogue File</span>
+                                        <h4 id="active-pdf-filename" style="color: var(--accent-cyan); font-size: 1rem; margin-top: 2px; font-weight: 600;">CATALOUGE.pdf</h4>
+                                    </div>
+                                    <div>
+                                        <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Download URL</span>
+                                        <p style="font-size: 0.8rem; color: #fff; word-break: break-all; margin-top: 2px;">https://whatsapp-bot-4ukk.onrender.com/catalogue/CATALOUGE.pdf</p>
+                                    </div>
+                                    <button id="upload-catalogue-pdf-btn" class="btn btn-primary" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-indigo)); color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.85rem;" disabled>
+                                        <i class="fa-solid fa-upload"></i> Upload & Replace PDF
+                                    </button>
                                 </div>
                             </div>
                         </div>

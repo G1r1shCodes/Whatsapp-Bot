@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Request
-from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
+from fastapi import APIRouter, Request, Form, File, UploadFile, HTTPException
+from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse, JSONResponse
 from pydantic import BaseModel
 import db
 import ai
@@ -7,6 +7,8 @@ import re
 import json
 import auth
 import io
+import os
+import shutil
 import config_manager
 from datetime import datetime
 
@@ -331,6 +333,116 @@ async def send_manager_message_api(payload: ManagerMessagePayload, request: Requ
 
     return {"success": True, "message": "Message sent via WhatsApp successfully."}
 
+@router.get("/api/visitors")
+def get_visitors_api(request: Request):
+    """Returns a list of chat contacts who are NOT in the leads table."""
+    auth.require_auth(request)
+    return db.get_visitor_chats()
+
+@router.get("/api/outbound-messages")
+def get_outbound_messages_api(request: Request):
+    """Returns list of manager direct outbound messages."""
+    auth.require_auth(request)
+    return db.get_all_outbound_messages()
+
+@router.post("/api/messages/send-media")
+async def send_manager_media_api(
+    request: Request,
+    phone: str = Form(...),
+    message: str = Form(""),
+    file: UploadFile = File(None)
+):
+    """Sends a direct WhatsApp text message, image, or PDF document file to a contact."""
+    auth.require_auth(request)
+    phone = phone.strip()
+    message_text = message.strip()
+    
+    if not phone:
+        raise HTTPException(status_code=400, detail="Phone number is required.")
+        
+    if not message_text and not file:
+        raise HTTPException(status_code=400, detail="Please enter a message or attach a file.")
+        
+    file_url = None
+    file_type = None
+    saved_filename = None
+    
+    if file and file.filename:
+        os.makedirs("static/uploads", exist_ok=True)
+        # Clean filename
+        clean_name = re.sub(r'[^a-zA-Z0-9_.-]', '_', file.filename)
+        saved_filename = f"{int(datetime.utcnow().timestamp())}_{clean_name}"
+        save_path = os.path.join("static", "uploads", saved_filename)
+        
+        with open(save_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        base_url = os.environ.get("BASE_URL", "https://whatsapp-bot-4ukk.onrender.com").rstrip("/")
+        file_url = f"{base_url}/static/uploads/{saved_filename}"
+        
+        ext = os.path.splitext(clean_name)[1].lower()
+        if ext in [".jpg", ".jpeg", ".png", ".webp", ".gif"]:
+            file_type = "image"
+        else:
+            file_type = "document"
+
+    from routes.whatsapp import send_whatsapp_message, send_whatsapp_document
+    
+    caption_text = f"👤 *Marketing Manager:* {message_text}" if message_text else "👤 *Marketing Manager*"
+    
+    try:
+        if file_type == "image":
+            send_whatsapp_message(to_phone=phone, text=caption_text if message_text else "", image_url=file_url)
+            log_body = f"{caption_text}\n🖼️ [Attached Image: {saved_filename}]"
+        elif file_type == "document":
+            send_whatsapp_document(to_phone=phone, document_url=file_url, filename=file.filename, caption=caption_text if message_text else "")
+            log_body = f"{caption_text}\n📄 [Attached Document: {file.filename}]"
+        else:
+            send_whatsapp_message(to_phone=phone, text=caption_text)
+            log_body = caption_text
+    except Exception as e:
+        logger.error(f"Error sending WhatsApp media message: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to send WhatsApp message: {str(e)}")
+
+    db.log_chat_message(phone, "outbound", log_body)
+
+    # Auto update lead status if lead exists
+    lead = db.get_lead_by_phone(phone)
+    if lead and lead.get("status") in ["New", "Partial"]:
+        db.update_lead_status(lead["id"], "Contacted")
+
+    return {"success": True, "message": "Outbound message sent via WhatsApp successfully.", "file_url": file_url}
+
+@router.post("/api/settings/upload-catalogue")
+async def upload_catalogue_pdf_api(request: Request, file: UploadFile = File(...)):
+    """Uploads a new product catalogue PDF file, updating the active PDF."""
+    auth.require_auth(request)
+    if not file or not file.filename:
+        raise HTTPException(status_code=400, detail="No PDF file uploaded.")
+        
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="File must be a PDF document (.pdf).")
+        
+    os.makedirs("data/raw_catalogues", exist_ok=True)
+    os.makedirs("static/uploads", exist_ok=True)
+    
+    # Save to canonical catalogue location
+    target_path = os.path.join("data", "raw_catalogues", "CATALOUGE.pdf")
+    with open(target_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    # Also save copy to static/uploads for direct previewing
+    static_copy = os.path.join("static", "uploads", "CATALOUGE.pdf")
+    shutil.copyfile(target_path, static_copy)
+
+    # Update settings config with filename & timestamp
+    cfg = config_manager.load_config()
+    cfg["catalogue_filename"] = file.filename
+    cfg["catalogue_updated_at"] = datetime.utcnow().isoformat() + "Z"
+    config_manager.save_config(cfg)
+    
+    return {"success": True, "message": f"Catalogue PDF updated successfully ({file.filename})", "filename": file.filename, "url": "/catalogue/CATALOUGE.pdf"}
+
 
 @router.get("/api/dashboard/stats")
 def get_stats_api(request: Request):
@@ -376,7 +488,7 @@ def get_stats_api(request: Request):
             elif "house" in prod_lower or "fr" in prod_lower or "wire" in prod_lower or "triple" in prod_lower:
                 cat = "House Wires"
             else:
-                cat = "Power Cable"
+                cat = "Power Cables"
 
         categories[cat] = categories.get(cat, 0) + 1
 

@@ -1,15 +1,10 @@
 import os
-import urllib.parse
-import json
 import time
 import re
 import db
-import warnings
-import prompts
 import httpx
 import warnings
 import prompts
-from collections import defaultdict
 from logger import get_logger
 
 logger = get_logger(__name__)

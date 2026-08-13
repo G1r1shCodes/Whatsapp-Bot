@@ -94,6 +94,10 @@ function switchTab(targetTab, activeItem) {
         loadAnalyticsData();
     } else if (targetTab === 'leads-tab') {
         loadLeadsData();
+    } else if (targetTab === 'visitors-tab') {
+        loadVisitorData();
+    } else if (targetTab === 'outbound-tab') {
+        loadOutboundData();
     } else if (targetTab === 'catalog-tab') {
         loadCatalogData();
     } else if (targetTab === 'settings-tab') {
@@ -111,13 +115,21 @@ function updateHeaderMetadata() {
             pageTitle.textContent = 'Leads Inbox';
             pageSubtitle.textContent = 'Monitor customer inquiries and live chats';
             break;
+        case 'visitors-tab':
+            pageTitle.textContent = 'Visitor Chats (Non-Leads)';
+            pageSubtitle.textContent = 'Conversations with visitors who did not request a quote';
+            break;
+        case 'outbound-tab':
+            pageTitle.textContent = 'Outbound Direct Messaging';
+            pageSubtitle.textContent = 'Send text, images, or PDF documents directly to any WhatsApp contact';
+            break;
         case 'catalog-tab':
             pageTitle.textContent = 'Cables Catalog Manager';
             pageSubtitle.textContent = 'Adjust prices and toggle cable stock availability';
             break;
         case 'settings-tab':
             pageTitle.textContent = 'Bot Configuration';
-            pageSubtitle.textContent = 'Configure greeting messages and images';
+            pageSubtitle.textContent = 'Configure greeting messages, categories, and catalogue PDF';
             break;
     }
 }
@@ -855,15 +867,15 @@ function startEditingPrice(element) {
 }
 
 async function updateProductStock(productName, stockStatus, selectElement) {
-    // Find local price
+    // Keep local reference for optimistic updates / error revert
     const localProd = catalogData.find(p => p.name === productName);
-    const price = localProd ? localProd.price_per_meter : 0;
     
     try {
+        // Stock-only update — never send a cached price that could overwrite a newer one
         const res = await fetch(`/api/products/${encodeURIComponent(productName)}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ price: price, stock_status: stockStatus })
+            body: JSON.stringify({ stock_status: stockStatus })
         });
         
         if (res.ok) {
@@ -926,7 +938,7 @@ function openAddCableModal() {
     if (catSelect && catalogData.length > 0) {
         const existingCategories = [...new Set(catalogData.map(p => p.category).filter(Boolean))].sort();
         // Rebuild options preserving any custom categories
-        const defaultOpts = ['Power Cables', 'Power Cable', 'House Wires', 'Control Cables', 'Rubber Cable', 'Aerial Bunched Cable', 'Instrumentation Wires'];
+        const defaultOpts = ['Power Cables', 'House Wires', 'Control Cables', 'Rubber Cable', 'Aerial Bunched Cable', 'Instrumentation Wires'];
         const allCats = [...new Set([...defaultOpts, ...existingCategories])].sort();
         catSelect.innerHTML = '<option value="">Select category...</option>' + allCats.map(c => `<option value="${c}">${c}</option>`).join('');
     }
@@ -1392,4 +1404,497 @@ loadSettingsData = function() {
         .catch(err => {
             console.error('Failed to load browse categories:', err);
         });
+// -------------------------------------------------------------
+// Visitor Chats (Non-Leads) Logic
+// -------------------------------------------------------------
+let visitorsData = [];
+let selectedVisitor = null;
+let leadSelectedFile = null;
+let visitorSelectedFile = null;
+let outboundSelectedFile = null;
+
+async function loadVisitorData() {
+    const listContainer = document.getElementById('visitors-list-container');
+    const loadingElem = document.getElementById('visitors-list-loading');
+    const badgeElem = document.getElementById('visitor-count-badge');
+    
+    if (loadingElem) loadingElem.style.display = 'block';
+    
+    try {
+        const res = await fetch('/api/visitors');
+        visitorsData = await res.json();
+        
+        if (badgeElem) badgeElem.textContent = visitorsData.length;
+        if (loadingElem) loadingElem.style.display = 'none';
+        
+        renderVisitorsList(visitorsData);
+    } catch (err) {
+        console.error('Failed to load visitor chats:', err);
+        if (loadingElem) loadingElem.innerHTML = '<span class="text-rose-500">Failed to load visitor chats</span>';
+    }
+}
+
+function renderVisitorsList(visitors) {
+    const container = document.getElementById('visitors-list-container');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (visitors.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 0.85rem;">
+                <i class="fa-solid fa-comments" style="font-size: 1.8rem; opacity: 0.3; display: block; margin-bottom: 0.5rem;"></i>
+                No non-lead visitor chats yet.
+            </div>
+        `;
+        return;
+    }
+    
+    visitors.forEach(v => {
+        const card = document.createElement('div');
+        card.className = `lead-card ${selectedVisitor && selectedVisitor.phone === v.phone ? 'active' : ''}`;
+        
+        const cleanPhone = v.phone.replace(/[^0-9]/g, '');
+        const timeStr = formatDateTime(v.last_active);
+        
+        card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+                <strong style="color: #fff; font-size: 0.88rem;">+${cleanPhone}</strong>
+                <span class="badge badge-visitor" style="font-size: 0.7rem;">${v.message_count} msgs</span>
+            </div>
+            <p style="color: var(--text-muted); font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;">
+                ${v.direction === 'outbound' ? '↗️ ' : '↙️ '} ${escapeHtml(v.last_message || 'Chat message')}
+            </p>
+            <span style="font-size: 0.72rem; color: rgba(255,255,255,0.4); display: block;">${timeStr}</span>
+        `;
+        
+        card.addEventListener('click', () => {
+            selectedVisitor = v;
+            document.querySelectorAll('#visitors-list-container .lead-card').forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+            renderVisitorChat(v);
+        });
+        
+        container.appendChild(card);
+    });
+}
+
+async function renderVisitorChat(visitor) {
+    const emptyState = document.getElementById('visitor-empty-state');
+    const contentArea = document.getElementById('visitor-content-area');
+    const phoneHeader = document.getElementById('visitor-phone-header');
+    const waBtn = document.getElementById('visitor-wa-btn');
+    const bubblesContainer = document.getElementById('visitor-chat-bubbles');
+    
+    if (emptyState) emptyState.classList.add('hidden');
+    if (contentArea) contentArea.classList.remove('hidden');
+    
+    const cleanPhone = visitor.phone.replace(/[^0-9]/g, '');
+    if (phoneHeader) phoneHeader.textContent = `+${cleanPhone}`;
+    if (waBtn) waBtn.href = `https://web.whatsapp.com/send?phone=${cleanPhone}`;
+    
+    if (bubblesContainer) {
+        bubblesContainer.innerHTML = '<div class="text-center" style="padding: 2rem; color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading chat...</div>';
+    }
+    
+    try {
+        const res = await fetch(`/api/leads/history?phone=${encodeURIComponent(visitor.phone)}`);
+        const chatLogs = await res.json();
+        
+        if (!bubblesContainer) return;
+        bubblesContainer.innerHTML = '';
+        
+        if (chatLogs.length === 0) {
+            bubblesContainer.innerHTML = '<div class="text-center" style="padding: 2rem; color: var(--text-muted);">No messages logged.</div>';
+            return;
+        }
+        
+        chatLogs.forEach(msg => {
+            const isOutbound = msg.direction === 'outbound';
+            const timeStr = formatDateTime(msg.created_at || msg.timestamp);
+            const formattedBody = (msg.body || '').replace(/\*(.*?)\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+            
+            const row = document.createElement('div');
+            row.className = `chat-bubble-row ${isOutbound ? 'outbound' : 'inbound'}`;
+            row.innerHTML = `
+                <div class="chat-bubble" ${isOutbound ? 'style="border-left: 3px solid var(--accent-cyan);"' : ''}>
+                    <div class="chat-bubble-body">${formattedBody}</div>
+                    <span class="chat-bubble-time">${timeStr}</span>
+                </div>
+            `;
+            bubblesContainer.appendChild(row);
+        });
+        
+        bubblesContainer.scrollTop = bubblesContainer.scrollHeight;
+    } catch (err) {
+        console.error('Error fetching visitor chat logs:', err);
+    }
+}
+
+// Visitor search listener
+const visitorSearch = document.getElementById('visitor-search');
+if (visitorSearch) {
+    visitorSearch.addEventListener('input', (e) => {
+        const q = e.target.value.toLowerCase();
+        const filtered = visitorsData.filter(v => v.phone.toLowerCase().includes(q) || v.last_message.toLowerCase().includes(q));
+        renderVisitorsList(filtered);
+    });
+}
+
+// -------------------------------------------------------------
+// File Attachment Helpers for Reply Bars
+// -------------------------------------------------------------
+function setupAttachmentPicker(attachBtnId, fileInputId, pillId, fileNameId, removeBtnId, onSelectCallback) {
+    const attachBtn = document.getElementById(attachBtnId);
+    const fileInput = document.getElementById(fileInputId);
+    const pill = document.getElementById(pillId);
+    const fileNameTxt = document.getElementById(fileNameId);
+    const removeBtn = document.getElementById(removeBtnId);
+    
+    if (attachBtn && fileInput) {
+        attachBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                if (fileNameTxt) fileNameTxt.textContent = file.name;
+                if (pill) { pill.style.display = 'inline-flex'; pill.classList.remove('hidden'); }
+                if (onSelectCallback) onSelectCallback(file);
+            }
+        });
+    }
+    
+    if (removeBtn && fileInput && pill) {
+        removeBtn.addEventListener('click', () => {
+            fileInput.value = '';
+            pill.style.display = 'none';
+            pill.classList.add('hidden');
+            if (onSelectCallback) onSelectCallback(null);
+        });
+    }
+}
+
+// Setup attachments for Lead reply bar
+setupAttachmentPicker('lead-attach-btn', 'lead-file-input', 'lead-file-pill', 'lead-file-name', 'lead-remove-file', (file) => {
+    leadSelectedFile = file;
+});
+
+// Setup attachments for Visitor reply bar
+setupAttachmentPicker('visitor-attach-btn', 'visitor-file-input', 'visitor-file-pill', 'visitor-file-name', 'visitor-remove-file', (file) => {
+    visitorSelectedFile = file;
+});
+
+// Send Visitor Reply
+const visitorSendBtn = document.getElementById('visitor-send-btn');
+const visitorChatInput = document.getElementById('visitor-chat-input');
+
+if (visitorSendBtn) {
+    visitorSendBtn.addEventListener('click', async () => {
+        if (!selectedVisitor) { showToast('Please select a visitor chat first', true); return; }
+        const text = (visitorChatInput ? visitorChatInput.value.trim() : '');
+        if (!text && !visitorSelectedFile) { showToast('Enter a message or attach a file', true); return; }
+        
+        const formData = new FormData();
+        formData.append('phone', selectedVisitor.phone);
+        formData.append('message', text);
+        if (visitorSelectedFile) formData.append('file', visitorSelectedFile);
+        
+        visitorSendBtn.disabled = true;
+        visitorSendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
+        
+        try {
+            const res = await fetch('/api/messages/send-media', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            
+            if (res.ok && data.success) {
+                showToast('Message sent via WhatsApp!');
+                if (visitorChatInput) visitorChatInput.value = '';
+                // Clear attachment
+                const removeBtn = document.getElementById('visitor-remove-file');
+                if (removeBtn) removeBtn.click();
+                
+                // Re-render chat
+                renderVisitorChat(selectedVisitor);
+            } else {
+                showToast(data.detail || 'Failed to send message', true);
+            }
+        } catch (err) {
+            console.error('Error sending visitor message:', err);
+            showToast('Error sending message', true);
+        } finally {
+            visitorSendBtn.disabled = false;
+            visitorSendBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send';
+        }
+    });
+}
+
+// Upgrade Lead Manager Send to handle file attachments
+const origHandleManagerSendMessage = window.handleManagerSendMessage;
+window.handleManagerSendMessage = async function() {
+    if (leadSelectedFile) {
+        if (!selectedLead) { showToast('Please select a lead first', true); return; }
+        const textInput = document.getElementById('manager-chat-input');
+        const sendBtn = document.getElementById('manager-send-btn');
+        const targetPhone = String(selectedLead.phone || selectedLead.phone_number || '').trim();
+        
+        const formData = new FormData();
+        formData.append('phone', targetPhone);
+        formData.append('message', textInput ? textInput.value.trim() : '');
+        formData.append('file', leadSelectedFile);
+        
+        if (sendBtn) sendBtn.disabled = true;
+        
+        try {
+            const res = await fetch('/api/messages/send-media', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast('Media message sent via WhatsApp!');
+                if (textInput) textInput.value = '';
+                const removeBtn = document.getElementById('lead-remove-file');
+                if (removeBtn) removeBtn.click();
+                loadLeadHistory(selectedLead.phone);
+            } else {
+                showToast(data.detail || 'Failed to send message', true);
+            }
+        } catch (e) {
+            console.error('Error sending lead media:', e);
+            showToast('Failed to send media message', true);
+        } finally {
+            if (sendBtn) sendBtn.disabled = false;
+        }
+        return;
+    }
+    // Fall back to original text send
+    if (origHandleManagerSendMessage) origHandleManagerSendMessage();
 };
+
+// -------------------------------------------------------------
+// Outbound Direct Messaging Tab Logic
+// -------------------------------------------------------------
+const outboundPhoneInput = document.getElementById('outbound-phone-input');
+const outboundContactSelect = document.getElementById('outbound-contact-select');
+const outboundTextInput = document.getElementById('outbound-text-input');
+const outboundFileInput = document.getElementById('outbound-file-input');
+const outboundDropzone = document.getElementById('outbound-dropzone');
+const outboundFilePreview = document.getElementById('outbound-file-preview');
+const outboundFileNameTxt = document.getElementById('outbound-file-name-txt');
+const outboundRemoveFileBtn = document.getElementById('outbound-remove-file-btn');
+const outboundSendBtn = document.getElementById('outbound-send-btn');
+const outboundHistoryTbody = document.getElementById('outbound-history-tbody');
+
+async function loadOutboundData() {
+    // 1. Populate contact dropdown
+    if (outboundContactSelect) {
+        outboundContactSelect.innerHTML = '<option value="">Pick Contact...</option>';
+        // Combine leads + visitors
+        const allContacts = [];
+        leadsData.forEach(l => { if (l.phone) allContacts.push({ phone: l.phone, name: `${l.name} (Lead)` }); });
+        visitorsData.forEach(v => { if (v.phone) allContacts.push({ phone: v.phone, name: `Visitor (${v.phone.slice(-4)})` }); });
+        
+        allContacts.forEach(c => {
+            const clean = c.phone.replace(/[^0-9]/g, '');
+            outboundContactSelect.innerHTML += `<option value="${clean}">${c.name} - +${clean}</option>`;
+        });
+    }
+    
+    // 2. Load sent outbound history table
+    if (outboundHistoryTbody) {
+        outboundHistoryTbody.innerHTML = '<tr><td colspan="3" class="text-center" style="padding: 2rem;"><i class="fa-solid fa-spinner fa-spin"></i> Loading outbound log...</td></tr>';
+        try {
+            const res = await fetch('/api/outbound-messages');
+            const logs = await res.json();
+            outboundHistoryTbody.innerHTML = '';
+            
+            if (logs.length === 0) {
+                outboundHistoryTbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted" style="padding: 2rem;">No outbound manager messages logged yet.</td></tr>';
+                return;
+            }
+            
+            logs.forEach(log => {
+                const tr = document.createElement('tr');
+                const timeStr = formatDateTime(log.created_at);
+                tr.innerHTML = `
+                    <td><strong>+${log.phone}</strong></td>
+                    <td style="max-width: 300px; font-size: 0.8rem;">${escapeHtml(log.body)}</td>
+                    <td style="font-size: 0.75rem; color: var(--text-muted);">${timeStr}</td>
+                `;
+                outboundHistoryTbody.appendChild(tr);
+            });
+        } catch (e) {
+            console.error('Failed to load outbound history:', e);
+            outboundHistoryTbody.innerHTML = '<tr><td colspan="3" class="text-center text-rose-500">Failed to load history</td></tr>';
+        }
+    }
+}
+
+if (outboundContactSelect) {
+    outboundContactSelect.addEventListener('change', () => {
+        if (outboundContactSelect.value && outboundPhoneInput) {
+            outboundPhoneInput.value = outboundContactSelect.value;
+        }
+    });
+}
+
+// Outbound Dropzone file handling
+if (outboundDropzone && outboundFileInput) {
+    outboundDropzone.addEventListener('click', () => outboundFileInput.click());
+    
+    outboundDropzone.addEventListener('dragover', (e) => { e.preventDefault(); outboundDropzone.style.borderColor = 'var(--accent-cyan)'; });
+    outboundDropzone.addEventListener('dragleave', () => { outboundDropzone.style.borderColor = 'var(--glass-border)'; });
+    outboundDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        outboundDropzone.style.borderColor = 'var(--glass-border)';
+        if (e.dataTransfer.files.length > 0) {
+            outboundFileInput.files = e.dataTransfer.files;
+            handleOutboundFileSelect(e.dataTransfer.files[0]);
+        }
+    });
+    
+    outboundFileInput.addEventListener('change', () => {
+        if (outboundFileInput.files.length > 0) {
+            handleOutboundFileSelect(outboundFileInput.files[0]);
+        }
+    });
+}
+
+function handleOutboundFileSelect(file) {
+    outboundSelectedFile = file;
+    if (outboundFileNameTxt) outboundFileNameTxt.textContent = file.name;
+    if (outboundFilePreview) { outboundFilePreview.style.display = 'flex'; outboundFilePreview.classList.remove('hidden'); }
+}
+
+if (outboundRemoveFileBtn) {
+    outboundRemoveFileBtn.addEventListener('click', () => {
+        outboundSelectedFile = null;
+        if (outboundFileInput) outboundFileInput.value = '';
+        if (outboundFilePreview) { outboundFilePreview.style.display = 'none'; outboundFilePreview.classList.add('hidden'); }
+    });
+}
+
+// Send Outbound Direct Message
+if (outboundSendBtn) {
+    outboundSendBtn.addEventListener('click', async () => {
+        const phone = outboundPhoneInput ? outboundPhoneInput.value.trim().replace(/[^0-9]/g, '') : '';
+        const text = outboundTextInput ? outboundTextInput.value.trim() : '';
+        
+        if (!phone) { showToast('Please enter recipient phone number', true); return; }
+        if (!text && !outboundSelectedFile) { showToast('Please enter message text or attach a file', true); return; }
+        
+        const formData = new FormData();
+        formData.append('phone', phone);
+        formData.append('message', text);
+        if (outboundSelectedFile) formData.append('file', outboundSelectedFile);
+        
+        outboundSendBtn.disabled = true;
+        outboundSendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
+        
+        try {
+            const res = await fetch('/api/messages/send-media', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            
+            if (res.ok && data.success) {
+                showToast('Outbound message sent via WhatsApp!');
+                if (outboundTextInput) outboundTextInput.value = '';
+                if (outboundRemoveFileBtn) outboundRemoveFileBtn.click();
+                loadOutboundData();
+            } else {
+                showToast(data.detail || 'Failed to send outbound message', true);
+            }
+        } catch (e) {
+            console.error('Error sending outbound message:', e);
+            showToast('Error sending message via WhatsApp', true);
+        } finally {
+            outboundSendBtn.disabled = false;
+            outboundSendBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Direct Message';
+        }
+    });
+}
+
+// -------------------------------------------------------------
+// Catalogue PDF Manager Logic (Settings Tab)
+// -------------------------------------------------------------
+const pdfDropzone = document.getElementById('catalogue-pdf-dropzone');
+const pdfFileInput = document.getElementById('catalogue-pdf-file-input');
+const uploadPdfBtn = document.getElementById('upload-catalogue-pdf-btn');
+const activePdfFilename = document.getElementById('active-pdf-filename');
+let selectedPdfFile = null;
+
+if (pdfDropzone && pdfFileInput) {
+    pdfDropzone.addEventListener('click', () => pdfFileInput.click());
+    
+    pdfDropzone.addEventListener('dragover', (e) => { e.preventDefault(); pdfDropzone.style.borderColor = '#38bdf8'; });
+    pdfDropzone.addEventListener('dragleave', () => { pdfDropzone.style.borderColor = 'var(--accent-cyan)'; });
+    pdfDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        pdfDropzone.style.borderColor = 'var(--accent-cyan)';
+        if (e.dataTransfer.files.length > 0) {
+            const file = e.dataTransfer.files[0];
+            if (file.name.toLowerCase().endswith('.pdf')) {
+                pdfFileInput.files = e.dataTransfer.files;
+                handlePdfSelect(file);
+            } else {
+                showToast('Please select a PDF file (.pdf)', true);
+            }
+        }
+    });
+    
+    pdfFileInput.addEventListener('change', () => {
+        if (pdfFileInput.files.length > 0) {
+            handlePdfSelect(pdfFileInput.files[0]);
+        }
+    });
+}
+
+function handlePdfSelect(file) {
+    selectedPdfFile = file;
+    if (uploadPdfBtn) {
+        uploadPdfBtn.disabled = false;
+        uploadPdfBtn.innerHTML = `<i class="fa-solid fa-upload"></i> Upload & Replace (${file.name})`;
+    }
+}
+
+if (uploadPdfBtn) {
+    uploadPdfBtn.addEventListener('click', async () => {
+        if (!selectedPdfFile) { showToast('Select a PDF file first', true); return; }
+        
+        const formData = new FormData();
+        formData.append('file', selectedPdfFile);
+        
+        uploadPdfBtn.disabled = true;
+        uploadPdfBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading Catalogue...';
+        
+        try {
+            const res = await fetch('/api/settings/upload-catalogue', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            
+            if (res.ok && data.success) {
+                showToast(`Catalogue PDF updated successfully! (${data.filename})`);
+                if (activePdfFilename) activePdfFilename.textContent = data.filename;
+                uploadPdfBtn.disabled = true;
+                uploadPdfBtn.innerHTML = '<i class="fa-solid fa-check"></i> Uploaded Successfully';
+                selectedPdfFile = null;
+                if (pdfFileInput) pdfFileInput.value = '';
+            } else {
+                showToast(data.detail || 'Failed to upload Catalogue PDF', true);
+                uploadPdfBtn.disabled = false;
+                uploadPdfBtn.innerHTML = '<i class="fa-solid fa-upload"></i> Retry Upload';
+            }
+        } catch (e) {
+            console.error('Error uploading catalogue PDF:', e);
+            showToast('Error uploading Catalogue PDF', true);
+            uploadPdfBtn.disabled = false;
+            uploadPdfBtn.innerHTML = '<i class="fa-solid fa-upload"></i> Retry Upload';
+        }
+    });
+}
