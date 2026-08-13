@@ -40,21 +40,72 @@ OUT_OF_SCOPE_REPLY = (
 )
 
 OUT_OF_SCOPE_PATTERNS = [
-    # Coding / programming / homework
-    r"\bleetcode\b", r"\bpython\b", r"\bjava(script)?\b", r"\bc\+\+\b", r"\bc#\b",
-    r"\bsql\b", r"\bhtml\b", r"\bregex\b", r"\bprogram(ming|mer)?\b", r"\balgorithm",
-    r"\bsyntax\b", r"\bdebug", r"\bcompile", r"\bhomework\b",
+    # ── Coding / programming / developer tools ──
+    r"\bleetcode\b", r"\bhackerrank\b", r"\bcodeforces\b", r"\bgeeksforgeeks\b", r"\bstack ?overflow\b",
+    r"\bpython\b", r"\bjava(script)?\b", r"\btypescript\b", r"\bc\+\+\b", r"\bc#\b", r"\bphp\b",
+    r"\bsql\b", r"\bmysql\b", r"\bpostgres\b", r"\bmongodb\b", r"\bhtml\b", r"\bcss\b", r"\bxml\b",
+    r"\bjson\b", r"\bregex\b", r"\bnode\.?js\b", r"\bangular\b", r"\bvue\b", r"\bdjango\b",
+    r"\bflask\b", r"\bpandas\b", r"\bnumpy\b", r"\bgit\b", r"\bdocker\b", r"\bkubernetes\b",
+    r"\bprogram(ming|mer)?\b", r"\balgorithm", r"\bsyntax\b", r"\bdebug", r"\bcompile", r"\bhomework\b",
+    r"\bfrontend\b", r"\bbackend\b", r"\bapi (endpoint|call|key)\b",
     r"\bcode (snippet|solution|problem|challenge|question)\b",
     r"write (a |me )?(code|program|script|function|algorithm)",
     r"\bsolve (this |the )?(problem|question|equation|math)",
-    # General knowledge / lifestyle
-    r"\bweather\b", r"\bmovie(s)?\b", r"\bsong(s)?\b", r"\brecipe", r"\btranslate",
-    r"\bresume\b", r"\bcover letter\b", r"\bessay\b", r"\bhoroscope\b", r"\bstory(ies)?\b",
-    r"\bnews (today|headlines)\b",
-    # Travel itineraries / bookings
+    # ── Math / science / general knowledge ──
+    r"\bsolve for\b", r"\bquadratic\b", r"\bcalculus\b", r"\bderivative\b", r"\bintegral\b",
+    r"\balgebra\b", r"\bgeometry\b", r"\btrigonometry\b", r"\bprobability\b", r"\bstatistics\b",
+    r"\bphotosynthesis\b", r"\bquantum\b", r"\bchemistry\b", r"\bbiology\b", r"\bgravity\b",
+    r"\b(capital|president|prime minister|population|currency|language) of\b",
+    r"\btallest (mountain|building|person)\b", r"\blargest (country|city|animal|planet)\b",
+    r"\bwhat is \d+\s*[+*/\-]\s*\d+\b",
+    # ── Lifestyle / media / entertainment ──
+    r"\bweather (today|tomorrow|forecast|report|in |like)\b", r"\bweather forecast\b",
+    r"\bhow('?s| is) the weather\b",
+    r"\bmovie(s)?\b", r"\bfilm(s)?\b", r"\bsong(s)?\b", r"\blyrics\b", r"\balbum\b", r"\bactor\b",
+    r"\bactress\b", r"\bcelebrity\b", r"\btv show\b", r"\bnetflix\b",
+    r"\bjoke(s)?\b", r"\briddle(s)?\b", r"\bpoem(s)?\b", r"\bpoetry\b", r"\bstory(ies)?\b", r"\bnovel(s)?\b",
+    r"\brecipe", r"\bcook\b", r"\bcoo?king\b", r"\bingredients\b", r"\bdiet\b", r"\bcalories\b", r"\bfitness\b", r"\bgym\b",
+    r"\bdoctor\b", r"\bhospital\b", r"\bmedicine\b", r"\bsymptoms\b", r"\bdisease\b",
+    r"\btranslate\b", r"\btranslation\b",
+    # ── Sports / news / politics ──
+    r"\bcricket match\b", r"\bfootball match\b", r"\bworld cup\b", r"\bipl\b", r"\bscore\b",
+    r"\bnews (today|headlines)\b", r"\bpolitics\b", r"\belection(s)?\b",
+    # ── Travel / bookings ──
     r"\bitinerary\b", r"\bitenary\b", r"\bflight (booking|ticket|reservation)\b",
-    r"\bhotel (booking|reservation)\b",
+    r"\bhotel (booking|reservation)\b", r"\bpassport\b", r"\bvisa for\b",
+    # ── Business writing / academics ──
+    r"\bwrite (an |a )?(email|letter|essay|paragraph|report)\b",
+    r"\bcompose (an |a )?(email|letter)\b", r"\bdraft (an |a )?(email|letter|resignation)\b",
+    r"\bresignation\b", r"\bresume\b", r"\bcover letter\b", r"\bessay\b", r"\bassignment\b",
+    r"\bthesis\b", r"\bproject report\b",
 ]
+
+# Response-side validator: the bot must NEVER output code. If the model still
+# answers a (roundabout) coding question, this catches code-shaped replies and
+# replaces them with the standard decline — regardless of how it was asked.
+CODE_SIGNALS = [
+    r"```", r"~~~",
+    r"\bdef\s+\w+\s*\(",
+    r"\bfunction\s+\w+\s*\(",
+    r"\bpublic\s+(static\s+)?[\w<>\[\], ]+\s+\w+\s*\(",
+    r"\bclass\s+\w+\s*[:\{]",
+    r"\bconst\s+\w+\s*=\s*[({]",
+    r"\blet\s+\w+\s*=",
+    r"\bvar\s+\w+\s*=",
+    r"\bprint\(\s*['\"]",
+]
+
+
+def _looks_like_code(text):
+    if not text:
+        return False
+    return any(re.search(p, text) for p in CODE_SIGNALS)
+
+
+def _finalize_reply(reply):
+    if reply and _looks_like_code(reply):
+        return OUT_OF_SCOPE_REPLY
+    return reply
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
@@ -293,7 +344,7 @@ def get_ai_response(phone, profile_name):
                     response = http_client.post(url, json=payload, headers=headers)
                     response.raise_for_status()
                     res_data = response.json()
-                    return res_data["choices"][0]["message"]["content"]
+                    return _finalize_reply(res_data["choices"][0]["message"]["content"])
                 except httpx.HTTPStatusError as he:
                     if he.response.status_code == 429:
                         # Parse Retry-After header if provided by Groq
