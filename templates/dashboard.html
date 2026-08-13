@@ -290,6 +290,9 @@
                                     <option value="Submersible Cables">Submersible Cables</option>
                                     <option value="Control Cables">Control Cables</option>
                                 </select>
+                                <button class="btn-add-cable" id="add-cable-btn" title="Add a new cable to the catalog">
+                                    <i class="fa-solid fa-plus"></i> Add Cable
+                                </button>
                             </div>
                             <span class="info-note"><i class="fa-solid fa-circle-info text-cyan"></i> Click on the Price or Stock fields in the table below to edit product details directly.</span>
                         </div>
@@ -304,6 +307,7 @@
                                         <th>Cores</th>
                                         <th>Est. Price (per meter)</th>
                                         <th>Stock Status</th>
+                                        <th></th>
                                     </tr>
                                 </thead>
                                 <tbody id="catalog-table-body">
@@ -313,6 +317,83 @@
                         </div>
                     </div>
                 </section>
+
+                <!-- Add Cable Modal -->
+                <div class="modal-overlay hidden" id="add-cable-modal">
+                    <div class="modal-card">
+                        <div class="modal-header">
+                            <h3><i class="fa-solid fa-cable-car"></i> Add New Cable</h3>
+                            <button class="modal-close-btn" id="modal-close-btn"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="modal-form-grid">
+                                <div class="form-group">
+                                    <label for="new-cable-name">Product Name <span class="required">*</span></label>
+                                    <input type="text" id="new-cable-name" placeholder="e.g. Aluminium Power Cable 3.5C x 400 sq mm Armoured" maxlength="200">
+                                </div>
+                                <div class="form-group">
+                                    <label for="new-cable-category">Category <span class="required">*</span></label>
+                                    <select id="new-cable-category">
+                                        <option value="">Select category...</option>
+                                        <option value="Power Cables">Power Cables</option>
+                                        <option value="Power Cable">Power Cable</option>
+                                        <option value="House Wires">House Wires</option>
+                                        <option value="Control Cables">Control Cables</option>
+                                        <option value="Rubber Cable">Rubber Cable</option>
+                                        <option value="Aerial Bunched Cable">Aerial Bunched Cable</option>
+                                        <option value="Instrumentation Wires">Instrumentation Wires</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="new-cable-conductor">Conductor <span class="required">*</span></label>
+                                    <select id="new-cable-conductor">
+                                        <option value="Aluminium">Aluminium</option>
+                                        <option value="Copper">Copper</option>
+                                        <option value="Chromel/Alumel">Chromel/Alumel</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="new-cable-size">Size <span class="required">*</span></label>
+                                    <input type="text" id="new-cable-size" placeholder="e.g. 95 sq mm">
+                                </div>
+                                <div class="form-group">
+                                    <label for="new-cable-core">Cores <span class="required">*</span></label>
+                                    <input type="number" id="new-cable-core" step="0.5" min="1" placeholder="e.g. 3.5" value="1">
+                                </div>
+                                <div class="form-group">
+                                    <label for="new-cable-insulation">Insulation</label>
+                                    <select id="new-cable-insulation">
+                                        <option value="PVC">PVC</option>
+                                        <option value="XLPE" selected>XLPE</option>
+                                        <option value="FRLS PVC">FRLS PVC</option>
+                                        <option value="EPR">EPR</option>
+                                        <option value="Triple Layer PVC">Triple Layer PVC</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="new-cable-price">Price per Meter (INR) <span class="required">*</span></label>
+                                    <input type="number" id="new-cable-price" step="0.01" min="0" placeholder="e.g. 182.13">
+                                </div>
+                                <div class="form-group">
+                                    <label for="new-cable-stock">Stock Status</label>
+                                    <select id="new-cable-stock">
+                                        <option value="In Stock">In Stock</option>
+                                        <option value="Out of Stock">Out of Stock</option>
+                                        <option value="Custom Only">Custom Only</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin-top: 0.5rem;">
+                                <label for="new-cable-specs">Specifications / Notes</label>
+                                <input type="text" id="new-cable-specs" placeholder="e.g. XLPE insulated, PVC sheathed, armoured" maxlength="500">
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn-modal-cancel" id="modal-cancel-btn">Cancel</button>
+                            <button class="btn-modal-save" id="modal-save-btn"><i class="fa-solid fa-plus"></i> Add to Catalog</button>
+                        </div>
+                    </div>
+                </div>
                 
                 <!-- Tab: Settings -->
                 <section id="settings-tab" class="tab-panel">

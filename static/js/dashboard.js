@@ -680,7 +680,7 @@ async function loadCatalogData() {
     const tableBody = document.getElementById('catalog-table-body');
     tableBody.innerHTML = `
         <tr>
-            <td colspan="7" class="text-center" style="padding: 3rem 0;">
+            <td colspan="8" class="text-center" style="padding: 3rem 0;">
                 <i class="fa-solid fa-spinner fa-spin"></i> Loading catalog...
             </td>
         </tr>
@@ -711,7 +711,7 @@ async function loadCatalogData() {
         if (filteredProducts.length === 0) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="7" class="text-center text-muted" style="padding: 3rem 0;">
+                    <td colspan="8" class="text-center text-muted" style="padding: 3rem 0;">
                         No products found
                     </td>
                 </tr>
@@ -746,6 +746,11 @@ async function loadCatalogData() {
                         ${stockOptions}
                     </select>
                 </td>
+                <td>
+                    <button class="btn-delete-product" data-name="${product.name}" title="Delete this product">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </td>
             `;
             tableBody.appendChild(tr);
         });
@@ -763,11 +768,18 @@ async function loadCatalogData() {
                 updateProductStock(this.getAttribute('data-name'), this.value, this);
             });
         });
+        
+        // Add click event to delete buttons
+        document.querySelectorAll('.btn-delete-product').forEach(btn => {
+            btn.addEventListener('click', function() {
+                deleteProduct(this.getAttribute('data-name'));
+            });
+        });
     } catch (e) {
         console.error('Error loading catalog:', e);
         tableBody.innerHTML = `
             <tr>
-                <td colspan="7" class="text-center text-rose-500" style="padding: 3rem 0;">
+                <td colspan="8" class="text-center text-rose-500" style="padding: 3rem 0;">
                     Failed to load catalog products
                 </td>
             </tr>
@@ -876,6 +888,147 @@ async function updateProductStock(productName, stockStatus, selectElement) {
     }
 }
 
+// Delete a product from the catalog
+async function deleteProduct(productName) {
+    if (!confirm(`Are you sure you want to delete "${productName}" from the catalog?\n\nThis action cannot be undone.`)) {
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/api/products/${encodeURIComponent(productName)}`, {
+            method: 'DELETE'
+        });
+        
+        if (res.ok) {
+            showToast(`"${productName}" removed from catalog`);
+            loadCatalogData();
+        } else {
+            const data = await res.json();
+            showToast(data.detail || 'Failed to delete product', true);
+        }
+    } catch (err) {
+        console.error('Error deleting product:', err);
+        showToast('Error deleting product', true);
+    }
+}
+
+// -------------------------------------------------------------
+// Add Cable Modal Logic
+// -------------------------------------------------------------
+const addCableBtn = document.getElementById('add-cable-btn');
+const addCableModal = document.getElementById('add-cable-modal');
+const modalCloseBtn = document.getElementById('modal-close-btn');
+const modalCancelBtn = document.getElementById('modal-cancel-btn');
+const modalSaveBtn = document.getElementById('modal-save-btn');
+
+function openAddCableModal() {
+    // Dynamically populate category dropdown from current catalog data
+    const catSelect = document.getElementById('new-cable-category');
+    if (catSelect && catalogData.length > 0) {
+        const existingCategories = [...new Set(catalogData.map(p => p.category).filter(Boolean))].sort();
+        // Rebuild options preserving any custom categories
+        const defaultOpts = ['Power Cables', 'Power Cable', 'House Wires', 'Control Cables', 'Rubber Cable', 'Aerial Bunched Cable', 'Instrumentation Wires'];
+        const allCats = [...new Set([...defaultOpts, ...existingCategories])].sort();
+        catSelect.innerHTML = '<option value="">Select category...</option>' + allCats.map(c => `<option value="${c}">${c}</option>`).join('');
+    }
+    
+    addCableModal.classList.remove('hidden');
+}
+
+function closeAddCableModal() {
+    addCableModal.classList.add('hidden');
+    // Reset form
+    document.getElementById('new-cable-name').value = '';
+    document.getElementById('new-cable-category').value = '';
+    document.getElementById('new-cable-conductor').value = 'Aluminium';
+    document.getElementById('new-cable-size').value = '';
+    document.getElementById('new-cable-core').value = '1';
+    document.getElementById('new-cable-insulation').value = 'XLPE';
+    document.getElementById('new-cable-price').value = '';
+    document.getElementById('new-cable-stock').value = 'In Stock';
+    document.getElementById('new-cable-specs').value = '';
+}
+
+if (addCableBtn) addCableBtn.addEventListener('click', openAddCableModal);
+if (modalCloseBtn) modalCloseBtn.addEventListener('click', closeAddCableModal);
+if (modalCancelBtn) modalCancelBtn.addEventListener('click', closeAddCableModal);
+
+// Close modal on overlay click (but not on card click)
+if (addCableModal) {
+    addCableModal.addEventListener('click', (e) => {
+        if (e.target === addCableModal) closeAddCableModal();
+    });
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && addCableModal && !addCableModal.classList.contains('hidden')) {
+        closeAddCableModal();
+    }
+});
+
+// Save new cable
+if (modalSaveBtn) {
+    modalSaveBtn.addEventListener('click', async () => {
+        const name = document.getElementById('new-cable-name').value.trim();
+        const category = document.getElementById('new-cable-category').value;
+        const conductor = document.getElementById('new-cable-conductor').value;
+        const size = document.getElementById('new-cable-size').value.trim();
+        const core = parseFloat(document.getElementById('new-cable-core').value);
+        const insulation = document.getElementById('new-cable-insulation').value;
+        const price = parseFloat(document.getElementById('new-cable-price').value);
+        const stockStatus = document.getElementById('new-cable-stock').value;
+        const specs = document.getElementById('new-cable-specs').value.trim();
+        
+        // Validate
+        if (!name) { showToast('Product name is required', true); return; }
+        if (!category) { showToast('Please select a category', true); return; }
+        if (!size) { showToast('Size is required', true); return; }
+        if (isNaN(core) || core < 0.5) { showToast('Cores must be at least 0.5', true); return; }
+        if (isNaN(price) || price < 0) { showToast('Please enter a valid price', true); return; }
+        
+        modalSaveBtn.disabled = true;
+        modalSaveBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...';
+        
+        try {
+            const res = await fetch('/api/products', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name,
+                    category,
+                    conductor,
+                    size,
+                    core,
+                    insulation,
+                    price_per_meter: price,
+                    stock_status: stockStatus,
+                    specifications: specs
+                })
+            });
+            
+            const data = await res.json();
+            
+            if (res.ok && data.success) {
+                showToast(`"${name}" added to catalog successfully!`);
+                closeAddCableModal();
+                loadCatalogData();
+            } else {
+                let errorMsg = 'Failed to add product';
+                if (typeof data.detail === 'string') {
+                    errorMsg = data.detail;
+                }
+                showToast(errorMsg, true);
+            }
+        } catch (err) {
+            console.error('Error creating product:', err);
+            showToast('Error adding product to catalog', true);
+        } finally {
+            modalSaveBtn.disabled = false;
+            modalSaveBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Add to Catalog';
+        }
+    });
+}
 // -------------------------------------------------------------
 // Global Actions
 // -------------------------------------------------------------

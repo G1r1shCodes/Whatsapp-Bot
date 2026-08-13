@@ -21,6 +21,14 @@ os.makedirs("templates", exist_ok=True)
 # Mount static folder
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Serve catalogue PDF
+@app.get("/catalogue/CATALOUGE.pdf")
+async def serve_catalogue():
+    catalogue_path = os.path.join("data", "raw_catalogues", "CATALOUGE.pdf")
+    if os.path.exists(catalogue_path):
+        return FileResponse(catalogue_path, media_type="application/pdf", filename="KDI_Power_Catalogue.pdf")
+    return JSONResponse({"error": "Catalogue not found"}, status_code=404)
+
 @app.get("/")
 async def root():
     return RedirectResponse(url="/dashboard")

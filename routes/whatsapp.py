@@ -215,6 +215,38 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
                 logger.error(f"Error sending Meta text: {e}")
                 raise e
 
+def send_whatsapp_document(to_phone: str, document_url: str, filename: str, caption: str = ""):
+    """Sends a PDF/document to the user via Meta Cloud API."""
+    if not META_ACCESS_TOKEN or not META_PHONE_NUMBER_ID:
+        logger.error("Missing Meta API credentials in environment variables.")
+        return
+    
+    url = f"https://graph.facebook.com/v21.0/{META_PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {META_ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": to_phone,
+        "type": "document",
+        "document": {
+            "link": document_url,
+            "filename": filename
+        }
+    }
+    if caption:
+        payload["document"]["caption"] = caption
+    
+    try:
+        response = http_client.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        logger.info(f"Sent document '{filename}' to {to_phone} successfully")
+    except Exception as e:
+        logger.error(f"Error sending document to {to_phone}: {e}")
+
 @router.get("/webhook")
 async def verify_webhook(request: Request):
     """Handles Meta Webhook Verification Challenge."""
@@ -291,6 +323,14 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
                 reply_text = f"📄 *Your Inquiry Status*\n\n🔹 *Inquiry ID:* #{lead['id']}\n🔹 *Product:* {lead['product_interest']}\n🔹 *Quantity:* {lead['quantity']}\n🔹 *Status:* {status_emoji} *{lead['status']}*\n🔹 *Updated:* {lead['updated_at'][:16]}"
             else:
                 reply_text = "❌ No active inquiry found for your number. Feel free to request a quote by chatting with me!"
+        elif lower_msg in ["catalogue", "catalog", "catalouge", "cataloge", "brochure", "pdf", "product catalogue", "product catalog", "send catalogue", "send catalog", "download catalogue", "download catalog", "price list pdf"]:
+            # Send the catalogue PDF directly
+            base_url = os.environ.get("BASE_URL", "https://whatsapp-bot-4ukk.onrender.com")
+            catalogue_url = f"{base_url}/catalogue/CATALOUGE.pdf"
+            reply_text = "📄 Here is our complete *KDI Power Product Catalogue*!\n\nBrowse through our full range of electrical wires and cables. Feel free to ask about any product you see! 💬"
+            db.log_chat_message(from_number, "outbound", reply_text)
+            send_whatsapp_document(from_number, catalogue_url, "KDI_Power_Catalogue.pdf", caption=reply_text)
+            return  # Early return — document is sent, no further processing needed
         elif lower_msg == "browse products":
             reply_text = ""
             cat_match = True
@@ -334,11 +374,25 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
             partial_match = re.search(r'\[LEAD_PARTIAL:\s*(\{.*?\})\s*\]', ai_response, re.DOTALL)
             status_match = "[LEAD_STATUS_CHECK]" in ai_response
             menu_match = "[SHOW_MAIN_MENU]" in ai_response
+            catalogue_match = "[SEND_CATALOGUE]" in ai_response
             image_match = re.search(r'\[IMAGE:\s*(.+?)\s*\]', ai_response)
             
             if menu_match:
                 reply_text = reply_text.replace("[SHOW_MAIN_MENU]", "").strip()
                 
+            if catalogue_match:
+                reply_text = reply_text.replace("[SEND_CATALOGUE]", "").strip()
+                base_url = os.environ.get("BASE_URL", "https://whatsapp-bot-4ukk.onrender.com")
+                catalogue_url = f"{base_url}/catalogue/CATALOUGE.pdf"
+                # Send the text reply first, then the document
+                if reply_text:
+                    reply_text = reply_text.replace("**", "*")
+                    reply_text = re.sub(r'\n{3,}', '\n\n', reply_text).strip()
+                    db.log_chat_message(from_number, "outbound", reply_text)
+                    send_whatsapp_message(from_number, reply_text)
+                send_whatsapp_document(from_number, catalogue_url, "KDI_Power_Catalogue.pdf", caption="📄 KDI Power Product Catalogue")
+                return  # Early return — handled completely
+
             if image_match:
                 image_file = image_match.group(1).strip()
                 reply_text = re.sub(r'\[IMAGE:\s*.+?\s*\]', '', reply_text).strip()

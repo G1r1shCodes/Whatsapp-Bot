@@ -407,6 +407,72 @@ async def update_product_api(product_name: str, request: Request):
     db.update_product_price_and_stock(product_name, price, stock_status)
     return {"success": True, "product": product_name}
 
+@router.post("/api/products")
+async def create_product_api(request: Request):
+    """Creates a new product in the catalog."""
+    auth.require_auth(request)
+    payload = await request.json()
+    
+    name = (payload.get("name") or "").strip()
+    category = (payload.get("category") or "").strip()
+    conductor = (payload.get("conductor") or "").strip()
+    size = (payload.get("size") or "").strip()
+    core = payload.get("core")
+    insulation = (payload.get("insulation") or "XLPE").strip()
+    price = payload.get("price_per_meter")
+    stock_status = (payload.get("stock_status") or "In Stock").strip()
+    specifications = (payload.get("specifications") or "").strip()
+    
+    # Validate required fields
+    if not name or not category or not conductor or not size:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Product name, category, conductor, and size are required.")
+    
+    if price is not None and (not isinstance(price, (int, float)) or price < 0):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Price must be a non-negative number.")
+    
+    # Check if product already exists
+    existing = db.get_product_by_id(name)
+    if existing:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=409, detail=f"A product with the name '{name}' already exists. Use the edit feature to update it.")
+    
+    product_data = {
+        "name": name[:200],
+        "category": category[:100],
+        "conductor": conductor[:100],
+        "size": size[:50],
+        "core": float(core) if core else 1,
+        "insulation": insulation[:100],
+        "price_per_meter": float(price) if price else 0,
+        "stock_status": stock_status,
+        "specifications": specifications[:500]
+    }
+    
+    result = db.upsert_product(product_data)
+    if result:
+        return {"success": True, "product": name, "action": result}
+    else:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail="Failed to create product.")
+
+@router.delete("/api/products/{product_name}")
+async def delete_product_api(product_name: str, request: Request):
+    """Deletes a product from the catalog."""
+    auth.require_auth(request)
+    
+    import urllib.parse
+    decoded_name = urllib.parse.unquote(product_name)
+    
+    existing = db.get_product_by_id(decoded_name)
+    if not existing:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=f"Product '{decoded_name}' not found.")
+    
+    db.request_supabase("products", "DELETE", params={"name": f"eq.{decoded_name}"})
+    return {"success": True, "product": decoded_name, "message": "Product deleted successfully."}
+
 @router.get("/api/settings")
 def get_settings_api(request: Request):
     auth.require_auth(request)

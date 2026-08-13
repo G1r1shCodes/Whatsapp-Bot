@@ -174,6 +174,18 @@ When showing an image, ALWAYS mention the specific product name in your message 
 Use ONLY filenames listed in Available Images. Never invent filenames.
 
 ========================
+CATALOGUE / BROCHURE
+========================
+
+If the user asks for the catalogue, brochure, product PDF, or full product list download:
+Output exactly (on its own line):
+[SEND_CATALOGUE]
+
+You may include a short friendly message along with the tag, such as:
+"Here is our complete product catalogue! Feel free to ask about any product you see."
+[SEND_CATALOGUE]
+
+========================
 CONTACT SALES
 ========================
 
