@@ -1638,6 +1638,70 @@ if (visitorSendBtn) {
     });
 }
 
+// Delete single visitor chat
+async function deleteSelectedVisitor() {
+    if (!selectedVisitor) {
+        showToast('Please select a visitor chat first', true);
+        return;
+    }
+    
+    const cleanPhone = String(selectedVisitor.phone || '').replace(/[^0-9]/g, '');
+    if (!confirm(`Delete this visitor chat for +${cleanPhone}?\n\nThis removes their full conversation history.`)) {
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/api/visitors/${encodeURIComponent(selectedVisitor.phone)}`, { method: 'DELETE' });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            showToast(`Visitor chat for +${cleanPhone} deleted`);
+            selectedVisitor = null;
+            const emptyState = document.getElementById('visitor-empty-state');
+            const contentArea = document.getElementById('visitor-content-area');
+            if (emptyState) emptyState.classList.remove('hidden');
+            if (contentArea) contentArea.classList.add('hidden');
+            loadVisitorData();
+        } else {
+            showToast(data.detail || 'Failed to delete visitor chat', true);
+        }
+    } catch (e) {
+        console.error('Error deleting visitor chat:', e);
+        showToast('Error deleting visitor chat', true);
+    }
+}
+
+window.deleteSelectedVisitor = deleteSelectedVisitor;
+
+// Clear all visitor chats
+async function clearAllVisitors() {
+    if (!confirm('⚠️ ARE YOU SURE?\n\nThis will permanently delete ALL visitor chats (non-lead conversations).\nThis action cannot be undone!')) {
+        return;
+    }
+    
+    try {
+        const res = await fetch('/api/visitors/clear-all', { method: 'DELETE' });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            showToast(`Deleted ${data.deleted || ''} visitor chats`);
+            selectedVisitor = null;
+            const emptyState = document.getElementById('visitor-empty-state');
+            const contentArea = document.getElementById('visitor-content-area');
+            if (emptyState) emptyState.classList.remove('hidden');
+            if (contentArea) contentArea.classList.add('hidden');
+            loadVisitorData();
+        } else {
+            showToast(data.detail || 'Failed to clear visitor chats', true);
+        }
+    } catch (e) {
+        console.error('Error clearing visitor chats:', e);
+        showToast('Error clearing visitor chats', true);
+    }
+}
+
+window.clearAllVisitors = clearAllVisitors;
+
 // Upgrade Lead Manager Send to handle file attachments
 const origHandleManagerSendMessage = window.handleManagerSendMessage;
 window.handleManagerSendMessage = async function() {

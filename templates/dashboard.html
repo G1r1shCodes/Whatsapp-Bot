@@ -297,9 +297,14 @@
                 <section id="visitors-tab" class="tab-panel">
                     <div class="inbox-layout">
                         <div class="leads-list-panel card">
-                            <div class="inbox-header">
-                                <h3><i class="fa-solid fa-users text-cyan"></i> Visitor Chats <span class="badge" id="visitor-count-badge">0</span></h3>
-                                <p class="help-text">People who chatted with the bot without submitting a quote inquiry</p>
+                            <div class="inbox-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
+                                <div>
+                                    <h3><i class="fa-solid fa-users text-cyan"></i> Visitor Chats <span class="badge" id="visitor-count-badge">0</span></h3>
+                                    <p class="help-text">People who chatted with the bot without submitting a quote inquiry</p>
+                                </div>
+                                <button id="clear-all-visitors-btn" onclick="clearAllVisitors()" title="Delete all visitor chats" style="background: rgba(239, 68, 68, 0.15); color: #f87171; padding: 5px 10px; border-radius: 6px; font-size: 0.75rem; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(239, 68, 68, 0.3); cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='rgba(239, 68, 68, 0.3)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.15)'">
+                                    <i class="fa-solid fa-trash-can"></i> Clear All
+                                </button>
                             </div>
                             <div class="inbox-search" style="flex-shrink: 0;">
                                 <i class="fa-solid fa-magnifying-glass"></i>
@@ -331,9 +336,14 @@
                                             <p><span class="badge badge-visitor"><i class="fa-solid fa-user-clock"></i> Visitor (No Quote Submitted)</span></p>
                                         </div>
                                     </div>
-                                    <a id="visitor-wa-btn" href="#" target="_blank" class="btn btn-sm" style="background: #25D366; color: #fff; text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
-                                        <i class="fa-brands fa-whatsapp" style="font-size: 1rem;"></i> Chat on WhatsApp Web
-                                    </a>
+                                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                        <a id="visitor-wa-btn" href="#" target="_blank" class="btn btn-sm" style="background: #25D366; color: #fff; text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                                            <i class="fa-brands fa-whatsapp" style="font-size: 1rem;"></i> Chat on WhatsApp Web
+                                        </a>
+                                        <button id="delete-visitor-btn" onclick="deleteSelectedVisitor()" title="Delete this visitor chat" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.2s;" onmouseover="this.style.background='rgba(239, 68, 68, 0.3)'" onmouseout="this.style.background='rgba(239, 68, 68, 0.15)'">
+                                            <i class="fa-solid fa-trash-can"></i> Delete
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="chat-transcript-card">
                                     <div class="chat-container-bubble" id="visitor-chat-bubbles">

@@ -622,6 +622,23 @@ def get_visitor_chats():
     visitors_list.sort(key=lambda x: x["last_active"], reverse=True)
     return visitors_list
 
+def delete_visitor_chats(phone):
+    """Deletes chat history for a single non-lead visitor phone."""
+    request_supabase("chat_history", "DELETE", params={"phone": f"eq.{phone}"})
+
+def clear_visitor_chats():
+    """Deletes chat history for every phone that is not a registered lead.
+    Returns the number of visitor chats deleted."""
+    all_chats = request_supabase("chat_history", "GET", params={"order": "created_at.desc", "limit": "500"}) or []
+    all_leads = request_supabase("leads", "GET", params={"limit": "500"}) or []
+
+    lead_phones = set(l.get("phone") for l in all_leads if l.get("phone"))
+    visitor_phones = set(c.get("phone") for c in all_chats if c.get("phone") and c.get("phone") not in lead_phones)
+
+    for phone in visitor_phones:
+        request_supabase("chat_history", "DELETE", params={"phone": f"eq.{phone}"})
+    return len(visitor_phones)
+
 def get_all_outbound_messages():
     """Returns history of direct manager outbound messages."""
     chats = request_supabase("chat_history", "GET", params={"direction": "eq.outbound", "order": "created_at.desc", "limit": "100"}) or []

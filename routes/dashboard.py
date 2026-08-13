@@ -339,6 +339,28 @@ def get_visitors_api(request: Request):
     auth.require_auth(request)
     return db.get_visitor_chats()
 
+@router.delete("/api/visitors/clear-all")
+def clear_all_visitors_api(request: Request):
+    """Deletes all non-lead visitor chats from chat history."""
+    auth.require_auth(request)
+    deleted = db.clear_visitor_chats()
+    return {"success": True, "deleted": deleted}
+
+@router.delete("/api/visitors/{phone}")
+def delete_visitor_api(phone: str, request: Request):
+    """Deletes a single visitor's chat history (non-lead phones only)."""
+    auth.require_auth(request)
+    # Guard: never delete chat history for a phone that now has a lead record
+    existing_lead = db.get_lead_by_phone(phone)
+    if existing_lead:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=400,
+            detail="This phone now has a lead record. Delete the lead from the Leads Inbox instead."
+        )
+    db.delete_visitor_chats(phone)
+    return {"success": True, "phone": phone}
+
 @router.get("/api/outbound-messages")
 def get_outbound_messages_api(request: Request):
     """Returns list of manager direct outbound messages."""
