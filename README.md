@@ -4,7 +4,7 @@
 
 
 A state-of-the-art WhatsApp Assistant and Sales Dashboard built for **KDI Power**. 
-It features a conversational AI bot (powered by Groq Llama-3) that interacts with customers on WhatsApp, captures structured sales leads, and persists them to a Supabase PostgreSQL database. The repository also includes a premium, glassmorphic dark-mode Sales Dashboard to visualize analytics, manage the leads inbox, and update the cable products catalog in real-time.
+It features a conversational AI bot (powered by Groq AI) that interacts with customers on WhatsApp, captures structured sales leads, and persists them to a Supabase PostgreSQL database. The repository also includes a premium, glassmorphic dark-mode Sales Dashboard to visualize analytics, manage the leads inbox, and update the cable products catalog in real-time.
 
 ## 🚀 Features
 - **AI WhatsApp Bot:** Understands natural language, answers catalog queries, and captures complex lead details conversationally.
@@ -14,7 +14,7 @@ It features a conversational AI bot (powered by Groq Llama-3) that interacts wit
 
 ## 🛠️ Tech Stack
 - **Backend:** Python, FastAPI, Uvicorn
-- **AI Engine:** Groq API (Llama-3.1-8b-instant)
+- **AI Engine:** Groq API (`openai/gpt-oss-20b`, `groq/compound-mini`)
 - **Database:** Supabase (PostgreSQL / PostgREST)
 - **Messaging:** Meta WhatsApp Cloud API
 - **Frontend:** HTML, Vanilla CSS (CSS Variables, Glassmorphism), Vanilla JS, Chart.js

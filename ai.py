@@ -30,7 +30,7 @@ load_env()
 
 GROQ_API_RAW = os.environ.get("GROQ_API", "")
 GROQ_API_KEYS = [k.strip() for k in re.split(r'[,;\s]+', GROQ_API_RAW) if k.strip()]
-GROQ_MODELS = ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "groq/compound-mini"]
+GROQ_MODELS = ["openai/gpt-oss-20b", "groq/compound-mini", "groq/compound"]
 
 # Deterministic out-of-scope guard: obvious non-KDI requests are declined
 # before the LLM is called, so the model never gets a chance to answer or
@@ -410,7 +410,7 @@ Return ONLY a valid JSON object with exact keys:
         
     url = "https://api.groq.com/openai/v1/chat/completions"
     payload = {
-        "model": "llama-3.1-8b-instant",
+        "model": "openai/gpt-oss-20b",
         "messages": [
             {"role": "system", "content": "You are a JSON extractor. Output valid JSON only."},
             {"role": "user", "content": prompt}
