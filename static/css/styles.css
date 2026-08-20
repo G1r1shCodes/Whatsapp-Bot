@@ -1124,15 +1124,15 @@ body {
 
 .modal-body .form-group input,
 .modal-body .form-group select {
-    background: rgba(10, 14, 23, 0.7);
-    border: 1px solid var(--glass-border);
+    background-color: #121418 !important;
+    border: 1px solid var(--border);
     border-radius: var(--border-radius-md);
-    color: var(--text-primary);
+    color: var(--text-primary) !important;
     padding: 0.55rem 0.75rem;
     font-size: 0.85rem;
     outline: none;
     transition: var(--transition-smooth);
-    font-family: 'Inter', sans-serif;
+    font-family: inherit;
 }
 
 .modal-body .form-group input:focus,
@@ -2404,21 +2404,58 @@ body::-webkit-scrollbar-thumb:hover {
     gap: 0.4rem;
     align-items: center;
     padding: 0.5rem;
-    background: rgba(10, 14, 23, 0.3);
+    background: rgba(10, 14, 23, 0.5);
     border: 1px solid var(--border);
     border-radius: 8px;
 }
 
 .tpl-button-row select,
 .tpl-button-row input {
-    background: rgba(255, 255, 255, 0.05);
+    background-color: #121418 !important;
     border: 1px solid var(--border);
-    border-radius: 5px;
-    color: #fff;
-    padding: 0.35rem 0.5rem;
+    border-radius: 6px;
+    color: #ededef !important;
+    padding: 0.4rem 0.6rem;
     font-size: 0.78rem;
     outline: none;
     font-family: inherit;
+    transition: all 0.15s ease;
+}
+
+.tpl-button-row select:focus,
+.tpl-button-row input:focus {
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* GLOBAL SELECT & OPTION DARK MODE OVERRIDES (UI/UX PRO MAX)   */
+/* ═══════════════════════════════════════════════════════════ */
+
+select {
+    background-color: #121418 !important;
+    color: #ededef !important;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.55rem 0.85rem;
+    font-size: 0.82rem;
+    outline: none;
+    font-family: inherit;
+}
+
+select option,
+select optgroup {
+    background-color: #121418 !important;
+    color: #ededef !important;
+    padding: 0.6rem 0.85rem;
+}
+
+select option:hover,
+select option:focus,
+select option:active,
+select option:checked {
+    background-color: #1a2332 !important;
+    color: var(--accent-cyan) !important;
 }
 
 .tpl-button-row select { width: 120px; flex-shrink: 0; }
