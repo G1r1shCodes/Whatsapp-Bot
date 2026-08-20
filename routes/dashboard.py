@@ -273,6 +273,15 @@ async def update_lead_status_api(lead_id: int, request: Request):
     db.update_lead_status(lead_id, status)
     return {"success": True, "lead_id": lead_id, "status": status}
 
+@router.put("/api/leads/{lead_id}")
+async def update_lead_details_api(lead_id: int, request: Request):
+    """Updates full lead details (name, company, email, location, product, quantity, requirements)."""
+    auth.require_auth(request)
+    data = await request.json()
+    db.update_lead_details(lead_id, data)
+    return {"success": True, "lead_id": lead_id, "message": "Lead details updated successfully."}
+
+
 @router.delete("/api/leads/clear-all")
 def clear_all_leads_api(request: Request):
     """Deletes all leads and chat history from Supabase database."""
@@ -368,21 +377,29 @@ def convert_visitor_api(phone: str, request: Request):
 
     # Carry over the visitor's most recent inbound message as context
     context = "Converted from visitor chat."
-    chats = db.get_chat_history(phone, limit=5)
+    chats = db.get_chat_history(phone, limit=20)
     inbound_msgs = [c for c in chats if c.get("direction") == "inbound"]
     if inbound_msgs:
         body = (inbound_msgs[-1].get("body") or "").strip()
         if body:
             context = f"Converted from visitor chat. Last message: {body[:200]}"
 
-    result = db.convert_visitor_to_lead(phone, context)
+    # Use AI to extract lead info from chat history
+    extracted_details = {}
+    try:
+        from ai import extract_lead_info_from_history
+        extracted_details = extract_lead_info_from_history(chats)
+    except Exception as e:
+        logger.error(f"Error extracting lead info from chat history: {e}")
+
+    result = db.convert_visitor_to_lead(phone, context, extracted_details=extracted_details)
     if result == "exists":
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="This phone already has a lead record in the Leads Inbox.")
     if result != "created":
         from fastapi import HTTPException
         raise HTTPException(status_code=500, detail="Failed to convert visitor to lead. Please check the Supabase connection.")
-    return {"success": True, "phone": phone, "message": "Visitor converted to lead successfully."}
+    return {"success": True, "phone": phone, "message": "Visitor converted to lead successfully.", "details": extracted_details}
 
 @router.get("/api/outbound-messages")
 def get_outbound_messages_api(request: Request):

@@ -441,6 +441,20 @@ def update_lead_status(lead_id, status):
     }
     request_supabase("leads", "PATCH", data=data, params={"id": f"eq.{lead_id}"})
 
+def update_lead_details(lead_id, lead_data):
+    """Updates any lead fields (name, company, email, location, product_interest, quantity, requirements, status)."""
+    data = {
+        "updated_at": datetime.utcnow().isoformat() + "Z"
+    }
+    allowed_fields = ["name", "company", "email", "location", "product_interest", "quantity", "requirements", "status"]
+    for field in allowed_fields:
+        if field in lead_data and lead_data[field] is not None:
+            data[field] = lead_data[field]
+            
+    res = request_supabase("leads", "PATCH", data=data, params={"id": f"eq.{lead_id}"})
+    return res
+
+
 def delete_lead(lead_id):
     params = {"id": f"eq.{lead_id}"}
     lead = request_supabase("leads", "GET", params=params)
@@ -626,22 +640,23 @@ def delete_visitor_chats(phone):
     """Deletes chat history for a single non-lead visitor phone."""
     request_supabase("chat_history", "DELETE", params={"phone": f"eq.{phone}"})
 
-def convert_visitor_to_lead(phone, context=""):
-    """Creates a lead record from a non-lead visitor chat.
+def convert_visitor_to_lead(phone, context="", extracted_details=None):
+    """Creates a lead record from a non-lead visitor chat using AI-extracted or default details.
     Returns 'created', 'exists' (phone already has a lead), or None on error."""
     existing = get_lead_by_phone(phone)
     if existing:
         return "exists"
 
+    details = extracted_details or {}
     data = {
         "phone": phone,
-        "name": "Unknown",
-        "company": "Unknown",
-        "email": "",
-        "location": "Unknown",
-        "product_interest": "Unknown",
-        "quantity": "Unknown",
-        "requirements": context or "Converted from visitor chat.",
+        "name": details.get("name") or "Unknown",
+        "company": details.get("company") or "Unknown",
+        "email": details.get("email") or "",
+        "location": details.get("location") or "Unknown",
+        "product_interest": details.get("product_interest") or "Unknown",
+        "quantity": details.get("quantity") or "Unknown",
+        "requirements": context or details.get("requirements") or "Converted from visitor chat.",
         "status": "New",
         "created_at": datetime.utcnow().isoformat() + "Z",
         "updated_at": datetime.utcnow().isoformat() + "Z"

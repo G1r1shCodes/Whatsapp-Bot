@@ -1,6 +1,7 @@
 import os
 import time
 import re
+import json
 import db
 import httpx
 import warnings
@@ -368,5 +369,80 @@ def get_ai_response(phone, profile_name):
                     break
 
     return "Sorry, I am experiencing a temporary technical issue. Please try again shortly or contact KDI Power support directly at +91-9205333843."
+
+
+def extract_lead_info_from_history(history):
+    """Parses chat history using LLM to extract customer lead details (name, company, email, location, product, quantity)."""
+    if not history:
+        return {}
+        
+    chat_lines = []
+    for msg in history:
+        sender = "Customer" if msg.get("direction") == "inbound" else "Assistant"
+        body = msg.get("body", "").strip()
+        if body and not body.startswith("[LEAD_"):
+            chat_lines.append(f"{sender}: {body}")
+            
+    if not chat_lines:
+        return {}
+        
+    transcript = "\n".join(chat_lines[-15:])
+    
+    prompt = f"""You are an AI lead extractor for KDI Power (electrical cable manufacturer).
+Analyze this WhatsApp chat transcript between a customer and the company assistant.
+Extract any customer details mentioned or implied in the conversation.
+
+Chat Transcript:
+{transcript}
+
+Return ONLY a valid JSON object with exact keys:
+{{
+  "name": "Customer full name if mentioned, otherwise 'Unknown'",
+  "company": "Customer company/business name if mentioned, otherwise 'Unknown'",
+  "email": "Customer email if mentioned, otherwise ''",
+  "location": "Customer city/state/delivery address if mentioned, otherwise 'Unknown'",
+  "product_interest": "Cable/wire product type or specs requested if mentioned, otherwise 'Unknown'",
+  "quantity": "Quantity/meters requested if mentioned, otherwise 'Unknown'"
+}}
+"""
+    if not GROQ_API_KEYS:
+        return {}
+        
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    payload = {
+        "model": "llama-3.1-8b-instant",
+        "messages": [
+            {"role": "system", "content": "You are a JSON extractor. Output valid JSON only."},
+            {"role": "user", "content": prompt}
+        ],
+        "response_format": {"type": "json_object"},
+        "temperature": 0.1
+    }
+    
+    for api_key in GROQ_API_KEYS:
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+        try:
+            res = http_client.post(url, json=payload, headers=headers)
+            res.raise_for_status()
+            data = res.json()
+            raw_json = data["choices"][0]["message"]["content"]
+            parsed = json.loads(raw_json)
+            return {
+                "name": parsed.get("name", "Unknown"),
+                "company": parsed.get("company", "Unknown"),
+                "email": parsed.get("email", ""),
+                "location": parsed.get("location", "Unknown"),
+                "product_interest": parsed.get("product_interest", "Unknown"),
+                "quantity": parsed.get("quantity", "Unknown"),
+            }
+        except Exception as e:
+            logger.error(f"Error in extract_lead_info_from_history: {e}")
+            continue
+            
+    return {}
+
 
 

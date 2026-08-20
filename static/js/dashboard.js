@@ -1,4 +1,4 @@
-﻿// Global state
+// Global state
 let currentTab = 'analytics-tab';
 let leadsData = [];
 let catalogData = [];
@@ -459,6 +459,71 @@ document.getElementById('lead-status-select').addEventListener('change', async (
         showToast('Error updating lead status', true);
     }
 });
+
+// Edit Lead Details Modal Handlers
+function openEditLeadModal() {
+    if (!selectedLead) {
+        showToast('Select a lead first', true);
+        return;
+    }
+    const modal = document.getElementById('edit-lead-modal');
+    if (!modal) return;
+    
+    document.getElementById('edit-lead-name').value = selectedLead.name === 'Unknown' ? '' : selectedLead.name;
+    document.getElementById('edit-lead-company').value = selectedLead.company === 'Unknown' ? '' : selectedLead.company;
+    document.getElementById('edit-lead-email').value = selectedLead.email || '';
+    document.getElementById('edit-lead-location').value = selectedLead.location === 'Unknown' ? '' : selectedLead.location;
+    document.getElementById('edit-lead-product').value = selectedLead.product_interest === 'Unknown' ? '' : selectedLead.product_interest;
+    document.getElementById('edit-lead-quantity').value = selectedLead.quantity === 'Unknown' ? '' : selectedLead.quantity;
+    document.getElementById('edit-lead-requirements').value = selectedLead.requirements || '';
+    
+    modal.classList.remove('hidden');
+}
+window.openEditLeadModal = openEditLeadModal;
+
+const saveLeadDetailsBtn = document.getElementById('save-lead-details-btn');
+if (saveLeadDetailsBtn) {
+    saveLeadDetailsBtn.addEventListener('click', async () => {
+        if (!selectedLead) return;
+        
+        const data = {
+            name: document.getElementById('edit-lead-name').value.trim() || 'Unknown',
+            company: document.getElementById('edit-lead-company').value.trim() || 'Unknown',
+            email: document.getElementById('edit-lead-email').value.trim(),
+            location: document.getElementById('edit-lead-location').value.trim() || 'Unknown',
+            product_interest: document.getElementById('edit-lead-product').value.trim() || 'Unknown',
+            quantity: document.getElementById('edit-lead-quantity').value.trim() || 'Unknown',
+            requirements: document.getElementById('edit-lead-requirements').value.trim()
+        };
+        
+        saveLeadDetailsBtn.disabled = true;
+        saveLeadDetailsBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        
+        try {
+            const res = await fetch(`/api/leads/${selectedLead.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await res.json();
+            if (res.ok && result.success) {
+                showToast('Lead details updated successfully!');
+                Object.assign(selectedLead, data);
+                selectLead(selectedLead);
+                document.getElementById('edit-lead-modal').classList.add('hidden');
+                loadLeadsData();
+            } else {
+                showToast(result.detail || 'Failed to save lead details', true);
+            }
+        } catch (e) {
+            console.error('Error saving lead details:', e);
+            showToast('Error saving lead details', true);
+        } finally {
+            saveLeadDetailsBtn.disabled = false;
+            saveLeadDetailsBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Details';
+        }
+    });
+}
 
 async function loadChatHistory(phone) {
     const chatContainer = document.getElementById('chat-bubbles-container');
