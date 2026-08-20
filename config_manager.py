@@ -1,5 +1,7 @@
 import os
 import json
+import uuid
+from datetime import datetime
 
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
@@ -13,28 +15,8 @@ DEFAULT_CONFIG = {
         {"id": "cat_unarmour", "title": "Unarmoured Cables"},
         {"id": "cat_control", "title": "Control Cables"}
     ],
-    "quick_templates": [
-        {
-            "id": "tpl_address",
-            "title": "📍 Factory & Corporate Address",
-            "text": "🏢 *KDI Power — Corporate Office & Factory*\n📍 Factory Address: H-1243, DSIDC Industrial Area, Narela, New Delhi - 110040\n🏢 Corporate Office: 912, 9th Floor, D Mall, NSP, Pitampura, Delhi - 110034\n📞 +91-9205333843 (Vipul Kumar — Marketing Manager)\n🌐 https://kdipower.com/"
-        },
-        {
-            "id": "tpl_catalogue",
-            "title": "📑 Official Product Catalogue PDF",
-            "text": "📑 *KDI Power Official Product Catalogue*\nDownload our official product catalogue featuring high-grade Aluminium/Copper XLPE Armoured Cables, House Wires, and HT Cables:\n🌐 https://kdipower.com/catalogue/CATALOUGE.pdf"
-        },
-        {
-            "id": "tpl_export",
-            "title": "🚢 Export & International Logistics Info",
-            "text": "🚢 *KDI Power Export Information*\nYes, we export our electrical cables and wires globally with logistics & customs support.\nContact Manager Vipul Kumar (+91-9205333843) for customized export quotes and shipping lead times.\n🌐 https://kdipower.com/"
-        },
-        {
-            "id": "tpl_quote",
-            "title": "💰 Commercial Quote Follow-up",
-            "text": "🎉 *KDI Power Quote Update*\nHi! Our sales team has reviewed your cable requirements. Please let us know if you need a formal commercial quotation or technical datasheet.\n📞 Call/WhatsApp: +91-9205333843\n🌐 https://kdipower.com/"
-        }
-    ]
+    "message_templates": [],
+    "broadcast_history": []
 }
 
 def get_config():
@@ -48,6 +30,9 @@ def get_config():
             for k, v in DEFAULT_CONFIG.items():
                 if k not in config:
                     config[k] = v
+            # Migrate old quick_templates → ignore them (replaced by message_templates)
+            if "quick_templates" in config and "message_templates" not in config:
+                config["message_templates"] = []
             return config
     except Exception:
         return DEFAULT_CONFIG.copy()
@@ -63,3 +48,68 @@ def save_config(new_config):
     except Exception as e:
         print(f"Error saving config: {e}")
         return False
+
+# ── Message Template CRUD ─────────────────────────────────
+
+def get_templates():
+    """Returns the list of saved message templates."""
+    config = get_config()
+    return config.get("message_templates", [])
+
+def save_template(template):
+    """Saves a new template or updates an existing one by id."""
+    config = get_config()
+    templates = config.get("message_templates", [])
+    # Check if template with same id already exists → update
+    existing_idx = next((i for i, t in enumerate(templates) if t["id"] == template["id"]), None)
+    if existing_idx is not None:
+        templates[existing_idx] = template
+    else:
+        templates.append(template)
+    config["message_templates"] = templates
+    save_config(config)
+    return template
+
+def delete_template(template_id):
+    """Deletes a template by id."""
+    config = get_config()
+    templates = config.get("message_templates", [])
+    config["message_templates"] = [t for t in templates if t["id"] != template_id]
+    save_config(config)
+    return True
+
+def create_template_obj(name, category, language, header=None, body="", footer="", buttons=None):
+    """Creates a standardized template object."""
+    return {
+        "id": f"tpl_{uuid.uuid4().hex[:8]}",
+        "name": name,
+        "category": category,
+        "language": language or "en",
+        "header": header,  # { "type": "text"|"image"|"document"|"video", "content": "..." }
+        "body": body,
+        "footer": footer,
+        "buttons": buttons or [],  # [{ "type": "url"|"phone"|"quick_reply", "text": "...", "value": "..." }]
+        "meta_template_id": None,
+        "meta_status": "LOCAL",  # LOCAL | PENDING | APPROVED | REJECTED
+        "meta_rejection_reason": None,
+        "created_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.utcnow().isoformat()
+    }
+
+# ── Broadcast History ─────────────────────────────────────
+
+def get_broadcast_history():
+    """Returns the list of broadcast history entries."""
+    config = get_config()
+    return config.get("broadcast_history", [])
+
+def add_broadcast_entry(entry):
+    """Adds a broadcast history entry."""
+    config = get_config()
+    history = config.get("broadcast_history", [])
+    history.insert(0, entry)
+    # Keep last 100 broadcasts
+    config["broadcast_history"] = history[:100]
+    save_config(config)
+    return entry
+

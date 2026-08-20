@@ -375,102 +375,459 @@
 
                 <!-- 2c. Outbound Direct Messaging Tab -->
                 <section id="outbound-tab" class="tab-panel">
-                    <div class="outbound-grid">
-                        <!-- Direct Message Composer Card -->
-                        <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; overflow-y: auto;">
-                            <div>
-                                <h3 style="color: #fff; font-size: 1.1rem; font-weight: 700; margin-bottom: 0.25rem;"><i class="fa-solid fa-paper-plane text-cyan"></i> Outbound Message Sender</h3>
-                                <p style="color: var(--text-muted); font-size: 0.82rem;">Send direct text, images, or PDF documents directly to any WhatsApp contact.</p>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Recipient Phone Number <span class="required" style="color: var(--accent-rose);">*</span></label>
-                                <div style="display: flex; gap: 0.5rem;">
-                                    <input type="text" id="outbound-phone-input" placeholder="e.g. 919876543210" style="flex-grow: 1; background: rgba(10, 14, 23, 0.7); border: 1px solid var(--border); border-radius: 8px; color: #fff; padding: 0.6rem 0.85rem; font-size: 0.88rem; outline: none;">
-                                    <select id="outbound-contact-select" style="width: 140px; background: rgba(10, 14, 23, 0.7); border: 1px solid var(--border); border-radius: 8px; color: #fff; padding: 0.6rem; font-size: 0.8rem; outline: none;">
-                                        <option value="">Pick Contact...</option>
-                                    </select>
-                                </div>
-                                <p class="help-text" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Enter phone with country code (e.g. 919876543210)</p>
-                            </div>
+                    <!-- Sub-tab Navigation -->
+                    <div class="outbound-subtabs">
+                        <button class="outbound-subtab active" data-outbound-tab="send-tab" id="outbound-subtab-send">
+                            <i class="fa-solid fa-paper-plane"></i> Send Message
+                        </button>
+                        <button class="outbound-subtab" data-outbound-tab="broadcast-tab" id="outbound-subtab-broadcast">
+                            <i class="fa-solid fa-bullhorn"></i> Mass Broadcast
+                        </button>
+                        <button class="outbound-subtab" data-outbound-tab="templates-tab" id="outbound-subtab-templates">
+                            <i class="fa-solid fa-puzzle-piece"></i> Template Manager
+                        </button>
+                    </div>
 
-                            <div class="form-group">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; flex-wrap: wrap; gap: 0.5rem;">
-                                    <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Message Text</label>
-                                    <select id="outbound-template-select" style="background: rgba(6, 182, 212, 0.12); border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 6px; color: var(--accent-cyan); padding: 4px 8px; font-size: 0.75rem; font-weight: 600; outline: none; cursor: pointer;">
-                                        <option value="">⚡ Load Quick Template...</option>
-                                    </select>
+                    <!-- ═══════════════════════════════════════════ -->
+                    <!-- SUB-TAB 1: Send Message                    -->
+                    <!-- ═══════════════════════════════════════════ -->
+                    <div class="outbound-subtab-panel active" id="outbound-send-tab">
+                        <div class="outbound-grid">
+                            <!-- Left: Send Composer -->
+                            <div class="card outbound-composer-card">
+                                <div>
+                                    <h3 style="color: #fff; font-size: 1.1rem; font-weight: 700; margin-bottom: 0.25rem;">
+                                        <i class="fa-solid fa-paper-plane text-cyan"></i> Send Template Message
+                                    </h3>
+                                    <p style="color: var(--text-muted); font-size: 0.82rem;">Send approved templates or quick freeform messages to any WhatsApp contact.</p>
                                 </div>
-                                <div id="quick-template-pills" style="display: flex; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
-                                    <!-- Dynamic quick template pills rendered by JS -->
-                                </div>
-                                <textarea id="outbound-text-input" rows="4" placeholder="Type your WhatsApp message here or select a quick template above..." style="background: rgba(10, 14, 23, 0.7); border: 1px solid var(--border); border-radius: 8px; color: #fff; padding: 0.75rem; font-size: 0.85rem; outline: none; font-family: inherit; resize: vertical;"></textarea>
-                                <div class="outbound-textarea-footer"><span id="outbound-char-count">0 / 4096</span></div>
-                            </div>
 
-                            <!-- File / Media Attachment Dropzone -->
-                            <div class="form-group">
-                                <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Attach File (Image / PDF Document)</label>
-                                <div id="outbound-dropzone" class="media-dropzone" style="border: 2px dashed var(--glass-border); border-radius: 10px; padding: 1.5rem; text-align: center; background: rgba(10, 14, 23, 0.4); cursor: pointer; transition: all 0.2s;">
-                                    <input type="file" id="outbound-file-input" style="display: none;" accept="image/*,.pdf,.doc,.docx">
-                                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 1.8rem; color: var(--accent-cyan); opacity: 0.7; margin-bottom: 0.5rem; display: block;"></i>
-                                    <span style="font-size: 0.85rem; color: #fff; font-weight: 500; display: block;">Click or Drag & Drop File</span>
-                                    <span style="font-size: 0.75rem; color: var(--text-muted);">Supports JPG, PNG, WEBP, and PDF files</span>
-                                </div>
-                                <div id="outbound-file-preview" class="hidden" style="display: none; align-items: center; justify-content: space-between; margin-top: 0.5rem; padding: 8px 12px; background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 6px; color: var(--accent-cyan); font-size: 0.82rem;">
-                                    <span style="display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-paperclip"></i> <strong id="outbound-file-name-txt">file.pdf</strong></span>
-                                    <i class="fa-solid fa-xmark" id="outbound-remove-file-btn" style="cursor: pointer;" title="Remove attachment"></i>
-                                </div>
-                            </div>
-
-                            <button id="outbound-send-btn" class="btn btn-primary" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-indigo)); color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: auto;">
-                                <i class="fa-solid fa-paper-plane"></i> Send Direct Message
-                            </button>
-                        </div>
-
-                        <!-- Outbound WhatsApp Live Preview Card -->
-                        <div class="settings-preview card" style="padding: 1.5rem; display: flex; flex-direction: column; align-items: center;">
-                            <h3 style="margin-bottom: 1.25rem; font-weight: 600; color: #fff; width: 100%; text-align: left; display: flex; align-items: center; justify-content: space-between;">
-                                <span><i class="fa-brands fa-whatsapp text-emerald" style="color: #25d366; margin-right: 6px;"></i> Live Message Preview</span>
-                                <span class="badge" style="background: rgba(37, 211, 102, 0.15); color: #25d366; border: 1px solid rgba(37, 211, 102, 0.3); font-size: 0.7rem;">Outbound</span>
-                            </h3>
-                            <div class="whatsapp-preview" style="width: 100%; max-width: 360px; min-height: 380px; flex-grow: 1; display: flex; flex-direction: column; align-items: flex-end;">
-                                <div class="whatsapp-bubble outbound-bubble" id="outbound-preview-bubble" style="width: 92%; background: #ffffff; border-radius: 8px 0px 8px 8px; margin-top: 0.5rem; position: relative; z-index: 2; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); padding: 0.75rem;">
-                                    <!-- Recipient Indicator Banner -->
-                                    <div id="outbound-preview-recipient" style="font-size: 0.72rem; color: #667781; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px dashed rgba(0,0,0,0.1); font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
-                                        <span>To: <strong id="preview-recipient-phone" style="color: #111b21;">Select Recipient...</strong></span>
-                                        <span style="color: #00a884; font-size: 0.68rem;"><i class="fa-solid fa-paper-plane"></i> Direct</span>
+                                <!-- Recipient Phone -->
+                                <div class="form-group">
+                                    <label class="outbound-label">Recipient Phone Number <span class="required" style="color: var(--accent-rose);">*</span></label>
+                                    <div style="display: flex; gap: 0.5rem;">
+                                        <input type="text" id="outbound-phone-input" placeholder="e.g. 919876543210" class="outbound-input" style="flex-grow: 1;">
+                                        <select id="outbound-contact-select" class="outbound-input" style="width: 160px;">
+                                            <option value="">Pick Contact...</option>
+                                        </select>
                                     </div>
+                                    <p class="help-text" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">Enter phone with country code (e.g. 919876543210)</p>
+                                </div>
 
-                                    <!-- Media / File Attachment Preview Placeholder -->
-                                    <div id="outbound-preview-media-box" style="display: none; background: #f0f2f5; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; align-items: center; gap: 8px; border: 1px solid #e4e6eb;">
-                                        <i class="fa-solid fa-file-pdf" id="outbound-preview-media-icon" style="font-size: 1.4rem; color: #ea4335;"></i>
-                                        <div style="flex-grow: 1; overflow: hidden;">
-                                            <strong id="outbound-preview-media-name" style="font-size: 0.78rem; color: #111b21; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">document.pdf</strong>
-                                            <span id="outbound-preview-media-type" style="font-size: 0.68rem; color: #667781;">Attached File</span>
+                                <!-- Send Mode Toggle -->
+                                <div class="outbound-mode-toggle">
+                                    <button class="mode-btn active" data-mode="template" id="mode-template-btn">
+                                        <i class="fa-solid fa-puzzle-piece"></i> Template
+                                    </button>
+                                    <button class="mode-btn" data-mode="freeform" id="mode-freeform-btn">
+                                        <i class="fa-solid fa-pen"></i> Quick Freeform
+                                    </button>
+                                </div>
+
+                                <!-- Template Mode: Select + Variables -->
+                                <div id="template-send-section">
+                                    <div class="form-group">
+                                        <label class="outbound-label">Select Approved Template</label>
+                                        <select id="outbound-template-select" class="outbound-input">
+                                            <option value="">Choose a template...</option>
+                                        </select>
+                                        <p class="help-text" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">Only <strong>APPROVED</strong> templates can be sent. Create templates in the Template Manager tab.</p>
+                                    </div>
+                                    <div id="template-variables-section" class="hidden">
+                                        <label class="outbound-label">Template Variables</label>
+                                        <div id="template-variables-list" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Freeform Mode: Text + File -->
+                                <div id="freeform-send-section" class="hidden">
+                                    <div class="form-group">
+                                        <label class="outbound-label">Message Text</label>
+                                        <textarea id="outbound-text-input" rows="4" placeholder="Type your WhatsApp message here..." class="outbound-input" style="resize: vertical; font-family: inherit;"></textarea>
+                                        <div class="outbound-textarea-footer"><span id="outbound-char-count">0 / 4096</span></div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="outbound-label">Attach File (Image / PDF)</label>
+                                        <div id="outbound-dropzone" class="media-dropzone outbound-dropzone-area">
+                                            <input type="file" id="outbound-file-input" style="display: none;" accept="image/*,.pdf,.doc,.docx">
+                                            <i class="fa-solid fa-cloud-arrow-up" style="font-size: 1.5rem; color: var(--accent-cyan); opacity: 0.7; margin-bottom: 0.3rem; display: block;"></i>
+                                            <span style="font-size: 0.82rem; color: #fff; font-weight: 500;">Click or Drag & Drop</span>
+                                            <span style="font-size: 0.72rem; color: var(--text-muted);">JPG, PNG, WEBP, PDF</span>
+                                        </div>
+                                        <div id="outbound-file-preview" class="hidden outbound-file-preview-bar">
+                                            <span style="display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-paperclip"></i> <strong id="outbound-file-name-txt">file.pdf</strong></span>
+                                            <i class="fa-solid fa-xmark" id="outbound-remove-file-btn" style="cursor: pointer;" title="Remove attachment"></i>
                                         </div>
                                     </div>
+                                </div>
 
-                                    <!-- Message Text Body -->
-                                    <div class="wa-text" id="outbound-preview-text" style="font-size: 0.88rem; color: #111b21; line-height: 1.45; white-space: pre-wrap; word-break: break-word;">Type your WhatsApp message on the left to see live preview...</div>
+                                <!-- Send Button -->
+                                <button id="outbound-send-btn" class="btn-outbound-send">
+                                    <i class="fa-solid fa-paper-plane"></i> Send Message
+                                </button>
+                            </div>
 
-                                    <!-- WhatsApp Timestamp & Blue Double Check -->
-                                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 6px; font-size: 0.68rem; color: #667781;">
-                                        <span id="outbound-preview-time">19:37</span>
-                                        <i class="fa-solid fa-check-double" style="color: #53bdeb; font-size: 0.78rem;"></i>
+                            <!-- Right: Live WhatsApp Preview -->
+                            <div class="card outbound-preview-card">
+                                <h3 style="margin-bottom: 1rem; font-weight: 600; color: #fff; width: 100%; text-align: left; display: flex; align-items: center; justify-content: space-between;">
+                                    <span><i class="fa-brands fa-whatsapp" style="color: #25d366; margin-right: 6px;"></i> Live Message Preview</span>
+                                    <span class="outbound-badge-green">Outbound</span>
+                                </h3>
+                                <div class="whatsapp-preview" style="width: 100%; max-width: 360px; min-height: 380px; flex-grow: 1; display: flex; flex-direction: column; align-items: flex-end;">
+                                    <div class="whatsapp-bubble outbound-bubble" id="outbound-preview-bubble" style="width: 92%; background: #ffffff; border-radius: 8px 0px 8px 8px; margin-top: 0.5rem; position: relative; z-index: 2; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); padding: 0;">
+                                        <!-- Recipient Banner -->
+                                        <div id="outbound-preview-recipient" style="font-size: 0.72rem; color: #667781; padding: 0.6rem 0.75rem; padding-bottom: 4px; border-bottom: 1px dashed rgba(0,0,0,0.08); font-weight: 600; display: flex; align-items: center; justify-content: space-between;">
+                                            <span>To: <strong id="preview-recipient-phone" style="color: #111b21;">Select Recipient...</strong></span>
+                                            <span style="color: #00a884; font-size: 0.68rem;"><i class="fa-solid fa-paper-plane"></i> Direct</span>
+                                        </div>
+
+                                        <!-- Header Preview (Image / Document / Text) -->
+                                        <div id="outbound-preview-header" style="display: none;">
+                                            <!-- Dynamic: image preview, doc preview, or text header -->
+                                        </div>
+
+                                        <!-- Body Text -->
+                                        <div class="wa-text" id="outbound-preview-text" style="font-size: 0.88rem; color: #111b21; line-height: 1.45; white-space: pre-wrap; word-break: break-word; padding: 0.6rem 0.75rem;">
+                                            <span style="color: #8696a0; font-style: italic;">Select a template or type a message to see live preview...</span>
+                                        </div>
+
+                                        <!-- Footer Preview -->
+                                        <div id="outbound-preview-footer" style="display: none; padding: 0 0.75rem 0.5rem; font-size: 0.72rem; color: #8696a0;"></div>
+
+                                        <!-- Media Attachment Preview (freeform mode) -->
+                                        <div id="outbound-preview-media-box" style="display: none; background: #f0f2f5; border-radius: 0 0 6px 6px; padding: 8px 10px; margin: 0 0.5rem 0.4rem; align-items: center; gap: 8px; border: 1px solid #e4e6eb;">
+                                            <i class="fa-solid fa-file-pdf" id="outbound-preview-media-icon" style="font-size: 1.4rem; color: #ea4335;"></i>
+                                            <div style="flex-grow: 1; overflow: hidden;">
+                                                <strong id="outbound-preview-media-name" style="font-size: 0.78rem; color: #111b21; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">document.pdf</strong>
+                                                <span id="outbound-preview-media-type" style="font-size: 0.68rem; color: #667781;">Attached File</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Buttons Preview -->
+                                        <div id="outbound-preview-buttons" style="display: none; border-top: 1px solid #e4e6eb;">
+                                            <!-- Dynamic button previews -->
+                                        </div>
+
+                                        <!-- Timestamp -->
+                                        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px; padding: 0 0.75rem 0.5rem; font-size: 0.68rem; color: #667781;">
+                                            <span id="outbound-preview-time">19:37</span>
+                                            <i class="fa-solid fa-check-double" style="color: #53bdeb; font-size: 0.78rem;"></i>
+                                        </div>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Outbound Message History -->
+                        <div class="card" style="margin-top: 1.25rem; padding: 1.25rem;">
+                            <h3 style="color: #fff; font-size: 1rem; font-weight: 600; margin-bottom: 1rem;">
+                                <i class="fa-solid fa-clock-rotate-left text-cyan"></i> Recent Sent Messages
+                            </h3>
+                            <div class="table-responsive">
+                                <table class="catalog-table" style="font-size: 0.82rem;">
+                                    <thead>
+                                        <tr>
+                                            <th>Recipient</th>
+                                            <th>Message</th>
+                                            <th>Sent At</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="outbound-history-tbody">
+                                        <tr><td colspan="3" class="text-center text-muted" style="padding: 2rem;">No outbound messages logged yet.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ═══════════════════════════════════════════ -->
+                    <!-- SUB-TAB 2: Mass Broadcast                  -->
+                    <!-- ═══════════════════════════════════════════ -->
+                    <div class="outbound-subtab-panel" id="outbound-broadcast-tab">
+                        <div class="outbound-grid">
+                            <!-- Left: Broadcast Composer -->
+                            <div class="card outbound-composer-card">
+                                <div>
+                                    <h3 style="color: #fff; font-size: 1.1rem; font-weight: 700; margin-bottom: 0.25rem;">
+                                        <i class="fa-solid fa-bullhorn text-cyan"></i> Mass Broadcast
+                                    </h3>
+                                    <p style="color: var(--text-muted); font-size: 0.82rem;">Send an approved template to multiple contacts at once.</p>
+                                </div>
+
+                                <!-- Template Selection -->
+                                <div class="form-group">
+                                    <label class="outbound-label">Select Template <span class="required" style="color: var(--accent-rose);">*</span></label>
+                                    <select id="broadcast-template-select" class="outbound-input">
+                                        <option value="">Choose an approved template...</option>
+                                    </select>
+                                </div>
+
+                                <!-- Template Variables -->
+                                <div id="broadcast-variables-section" class="hidden">
+                                    <label class="outbound-label">Template Variables</label>
+                                    <div id="broadcast-variables-list" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
+                                </div>
+
+                                <!-- Recipients Selection -->
+                                <div class="form-group">
+                                    <label class="outbound-label">Recipients <span class="required" style="color: var(--accent-rose);">*</span></label>
+                                    <div class="broadcast-recipient-actions">
+                                        <button class="btn-action-sm" id="broadcast-select-leads" title="Select All Leads">
+                                            <i class="fa-solid fa-inbox"></i> All Leads
+                                        </button>
+                                        <button class="btn-action-sm" id="broadcast-select-visitors" title="Select All Visitors">
+                                            <i class="fa-solid fa-users"></i> All Visitors
+                                        </button>
+                                        <button class="btn-action-sm" id="broadcast-manual-add" title="Add Numbers Manually">
+                                            <i class="fa-solid fa-keyboard"></i> Manual
+                                        </button>
+                                        <button class="btn-action-sm" id="broadcast-csv-upload" title="Upload CSV">
+                                            <i class="fa-solid fa-file-csv"></i> CSV
+                                        </button>
+                                        <input type="file" id="broadcast-csv-input" accept=".csv,.txt" style="display: none;">
+                                    </div>
+
+                                    <!-- Manual Phone Input -->
+                                    <div id="broadcast-manual-input-area" class="hidden" style="margin-top: 0.5rem;">
+                                        <textarea id="broadcast-manual-phones" rows="3" class="outbound-input" style="resize: vertical; font-family: inherit;" placeholder="Enter phone numbers separated by commas or new lines&#10;e.g. 919876543210, 919876543211"></textarea>
+                                        <button class="btn-action-sm" id="broadcast-add-manual-phones" style="margin-top: 0.35rem;">
+                                            <i class="fa-solid fa-plus"></i> Add Numbers
+                                        </button>
+                                    </div>
+
+                                    <!-- Selected Recipients Chips -->
+                                    <div id="broadcast-recipients-container" style="margin-top: 0.75rem;">
+                                        <div id="broadcast-recipients-chips" class="broadcast-chips-grid">
+                                            <!-- Dynamic phone chips -->
+                                        </div>
+                                        <div id="broadcast-recipients-summary" class="broadcast-summary hidden">
+                                            <i class="fa-solid fa-users"></i>
+                                            <span id="broadcast-recipients-count">0</span> recipients selected
+                                            <button class="btn-clear-all" id="broadcast-clear-all" title="Clear All">
+                                                <i class="fa-solid fa-xmark"></i> Clear
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Send Broadcast Button -->
+                                <button id="broadcast-send-btn" class="btn-outbound-send" disabled>
+                                    <i class="fa-solid fa-bullhorn"></i> Send Broadcast
+                                </button>
+
+                                <!-- Progress Bar -->
+                                <div id="broadcast-progress" class="hidden" style="margin-top: 0.75rem;">
+                                    <div class="broadcast-progress-bar">
+                                        <div class="broadcast-progress-fill" id="broadcast-progress-fill" style="width: 0%;"></div>
+                                    </div>
+                                    <div class="broadcast-progress-stats">
+                                        <span><i class="fa-solid fa-check" style="color: #34d399;"></i> Sent: <strong id="broadcast-sent-count">0</strong></span>
+                                        <span><i class="fa-solid fa-xmark" style="color: #f87171;"></i> Failed: <strong id="broadcast-failed-count">0</strong></span>
+                                        <span>Total: <strong id="broadcast-total-count">0</strong></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right: Preview + Broadcast History -->
+                            <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                                <!-- Broadcast Preview -->
+                                <div class="card outbound-preview-card" style="flex: 0 0 auto; min-height: auto;">
+                                    <h3 style="margin-bottom: 1rem; font-weight: 600; color: #fff; display: flex; align-items: center; justify-content: space-between;">
+                                        <span><i class="fa-brands fa-whatsapp" style="color: #25d366; margin-right: 6px;"></i> Broadcast Preview</span>
+                                        <span class="outbound-badge-amber">Broadcast</span>
+                                    </h3>
+                                    <div class="whatsapp-preview" style="width: 100%; max-width: 360px; min-height: 200px;">
+                                        <div class="whatsapp-bubble" style="width: 92%; background: #ffffff; border-radius: 8px 0px 8px 8px; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); padding: 0;">
+                                            <div id="broadcast-preview-header" style="display: none;"></div>
+                                            <div id="broadcast-preview-text" class="wa-text" style="font-size: 0.88rem; color: #111b21; line-height: 1.45; white-space: pre-wrap; word-break: break-word; padding: 0.6rem 0.75rem;">
+                                                <span style="color: #8696a0; font-style: italic;">Select a template to preview...</span>
+                                            </div>
+                                            <div id="broadcast-preview-footer" style="display: none; padding: 0 0.75rem 0.5rem; font-size: 0.72rem; color: #8696a0;"></div>
+                                            <div id="broadcast-preview-buttons" style="display: none; border-top: 1px solid #e4e6eb;"></div>
+                                            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px; padding: 0 0.75rem 0.5rem; font-size: 0.68rem; color: #667781;">
+                                                <span id="broadcast-preview-time">--:--</span>
+                                                <i class="fa-solid fa-check-double" style="color: #53bdeb; font-size: 0.78rem;"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Broadcast History -->
+                                <div class="card" style="padding: 1.25rem; flex: 1;">
+                                    <h3 style="color: #fff; font-size: 1rem; font-weight: 600; margin-bottom: 1rem;">
+                                        <i class="fa-solid fa-clock-rotate-left text-cyan"></i> Broadcast History
+                                    </h3>
+                                    <div class="table-responsive">
+                                        <table class="catalog-table" style="font-size: 0.82rem;">
+                                            <thead>
+                                                <tr>
+                                                    <th>Template</th>
+                                                    <th>Sent</th>
+                                                    <th>Failed</th>
+                                                    <th>Date</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="broadcast-history-tbody">
+                                                <tr><td colspan="4" class="text-center text-muted" style="padding: 1.5rem;">No broadcasts yet.</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ═══════════════════════════════════════════ -->
+                    <!-- SUB-TAB 3: Template Manager                 -->
+                    <!-- ═══════════════════════════════════════════ -->
+                    <div class="outbound-subtab-panel" id="outbound-templates-tab">
+                        <div class="card" style="padding: 1.5rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.25rem;">
+                                <div>
+                                    <h3 style="color: #fff; font-size: 1.1rem; font-weight: 700; margin-bottom: 0.25rem;">
+                                        <i class="fa-solid fa-puzzle-piece text-cyan"></i> Message Templates
+                                    </h3>
+                                    <p style="color: var(--text-muted); font-size: 0.82rem;">Create, manage, and submit WhatsApp message templates for Meta approval.</p>
+                                </div>
+                                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                    <button class="btn-action-sm" id="sync-templates-btn" title="Sync statuses with Meta">
+                                        <i class="fa-solid fa-arrows-rotate"></i> Sync with Meta
+                                    </button>
+                                    <button class="btn-outbound-primary" id="create-template-btn">
+                                        <i class="fa-solid fa-plus"></i> Create Template
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Templates Grid -->
+                            <div id="templates-grid" class="templates-grid">
+                                <!-- Dynamic template cards rendered by JS -->
+                                <div class="templates-empty-state" id="templates-empty">
+                                    <i class="fa-solid fa-puzzle-piece" style="font-size: 2.5rem; color: var(--accent-cyan); opacity: 0.4; margin-bottom: 1rem;"></i>
+                                    <h4 style="color: #fff; font-weight: 600;">No Templates Yet</h4>
+                                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.25rem;">Create your first message template to start sending outbound messages.</p>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </section>
 
-                <!-- Outbound Message Viewer Modal -->
+                <!-- ═══════════════════════════════════════════ -->
+                <!-- MODAL: Template Builder                     -->
+                <!-- ═══════════════════════════════════════════ -->
+                <div class="modal-overlay hidden" id="template-builder-modal">
+                    <div class="modal-card" style="max-width: 720px; max-height: 90vh; overflow-y: auto;">
+                        <div class="modal-header">
+                            <h3><i class="fa-solid fa-puzzle-piece text-cyan"></i> Create Message Template</h3>
+                            <button class="modal-close-btn" id="close-template-builder"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div class="modal-body" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                            <!-- Row 1: Name + Category + Language -->
+                            <div class="modal-form-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+                                <div class="form-group">
+                                    <label for="tpl-builder-name">Template Name <span class="required">*</span></label>
+                                    <input type="text" id="tpl-builder-name" placeholder="e.g. product_launch_offer" maxlength="512" style="text-transform: lowercase;">
+                                    <p class="help-text" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">Lowercase, underscores only</p>
+                                </div>
+                                <div class="form-group">
+                                    <label for="tpl-builder-category">Category <span class="required">*</span></label>
+                                    <select id="tpl-builder-category">
+                                        <option value="MARKETING">Marketing</option>
+                                        <option value="UTILITY">Utility</option>
+                                        <option value="AUTHENTICATION">Authentication</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="tpl-builder-language">Language</label>
+                                    <select id="tpl-builder-language">
+                                        <option value="en">English</option>
+                                        <option value="en_US">English (US)</option>
+                                        <option value="hi">Hindi</option>
+                                        <option value="es">Spanish</option>
+                                        <option value="fr">French</option>
+                                        <option value="ar">Arabic</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Header Component -->
+                            <div class="tpl-builder-section">
+                                <div class="tpl-builder-section-header">
+                                    <span><i class="fa-solid fa-heading"></i> Header <span class="optional-badge">Optional</span></span>
+                                </div>
+                                <div class="tpl-builder-section-body">
+                                    <select id="tpl-builder-header-type" class="outbound-input" style="width: 180px; margin-bottom: 0.5rem;">
+                                        <option value="">None</option>
+                                        <option value="text">Text</option>
+                                        <option value="image">Image</option>
+                                        <option value="document">Document (PDF)</option>
+                                        <option value="video">Video</option>
+                                    </select>
+                                    <div id="tpl-builder-header-content" class="hidden">
+                                        <input type="text" id="tpl-builder-header-value" class="outbound-input" placeholder="Header text or media URL...">
+                                        <p class="help-text" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">For media: provide a publicly accessible URL</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Body Component -->
+                            <div class="tpl-builder-section">
+                                <div class="tpl-builder-section-header">
+                                    <span><i class="fa-solid fa-align-left"></i> Body <span class="required-badge">Required</span></span>
+                                    <button class="btn-action-sm" id="tpl-add-variable" style="font-size: 0.72rem; padding: 2px 8px;">
+                                        <i class="fa-solid fa-plus"></i> Add Variable
+                                    </button>
+                                </div>
+                                <div class="tpl-builder-section-body">
+                                    <textarea id="tpl-builder-body" rows="4" class="outbound-input" style="resize: vertical; font-family: inherit;" placeholder="Hello {{1}}, thanks for contacting us!&#10;&#10;Use {{1}}, {{2}} etc. for dynamic variables."></textarea>
+                                    <div class="outbound-textarea-footer">
+                                        <span class="tpl-variables-hint">Use *bold*, _italic_, ~strikethrough~ for formatting</span>
+                                        <span id="tpl-body-char-count">0 / 1024</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Footer Component -->
+                            <div class="tpl-builder-section">
+                                <div class="tpl-builder-section-header">
+                                    <span><i class="fa-solid fa-shoe-prints"></i> Footer <span class="optional-badge">Optional</span></span>
+                                </div>
+                                <div class="tpl-builder-section-body">
+                                    <input type="text" id="tpl-builder-footer" class="outbound-input" placeholder="e.g. Reply STOP to unsubscribe" maxlength="60">
+                                </div>
+                            </div>
+
+                            <!-- Buttons Component -->
+                            <div class="tpl-builder-section">
+                                <div class="tpl-builder-section-header">
+                                    <span><i class="fa-solid fa-hand-pointer"></i> Buttons <span class="optional-badge">Max 3</span></span>
+                                    <button class="btn-action-sm" id="tpl-add-button" style="font-size: 0.72rem; padding: 2px 8px;">
+                                        <i class="fa-solid fa-plus"></i> Add Button
+                                    </button>
+                                </div>
+                                <div id="tpl-buttons-container" class="tpl-builder-section-body" style="gap: 0.5rem; display: flex; flex-direction: column;">
+                                    <!-- Dynamic button rows added by JS -->
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button class="btn-modal-cancel" id="tpl-builder-cancel">Cancel</button>
+                            <button class="btn-outbound-send" id="tpl-builder-save-local" style="flex: 1;">
+                                <i class="fa-solid fa-save"></i> Save Locally
+                            </button>
+                            <button class="btn-outbound-primary" id="tpl-builder-submit-meta" style="flex: 1;">
+                                <i class="fa-brands fa-meta"></i> Save & Submit to Meta
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Outbound Message Viewer Modal (kept for history clicks) -->
                 <div class="modal-overlay hidden" id="outbound-message-modal">
                     <div class="modal-card" style="max-width: 560px;">
                         <div class="modal-header">
                             <h3><i class="fa-solid fa-message text-cyan"></i> Message Details</h3>
-                            <button class="modal-close-btn" onclick="closeOutboundMessageModal()"><i class="fa-solid fa-xmark"></i></button>
+                            <button class="modal-close-btn" onclick="document.getElementById('outbound-message-modal').classList.add('hidden')"><i class="fa-solid fa-xmark"></i></button>
                         </div>
                         <div class="modal-body">
                             <div class="outbound-modal-meta">
@@ -478,9 +835,6 @@
                                 <span><i class="fa-solid fa-clock"></i> <span id="outbound-message-time">-</span></span>
                             </div>
                             <div class="outbound-modal-message" id="outbound-message-body"></div>
-                            <button class="btn btn-primary" onclick="copyOutboundMessage()" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-indigo)); color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 1rem;">
-                                <i class="fa-solid fa-copy"></i> Copy Message
-                            </button>
                         </div>
                     </div>
                 </div>

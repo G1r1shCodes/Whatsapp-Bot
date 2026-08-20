@@ -17,6 +17,7 @@ router = APIRouter()
 META_VERIFY_TOKEN = os.environ.get("META_VERIFY_TOKEN", "default_verify_token")
 META_ACCESS_TOKEN = os.environ.get("META_ACCESS_TOKEN")
 META_PHONE_NUMBER_ID = os.environ.get("META_PHONE_NUMBER_ID")
+META_WABA_ID = os.environ.get("META_WABA_ID")
 
 def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_menu: bool = False, show_categories_menu: bool = False):
     """Sends a message to the user via Meta Cloud API."""
@@ -246,6 +247,162 @@ def send_whatsapp_document(to_phone: str, document_url: str, filename: str, capt
         logger.info(f"Sent document '{filename}' to {to_phone} successfully")
     except Exception as e:
         logger.error(f"Error sending document to {to_phone}: {e}")
+
+# ── Meta Template Management API ──────────────────────────
+
+def get_meta_templates():
+    """Fetches all message templates from Meta for this WABA."""
+    if not META_ACCESS_TOKEN or not META_WABA_ID:
+        logger.error("Missing META_ACCESS_TOKEN or META_WABA_ID for template management.")
+        return []
+    url = f"https://graph.facebook.com/v21.0/{META_WABA_ID}/message_templates"
+    headers = {"Authorization": f"Bearer {META_ACCESS_TOKEN}"}
+    params = {"limit": 100}
+    try:
+        response = http_client.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("data", [])
+    except Exception as e:
+        logger.error(f"Error fetching Meta templates: {e}")
+        return []
+
+def create_meta_template(name, category, language, components):
+    """Creates a message template via Meta Graph API for review.
+    Returns the API response dict or raises on error.
+    """
+    if not META_ACCESS_TOKEN or not META_WABA_ID:
+        raise RuntimeError("META_ACCESS_TOKEN and META_WABA_ID are required for template management.")
+    url = f"https://graph.facebook.com/v21.0/{META_WABA_ID}/message_templates"
+    headers = {
+        "Authorization": f"Bearer {META_ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "name": name,
+        "category": category.upper(),
+        "language": language or "en",
+        "components": components
+    }
+    try:
+        response = http_client.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        return response.json()
+    except httpx.HTTPStatusError as he:
+        logger.error(f"Meta template creation failed (HTTP {he.response.status_code}): {he.response.text}")
+        raise RuntimeError(f"Meta API error: {he.response.text}")
+    except Exception as e:
+        logger.error(f"Error creating Meta template: {e}")
+        raise
+
+def delete_meta_template(template_name):
+    """Deletes a message template from Meta by name."""
+    if not META_ACCESS_TOKEN or not META_WABA_ID:
+        return False
+    url = f"https://graph.facebook.com/v21.0/{META_WABA_ID}/message_templates"
+    headers = {"Authorization": f"Bearer {META_ACCESS_TOKEN}"}
+    params = {"name": template_name}
+    try:
+        response = http_client.delete(url, headers=headers, params=params)
+        response.raise_for_status()
+        logger.info(f"Deleted Meta template: {template_name}")
+        return True
+    except Exception as e:
+        logger.error(f"Error deleting Meta template '{template_name}': {e}")
+        return False
+
+def send_whatsapp_template(to_phone, template_name, language_code, components=None):
+    """Sends a template message to a phone number via Meta Cloud API.
+    This works even outside the 24-hour customer service window.
+    """
+    if not META_ACCESS_TOKEN or not META_PHONE_NUMBER_ID:
+        raise RuntimeError("Meta API credentials are required.")
+    url = f"https://graph.facebook.com/v21.0/{META_PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {META_ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": to_phone,
+        "type": "template",
+        "template": {
+            "name": template_name,
+            "language": {"code": language_code or "en"}
+        }
+    }
+    if components:
+        payload["template"]["components"] = components
+    try:
+        response = http_client.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        logger.info(f"Sent template '{template_name}' to {to_phone}")
+        return response.json()
+    except httpx.HTTPStatusError as he:
+        logger.error(f"Error sending template message (HTTP {he.response.status_code}): {he.response.text}")
+        raise RuntimeError(f"Meta API error: {he.response.text}")
+    except Exception as e:
+        logger.error(f"Error sending template message: {e}")
+        raise
+
+def build_meta_components(header=None, body="", footer="", buttons=None):
+    """Builds Meta-compatible components array from template data.
+    Used when creating a template via the Meta API.
+    """
+    components = []
+    # Header
+    if header and header.get("type"):
+        h = {"type": "HEADER"}
+        htype = header["type"].upper()
+        if htype == "TEXT":
+            h["format"] = "TEXT"
+            h["text"] = header.get("content", "")
+        elif htype in ["IMAGE", "VIDEO", "DOCUMENT"]:
+            h["format"] = htype
+            # For media headers, Meta requires an example handle during creation.
+            # The actual media is provided at send-time via components parameters.
+            example_url = header.get("content", "")
+            if example_url:
+                h["example"] = {"header_handle": [example_url]}
+        components.append(h)
+    # Body
+    if body:
+        b = {"type": "BODY", "text": body}
+        # Extract variable count
+        import re
+        variables = re.findall(r'\{\{(\d+)\}\}', body)
+        if variables:
+            b["example"] = {"body_text": [[f"sample_{v}" for v in variables]]}
+        components.append(b)
+    # Footer
+    if footer:
+        components.append({"type": "FOOTER", "text": footer})
+    # Buttons
+    if buttons and len(buttons) > 0:
+        btn_component = {"type": "BUTTONS", "buttons": []}
+        for btn in buttons[:3]:  # Max 3 buttons
+            btype = btn.get("type", "").upper()
+            if btype == "URL":
+                btn_component["buttons"].append({
+                    "type": "URL",
+                    "text": btn.get("text", "Visit"),
+                    "url": btn.get("value", "")
+                })
+            elif btype == "PHONE":
+                btn_component["buttons"].append({
+                    "type": "PHONE_NUMBER",
+                    "text": btn.get("text", "Call Us"),
+                    "phone_number": btn.get("value", "")
+                })
+            elif btype == "QUICK_REPLY":
+                btn_component["buttons"].append({
+                    "type": "QUICK_REPLY",
+                    "text": btn.get("text", "Reply")
+                })
+        if btn_component["buttons"]:
+            components.append(btn_component)
+    return components
 
 @router.get("/webhook")
 async def verify_webhook(request: Request):

@@ -642,3 +642,263 @@ async def update_settings_api(request: Request):
     else:
         from fastapi import HTTPException
         raise HTTPException(status_code=500, detail="Failed to save configuration.")
+
+# ── Template Management API ───────────────────────────────
+
+from logger import get_logger
+logger = get_logger(__name__)
+
+@router.get("/api/templates")
+def get_templates_api(request: Request):
+    """Returns all saved message templates."""
+    auth.require_auth(request)
+    templates = config_manager.get_templates()
+    return {"templates": templates}
+
+@router.post("/api/templates")
+async def create_template_api(request: Request):
+    """Creates a new message template and optionally submits to Meta for approval."""
+    auth.require_auth(request)
+    payload = await request.json()
+
+    name = payload.get("name", "").strip().lower().replace(" ", "_")
+    name = re.sub(r'[^a-z0-9_]', '', name)
+    if not name:
+        raise HTTPException(status_code=400, detail="Template name is required (lowercase, underscores only).")
+
+    category = payload.get("category", "MARKETING")
+    language = payload.get("language", "en")
+    header = payload.get("header")  # { type, content }
+    body = payload.get("body", "")
+    footer = payload.get("footer", "")
+    buttons = payload.get("buttons", [])
+    submit_to_meta = payload.get("submit_to_meta", False)
+
+    if not body:
+        raise HTTPException(status_code=400, detail="Template body text is required.")
+
+    # Create local template object
+    template = config_manager.create_template_obj(
+        name=name, category=category, language=language,
+        header=header, body=body, footer=footer, buttons=buttons
+    )
+
+    # Optionally submit to Meta
+    if submit_to_meta:
+        try:
+            from routes.whatsapp import build_meta_components, create_meta_template
+            components = build_meta_components(header, body, footer, buttons)
+            result = create_meta_template(name, category, language, components)
+            template["meta_template_id"] = result.get("id")
+            template["meta_status"] = result.get("status", "PENDING")
+        except Exception as e:
+            logger.error(f"Meta template submission failed: {e}")
+            template["meta_status"] = "LOCAL"
+            # Still save locally, just note it wasn't submitted
+
+    config_manager.save_template(template)
+    return {"success": True, "template": template}
+
+@router.delete("/api/templates/{template_id}")
+def delete_template_api(template_id: str, request: Request):
+    """Deletes a template locally and optionally from Meta."""
+    auth.require_auth(request)
+    templates = config_manager.get_templates()
+    target = next((t for t in templates if t["id"] == template_id), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="Template not found.")
+
+    # Delete from Meta if it was submitted
+    if target.get("meta_template_id"):
+        try:
+            from routes.whatsapp import delete_meta_template
+            delete_meta_template(target["name"])
+        except Exception as e:
+            logger.error(f"Failed to delete Meta template: {e}")
+
+    config_manager.delete_template(template_id)
+    return {"success": True}
+
+@router.post("/api/templates/sync")
+def sync_templates_api(request: Request):
+    """Syncs local template statuses with Meta."""
+    auth.require_auth(request)
+    try:
+        from routes.whatsapp import get_meta_templates
+        meta_templates = get_meta_templates()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch Meta templates: {str(e)}")
+
+    # Build a lookup by name
+    meta_by_name = {}
+    for mt in meta_templates:
+        meta_by_name[mt.get("name", "")] = mt
+
+    local_templates = config_manager.get_templates()
+    updated_count = 0
+    for tpl in local_templates:
+        meta_match = meta_by_name.get(tpl["name"])
+        if meta_match:
+            new_status = meta_match.get("status", "PENDING")
+            if tpl.get("meta_status") != new_status:
+                tpl["meta_status"] = new_status
+                tpl["meta_template_id"] = meta_match.get("id")
+                if new_status == "REJECTED":
+                    tpl["meta_rejection_reason"] = meta_match.get("rejected_reason", "Unknown")
+                else:
+                    tpl["meta_rejection_reason"] = None
+                tpl["updated_at"] = datetime.utcnow().isoformat()
+                config_manager.save_template(tpl)
+                updated_count += 1
+
+    return {"success": True, "synced": updated_count, "meta_count": len(meta_templates)}
+
+@router.post("/api/templates/{template_id}/send")
+async def send_template_api(template_id: str, request: Request):
+    """Sends a template message to a single phone number."""
+    auth.require_auth(request)
+    payload = await request.json()
+    phone = payload.get("phone", "").strip().replace("+", "")
+    phone = re.sub(r'[^0-9]', '', phone)
+    variables = payload.get("variables", {})  # { "1": "value1", "2": "value2" }
+
+    if not phone:
+        raise HTTPException(status_code=400, detail="Phone number is required.")
+
+    templates = config_manager.get_templates()
+    template = next((t for t in templates if t["id"] == template_id), None)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found.")
+
+    # Build send-time components (fill in variable parameters)
+    send_components = []
+    if variables:
+        params = []
+        for key in sorted(variables.keys(), key=lambda x: int(x)):
+            params.append({"type": "text", "text": str(variables[key])})
+        if params:
+            send_components.append({"type": "body", "parameters": params})
+
+    # If header is media, add header component
+    if template.get("header") and template["header"].get("type") in ["image", "document", "video"]:
+        h_type = template["header"]["type"]
+        h_content = template["header"].get("content", "")
+        if h_content:
+            header_param = {"type": h_type}
+            header_param[h_type] = {"link": h_content}
+            send_components.append({"type": "header", "parameters": [header_param]})
+
+    try:
+        from routes.whatsapp import send_whatsapp_template
+        result = send_whatsapp_template(
+            to_phone=phone,
+            template_name=template["name"],
+            language_code=template.get("language", "en"),
+            components=send_components if send_components else None
+        )
+        # Log the outbound message
+        body_text = template.get("body", "")
+        for k, v in variables.items():
+            body_text = body_text.replace(f"{{{{{k}}}}}", str(v))
+        db.log_chat_message(phone, "outbound", f"[Template: {template['name']}] {body_text}")
+
+        # Auto-update lead status
+        lead = db.get_lead_by_phone(phone)
+        if lead and lead.get("status") in ["New", "Partial"]:
+            db.update_lead_status(lead["id"], "Contacted")
+
+        return {"success": True, "message": f"Template sent to +{phone}"}
+    except Exception as e:
+        logger.error(f"Error sending template: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to send template: {str(e)}")
+
+# ── Mass Broadcast API ────────────────────────────────────
+
+@router.post("/api/broadcast")
+async def send_broadcast_api(request: Request):
+    """Sends a template message to multiple phone numbers (mass broadcast)."""
+    auth.require_auth(request)
+    payload = await request.json()
+
+    template_id = payload.get("template_id", "")
+    phones = payload.get("phones", [])  # list of phone strings
+    variables = payload.get("variables", {})
+
+    if not template_id:
+        raise HTTPException(status_code=400, detail="Template ID is required.")
+    if not phones or len(phones) == 0:
+        raise HTTPException(status_code=400, detail="At least one recipient phone is required.")
+
+    templates = config_manager.get_templates()
+    template = next((t for t in templates if t["id"] == template_id), None)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found.")
+
+    # Build send-time components
+    send_components = []
+    if variables:
+        params = []
+        for key in sorted(variables.keys(), key=lambda x: int(x)):
+            params.append({"type": "text", "text": str(variables[key])})
+        if params:
+            send_components.append({"type": "body", "parameters": params})
+
+    if template.get("header") and template["header"].get("type") in ["image", "document", "video"]:
+        h_type = template["header"]["type"]
+        h_content = template["header"].get("content", "")
+        if h_content:
+            header_param = {"type": h_type}
+            header_param[h_type] = {"link": h_content}
+            send_components.append({"type": "header", "parameters": [header_param]})
+
+    from routes.whatsapp import send_whatsapp_template
+    import time
+
+    results = {"total": len(phones), "sent": 0, "failed": 0, "errors": []}
+
+    for phone in phones:
+        clean_phone = re.sub(r'[^0-9]', '', str(phone).strip())
+        if not clean_phone:
+            results["failed"] += 1
+            results["errors"].append({"phone": phone, "error": "Invalid phone number"})
+            continue
+        try:
+            send_whatsapp_template(
+                to_phone=clean_phone,
+                template_name=template["name"],
+                language_code=template.get("language", "en"),
+                components=send_components if send_components else None
+            )
+            # Log outbound
+            body_text = template.get("body", "")
+            for k, v in variables.items():
+                body_text = body_text.replace(f"{{{{{k}}}}}", str(v))
+            db.log_chat_message(clean_phone, "outbound", f"[Broadcast: {template['name']}] {body_text}")
+            results["sent"] += 1
+            # Rate limiting: ~10 messages per second max for Meta
+            time.sleep(0.15)
+        except Exception as e:
+            results["failed"] += 1
+            results["errors"].append({"phone": clean_phone, "error": str(e)})
+            logger.error(f"Broadcast send error to {clean_phone}: {e}")
+
+    # Log broadcast in history
+    broadcast_entry = {
+        "id": f"bc_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+        "template_name": template["name"],
+        "template_id": template_id,
+        "total": results["total"],
+        "sent": results["sent"],
+        "failed": results["failed"],
+        "created_at": datetime.utcnow().isoformat()
+    }
+    config_manager.add_broadcast_entry(broadcast_entry)
+
+    return {"success": True, "results": results, "broadcast": broadcast_entry}
+
+@router.get("/api/broadcast/history")
+def get_broadcast_history_api(request: Request):
+    """Returns broadcast history."""
+    auth.require_auth(request)
+    return {"history": config_manager.get_broadcast_history()}
+

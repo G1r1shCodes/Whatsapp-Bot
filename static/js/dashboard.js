@@ -1,4 +1,4 @@
-// Global state
+﻿// Global state
 let currentTab = 'analytics-tab';
 let leadsData = [];
 let catalogData = [];
@@ -1781,268 +1781,6 @@ window.handleManagerSendMessage = async function() {
     if (origHandleManagerSendMessage) origHandleManagerSendMessage();
 };
 
-// -------------------------------------------------------------
-// Outbound Direct Messaging Tab Logic
-// -------------------------------------------------------------
-const outboundPhoneInput = document.getElementById('outbound-phone-input');
-const outboundContactSelect = document.getElementById('outbound-contact-select');
-const outboundTextInput = document.getElementById('outbound-text-input');
-const outboundFileInput = document.getElementById('outbound-file-input');
-const outboundDropzone = document.getElementById('outbound-dropzone');
-const outboundFilePreview = document.getElementById('outbound-file-preview');
-const outboundFileNameTxt = document.getElementById('outbound-file-name-txt');
-const outboundRemoveFileBtn = document.getElementById('outbound-remove-file-btn');
-const outboundSendBtn = document.getElementById('outbound-send-btn');
-const outboundHistoryTbody = document.getElementById('outbound-history-tbody');
-
-async function loadOutboundData() {
-    // 0. Ensure leads + visitors are fetched so the contact picker works even
-    //    when this tab is opened before Leads / Visitor Chats.
-    try {
-        if (leadsData.length === 0) {
-            const lr = await fetch('/api/leads');
-            leadsData = await lr.json();
-        }
-        if (visitorsData.length === 0) {
-            const vr = await fetch('/api/visitors');
-            visitorsData = await vr.json();
-        }
-    } catch (e) {
-        console.error('Failed to load contacts for outbound messaging:', e);
-    }
-    
-    // 1. Populate contact dropdown
-    if (outboundContactSelect) {
-        outboundContactSelect.innerHTML = '<option value="">Pick Contact...</option>';
-        // Combine leads + visitors
-        const allContacts = [];
-        leadsData.forEach(l => { if (l.phone) allContacts.push({ phone: l.phone, name: `${l.name} (Lead)` }); });
-        visitorsData.forEach(v => { if (v.phone) allContacts.push({ phone: v.phone, name: `Visitor (${v.phone.slice(-4)})` }); });
-        
-        allContacts.forEach(c => {
-            const clean = c.phone.replace(/[^0-9]/g, '');
-            outboundContactSelect.innerHTML += `<option value="${clean}">${c.name} - +${clean}</option>`;
-        });
-    }
-    
-    // 2. Load sent outbound history table
-    if (outboundHistoryTbody) {
-        outboundHistoryTbody.innerHTML = '<tr><td colspan="3" class="text-center" style="padding: 2rem;"><i class="fa-solid fa-spinner fa-spin"></i> Loading outbound log...</td></tr>';
-        try {
-            const res = await fetch('/api/outbound-messages');
-            const logs = await res.json();
-            outboundHistoryTbody.innerHTML = '';
-            
-            if (logs.length === 0) {
-                outboundHistoryTbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted" style="padding: 2rem;">No outbound manager messages logged yet.</td></tr>';
-                return;
-            }
-            
-            logs.forEach(log => {
-                const tr = document.createElement('tr');
-                tr.className = 'outbound-log-row';
-                const timeStr = formatDateTime(log.created_at);
-                const cleanPhone = String(log.phone || '').replace(/[^0-9]/g, '');
-                const displayPhone = cleanPhone ? '+' + cleanPhone : (log.phone || '-');
-                const hasImage = /\[Attached Image:/i.test(log.body || '');
-                const hasDoc = /\[Attached Document:/i.test(log.body || '');
-                const attachBadge = hasImage
-                    ? '<span class="outbound-attach-badge image"><i class="fa-solid fa-image"></i> Image</span>'
-                    : hasDoc
-                        ? '<span class="outbound-attach-badge doc"><i class="fa-solid fa-file-pdf"></i> PDF</span>'
-                        : '';
-                tr.innerHTML = `
-                    <td><strong class="outbound-recipient">${displayPhone}</strong></td>
-                    <td class="outbound-msg-cell">
-                        <span class="outbound-msg-preview" title="Click to view full message">${formatWhatsAppText(log.body)}</span>
-                        ${attachBadge}
-                    </td>
-                    <td class="outbound-time">${timeStr}</td>
-                `;
-                tr.addEventListener('click', () => openOutboundMessageModal(log));
-                outboundHistoryTbody.appendChild(tr);
-            });
-        } catch (e) {
-            console.error('Failed to load outbound history:', e);
-            outboundHistoryTbody.innerHTML = '<tr><td colspan="3" class="text-center text-rose-500">Failed to load history</td></tr>';
-        }
-    }
-}
-
-// Outbound Live WhatsApp Preview Handler
-function updateOutboundLivePreview() {
-    const textInput = document.getElementById('outbound-text-input');
-    const phoneInput = document.getElementById('outbound-phone-input');
-    const previewText = document.getElementById('outbound-preview-text');
-    const previewRecipient = document.getElementById('preview-recipient-phone');
-    const previewTime = document.getElementById('outbound-preview-time');
-    const previewMediaBox = document.getElementById('outbound-preview-media-box');
-    const previewMediaName = document.getElementById('outbound-preview-media-name');
-    const previewMediaType = document.getElementById('outbound-preview-media-type');
-    const previewMediaIcon = document.getElementById('outbound-preview-media-icon');
-
-    // 1. Text preview
-    if (textInput && previewText) {
-        const val = textInput.value;
-        if (!val.trim()) {
-            previewText.innerHTML = '<span style="color: #8696a0; font-style: italic;">Type your WhatsApp message on the left to see live preview...</span>';
-        } else {
-            let formatted = escapeHtml(val);
-            formatted = formatted.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
-            formatted = formatted.replace(/_(.*?)_/g, '<em>$1</em>');
-            formatted = formatted.replace(/~(.*?)~/g, '<del>$1</del>');
-            formatted = formatted.replace(/\n/g, '<br>');
-            previewText.innerHTML = formatted;
-        }
-    }
-
-    // 2. Recipient phone preview
-    if (previewRecipient) {
-        const phone = phoneInput ? phoneInput.value.trim() : '';
-        previewRecipient.textContent = phone ? `+${phone.replace(/[^0-9]/g, '')}` : 'Select Recipient...';
-    }
-
-    // 3. Media file preview
-    if (previewMediaBox && previewMediaName) {
-        if (outboundSelectedFile) {
-            previewMediaBox.style.display = 'flex';
-            previewMediaName.textContent = outboundSelectedFile.name;
-            const ext = outboundSelectedFile.name.split('.').pop().toLowerCase();
-            if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) {
-                if (previewMediaIcon) previewMediaIcon.className = 'fa-solid fa-image text-cyan';
-                if (previewMediaType) previewMediaType.textContent = 'Image File';
-            } else {
-                if (previewMediaIcon) previewMediaIcon.className = 'fa-solid fa-file-pdf text-rose';
-                if (previewMediaType) previewMediaType.textContent = 'PDF Document';
-            }
-        } else {
-            previewMediaBox.style.display = 'none';
-        }
-    }
-
-    // 4. Timestamp
-    if (previewTime) {
-        const now = new Date();
-        previewTime.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-}
-
-if (outboundContactSelect) {
-    outboundContactSelect.addEventListener('change', () => {
-        if (outboundContactSelect.value && outboundPhoneInput) {
-            outboundPhoneInput.value = outboundContactSelect.value;
-            updateOutboundLivePreview();
-        }
-    });
-}
-
-if (outboundPhoneInput) {
-    outboundPhoneInput.addEventListener('input', updateOutboundLivePreview);
-}
-
-// WhatsApp-format a message for display: escape HTML first, then *bold* and newlines
-function formatWhatsAppText(text) {
-    return escapeHtml(text || '')
-        .replace(/\*([^*]+)\*/g, '<strong>$1</strong>')
-        .replace(/\n/g, '<br>');
-}
-
-// Character counter for the message textarea (WhatsApp limit is 4096)
-const outboundCharCount = document.getElementById('outbound-char-count');
-function updateOutboundCharCount() {
-    if (outboundCharCount) {
-        const len = outboundTextInput ? outboundTextInput.value.length : 0;
-        outboundCharCount.textContent = `${len} / 4096`;
-        outboundCharCount.style.color = len > 4096 ? '#f87171' : '';
-    }
-    updateOutboundLivePreview();
-}
-if (outboundTextInput) {
-    outboundTextInput.addEventListener('input', updateOutboundCharCount);
-    updateOutboundCharCount();
-}
-
-// Outbound Dropzone file handling
-if (outboundDropzone && outboundFileInput) {
-    outboundDropzone.addEventListener('click', () => outboundFileInput.click());
-    
-    outboundDropzone.addEventListener('dragover', (e) => { e.preventDefault(); outboundDropzone.style.borderColor = 'var(--accent-cyan)'; });
-    outboundDropzone.addEventListener('dragleave', () => { outboundDropzone.style.borderColor = 'var(--glass-border)'; });
-    outboundDropzone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        outboundDropzone.style.borderColor = 'var(--glass-border)';
-        if (e.dataTransfer.files.length > 0) {
-            outboundFileInput.files = e.dataTransfer.files;
-            handleOutboundFileSelect(e.dataTransfer.files[0]);
-        }
-    });
-    
-    outboundFileInput.addEventListener('change', () => {
-        if (outboundFileInput.files.length > 0) {
-            handleOutboundFileSelect(outboundFileInput.files[0]);
-        }
-    });
-}
-
-function handleOutboundFileSelect(file) {
-    outboundSelectedFile = file;
-    if (outboundFileNameTxt) outboundFileNameTxt.textContent = file.name;
-    if (outboundFilePreview) { outboundFilePreview.style.display = 'flex'; outboundFilePreview.classList.remove('hidden'); }
-    updateOutboundLivePreview();
-}
-
-if (outboundRemoveFileBtn) {
-    outboundRemoveFileBtn.addEventListener('click', () => {
-        outboundSelectedFile = null;
-        if (outboundFileInput) outboundFileInput.value = '';
-        if (outboundFilePreview) { outboundFilePreview.style.display = 'none'; outboundFilePreview.classList.add('hidden'); }
-        updateOutboundLivePreview();
-    });
-}
-
-// Send Outbound Direct Message
-if (outboundSendBtn) {
-    outboundSendBtn.addEventListener('click', async () => {
-        const phone = outboundPhoneInput ? outboundPhoneInput.value.trim().replace(/[^0-9]/g, '') : '';
-        const text = outboundTextInput ? outboundTextInput.value.trim() : '';
-        
-        if (!phone) { showToast('Please enter recipient phone number', true); return; }
-        if (!text && !outboundSelectedFile) { showToast('Please enter message text or attach a file', true); return; }
-        
-        const formData = new FormData();
-        formData.append('phone', phone);
-        formData.append('message', text);
-        if (outboundSelectedFile) formData.append('file', outboundSelectedFile);
-        
-        outboundSendBtn.disabled = true;
-        outboundSendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
-        
-        try {
-            const res = await fetch('/api/messages/send-media', {
-                method: 'POST',
-                body: formData
-            });
-            const data = await res.json();
-            
-            if (res.ok && data.success) {
-                showToast('Outbound message sent via WhatsApp!');
-                if (outboundTextInput) outboundTextInput.value = '';
-                if (outboundRemoveFileBtn) outboundRemoveFileBtn.click();
-                updateOutboundCharCount();
-                updateOutboundLivePreview();
-                loadOutboundData();
-            } else {
-                showToast(data.detail || 'Failed to send outbound message', true);
-            }
-        } catch (e) {
-            console.error('Error sending outbound message:', e);
-            showToast('Error sending message via WhatsApp', true);
-        } finally {
-            outboundSendBtn.disabled = false;
-            outboundSendBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Direct Message';
-        }
-    });
-}
 
 // -------------------------------------------------------------
 // Catalogue PDF Manager Logic (Settings Tab)
@@ -2126,7 +1864,1160 @@ if (uploadPdfBtn) {
 }
 
 // -------------------------------------------------------------
-// Quick Message Templates Management
+// 6. OUTBOUND MESSAGING — Templates, Single Send, Broadcast
+// -------------------------------------------------------------
+
+let messageTemplates = [];
+let broadcastRecipients = [];
+let outboundSendMode = 'template'; // 'template' | 'freeform'
+let selectedOutboundFile = null;
+
+// ── Load outbound data when tab is opened ────────────────────
+function loadOutboundData() {
+    loadMessageTemplates();
+    loadOutboundContacts();
+    loadOutboundHistory();
+    loadBroadcastHistory();
+}
+
+// ── Sub-tab Navigation ───────────────────────────────────────
+document.querySelectorAll('.outbound-subtab').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const targetTab = btn.getAttribute('data-outbound-tab');
+        
+        document.querySelectorAll('.outbound-subtab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        document.querySelectorAll('.outbound-subtab-panel').forEach(panel => {
+            panel.classList.remove('active');
+        });
+        
+        const panelId = 'outbound-' + targetTab;
+        const targetPanel = document.getElementById(panelId);
+        if (targetPanel) targetPanel.classList.add('active');
+        
+        // Refresh data for the target sub-tab
+        if (targetTab === 'templates-tab') loadMessageTemplates();
+        if (targetTab === 'broadcast-tab') loadBroadcastHistory();
+    });
+});
+
+// ── Template API ─────────────────────────────────────────────
+async function loadMessageTemplates() {
+    try {
+        const res = await fetch('/api/templates');
+        const data = await res.json();
+        messageTemplates = data.templates || [];
+        renderTemplateCards();
+        populateTemplateSelectors();
+    } catch (e) {
+        console.error('Error loading templates:', e);
+    }
+}
+
+function renderTemplateCards() {
+    const grid = document.getElementById('templates-grid');
+    const emptyState = document.getElementById('templates-empty');
+    if (!grid) return;
+    
+    // Clear existing template cards (not the empty state)
+    grid.querySelectorAll('.template-card').forEach(c => c.remove());
+    
+    if (messageTemplates.length === 0) {
+        if (emptyState) emptyState.style.display = '';
+        return;
+    }
+    if (emptyState) emptyState.style.display = 'none';
+    
+    messageTemplates.forEach(tpl => {
+        const card = document.createElement('div');
+        card.className = 'template-card';
+        
+        const statusClass = (tpl.meta_status || 'LOCAL').toLowerCase();
+        const statusLabel = tpl.meta_status || 'LOCAL';
+        
+        const categoryIcons = { MARKETING: 'fa-bullhorn', UTILITY: 'fa-wrench', AUTHENTICATION: 'fa-shield-halved' };
+        const catIcon = categoryIcons[tpl.category] || 'fa-puzzle-piece';
+        
+        // Build header info
+        let headerInfo = '';
+        if (tpl.header && tpl.header.type) {
+            const htypeIcons = { text: 'fa-heading', image: 'fa-image', document: 'fa-file-pdf', video: 'fa-video' };
+            headerInfo = `<span style="font-size:0.7rem;color:var(--text-muted);"><i class="fa-solid ${htypeIcons[tpl.header.type] || 'fa-heading'}"></i> ${tpl.header.type}</span>`;
+        }
+        
+        // Button info
+        let buttonInfo = '';
+        if (tpl.buttons && tpl.buttons.length > 0) {
+            buttonInfo = `<span style="font-size:0.7rem;color:var(--text-muted);"><i class="fa-solid fa-hand-pointer"></i> ${tpl.buttons.length} btn${tpl.buttons.length > 1 ? 's' : ''}</span>`;
+        }
+        
+        card.innerHTML = `
+            <div class="template-card-header">
+                <div>
+                    <div class="template-card-name">${escapeHtml(tpl.name)}</div>
+                    <div class="template-card-category"><i class="fa-solid ${catIcon}"></i> ${tpl.category} • ${tpl.language || 'en'}</div>
+                </div>
+                <span class="tpl-status-badge ${statusClass}">
+                    <i class="fa-solid ${statusClass === 'approved' ? 'fa-check-circle' : statusClass === 'rejected' ? 'fa-times-circle' : statusClass === 'pending' ? 'fa-clock' : 'fa-database'}"></i>
+                    ${statusLabel}
+                </span>
+            </div>
+            <div class="template-card-body">${escapeHtml(tpl.body || '')}</div>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">${headerInfo}${buttonInfo}${tpl.footer ? `<span style="font-size:0.7rem;color:var(--text-muted);"><i class="fa-solid fa-shoe-prints"></i> footer</span>` : ''}</div>
+            <div class="template-card-footer">
+                <span style="font-size:0.7rem;color:var(--text-muted);">${formatDateTime(tpl.created_at)}</span>
+                <div class="template-card-actions">
+                    <button title="Delete template" class="delete-btn" onclick="deleteMessageTemplate('${tpl.id}')"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
+            </div>
+            ${tpl.meta_status === 'REJECTED' && tpl.meta_rejection_reason ? `<div style="font-size:0.72rem;color:#f87171;background:rgba(239,68,68,0.08);padding:0.4rem 0.6rem;border-radius:6px;margin-top:0.25rem;"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(tpl.meta_rejection_reason)}</div>` : ''}
+        `;
+        grid.appendChild(card);
+    });
+}
+
+function populateTemplateSelectors() {
+    const selectors = [
+        document.getElementById('outbound-template-select'),
+        document.getElementById('broadcast-template-select')
+    ];
+    
+    selectors.forEach(sel => {
+        if (!sel) return;
+        const firstOption = sel.querySelector('option');
+        sel.innerHTML = '';
+        sel.appendChild(firstOption || Object.assign(document.createElement('option'), { value: '', textContent: 'Choose a template...' }));
+        
+        // Show all templates, mark approved ones
+        messageTemplates.forEach(tpl => {
+            const opt = document.createElement('option');
+            opt.value = tpl.id;
+            const statusIcon = tpl.meta_status === 'APPROVED' ? '✅' : tpl.meta_status === 'PENDING' ? '⏳' : tpl.meta_status === 'REJECTED' ? '❌' : '💾';
+            opt.textContent = `${statusIcon} ${tpl.name} (${tpl.category})`;
+            sel.appendChild(opt);
+        });
+    });
+}
+
+async function deleteMessageTemplate(templateId) {
+    if (!confirm('Delete this template? This will also remove it from Meta if submitted.')) return;
+    try {
+        const res = await fetch(`/api/templates/${templateId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast('Template deleted');
+            loadMessageTemplates();
+        } else {
+            showToast(data.detail || 'Failed to delete template', true);
+        }
+    } catch (e) {
+        showToast('Error deleting template', true);
+    }
+}
+
+// ── Sync with Meta ───────────────────────────────────────────
+const syncBtn = document.getElementById('sync-templates-btn');
+if (syncBtn) {
+    syncBtn.addEventListener('click', async () => {
+        syncBtn.disabled = true;
+        syncBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Syncing...';
+        try {
+            const res = await fetch('/api/templates/sync', { method: 'POST' });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast(`Synced with Meta — ${data.synced} updated, ${data.meta_count} templates found`);
+                loadMessageTemplates();
+            } else {
+                showToast(data.detail || 'Sync failed', true);
+            }
+        } catch (e) {
+            showToast('Error syncing with Meta', true);
+        } finally {
+            syncBtn.disabled = false;
+            syncBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Sync with Meta';
+        }
+    });
+}
+
+// ── Template Builder Modal ───────────────────────────────────
+const createTemplateBtn = document.getElementById('create-template-btn');
+const templateBuilderModal = document.getElementById('template-builder-modal');
+const closeTemplateBuilderBtn = document.getElementById('close-template-builder');
+const cancelTemplateBuilderBtn = document.getElementById('tpl-builder-cancel');
+
+function openTemplateBuilder() {
+    if (!templateBuilderModal) return;
+    // Reset form
+    const fields = ['tpl-builder-name', 'tpl-builder-body', 'tpl-builder-footer', 'tpl-builder-header-value'];
+    fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    const catSel = document.getElementById('tpl-builder-category');
+    if (catSel) catSel.value = 'MARKETING';
+    const langSel = document.getElementById('tpl-builder-language');
+    if (langSel) langSel.value = 'en';
+    const headerType = document.getElementById('tpl-builder-header-type');
+    if (headerType) { headerType.value = ''; headerTypeChanged(); }
+    const buttonsContainer = document.getElementById('tpl-buttons-container');
+    if (buttonsContainer) buttonsContainer.innerHTML = '';
+    updateBuilderBodyCharCount();
+    
+    templateBuilderModal.classList.remove('hidden');
+}
+
+function closeTemplateBuilder() {
+    if (templateBuilderModal) templateBuilderModal.classList.add('hidden');
+}
+
+if (createTemplateBtn) createTemplateBtn.addEventListener('click', openTemplateBuilder);
+if (closeTemplateBuilderBtn) closeTemplateBuilderBtn.addEventListener('click', closeTemplateBuilder);
+if (cancelTemplateBuilderBtn) cancelTemplateBuilderBtn.addEventListener('click', closeTemplateBuilder);
+
+// Header type change
+function headerTypeChanged() {
+    const headerType = document.getElementById('tpl-builder-header-type');
+    const headerContent = document.getElementById('tpl-builder-header-content');
+    const headerInput = document.getElementById('tpl-builder-header-value');
+    if (!headerType || !headerContent) return;
+    
+    if (headerType.value) {
+        headerContent.classList.remove('hidden');
+        if (headerInput) {
+            headerInput.placeholder = headerType.value === 'text' ? 'Header text...' : `Public ${headerType.value} URL (https://...)`;
+        }
+    } else {
+        headerContent.classList.add('hidden');
+    }
+}
+
+const headerTypeSelect = document.getElementById('tpl-builder-header-type');
+if (headerTypeSelect) headerTypeSelect.addEventListener('change', headerTypeChanged);
+
+// Body char count
+function updateBuilderBodyCharCount() {
+    const body = document.getElementById('tpl-builder-body');
+    const counter = document.getElementById('tpl-body-char-count');
+    if (body && counter) {
+        counter.textContent = `${body.value.length} / 1024`;
+    }
+}
+
+const tplBodyEl = document.getElementById('tpl-builder-body');
+if (tplBodyEl) tplBodyEl.addEventListener('input', updateBuilderBodyCharCount);
+
+// Add Variable
+const addVariableBtn = document.getElementById('tpl-add-variable');
+if (addVariableBtn) {
+    addVariableBtn.addEventListener('click', () => {
+        const body = document.getElementById('tpl-builder-body');
+        if (!body) return;
+        // Find next variable number
+        const matches = body.value.match(/\{\{(\d+)\}\}/g) || [];
+        const nums = matches.map(m => parseInt(m.replace(/[{}]/g, '')));
+        const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
+        // Insert at cursor
+        const start = body.selectionStart;
+        const end = body.selectionEnd;
+        const text = body.value;
+        body.value = text.substring(0, start) + `{{${next}}}` + text.substring(end);
+        body.focus();
+        body.selectionStart = body.selectionEnd = start + `{{${next}}}`.length;
+        updateBuilderBodyCharCount();
+    });
+}
+
+// Add Button
+const addButtonBtn = document.getElementById('tpl-add-button');
+if (addButtonBtn) {
+    addButtonBtn.addEventListener('click', () => {
+        const container = document.getElementById('tpl-buttons-container');
+        if (!container) return;
+        const existing = container.querySelectorAll('.tpl-button-row').length;
+        if (existing >= 3) { showToast('Max 3 buttons allowed', true); return; }
+        
+        const row = document.createElement('div');
+        row.className = 'tpl-button-row';
+        row.innerHTML = `
+            <select class="btn-type-select">
+                <option value="url">URL</option>
+                <option value="phone">Phone</option>
+                <option value="quick_reply">Quick Reply</option>
+            </select>
+            <input type="text" class="btn-text-input" placeholder="Button text" maxlength="25">
+            <input type="text" class="btn-value-input" placeholder="URL or phone number">
+            <button type="button" class="remove-btn" title="Remove"><i class="fa-solid fa-xmark"></i></button>
+        `;
+        
+        row.querySelector('.remove-btn').addEventListener('click', () => row.remove());
+        
+        // Hide value input for quick_reply
+        const typeSelect = row.querySelector('.btn-type-select');
+        const valueInput = row.querySelector('.btn-value-input');
+        typeSelect.addEventListener('change', () => {
+            valueInput.style.display = typeSelect.value === 'quick_reply' ? 'none' : '';
+            valueInput.placeholder = typeSelect.value === 'phone' ? 'Phone (e.g. +919876543210)' : 'URL (https://...)';
+        });
+        
+        container.appendChild(row);
+    });
+}
+
+// Save Template (local or submit to Meta)
+function collectTemplateBuilderData() {
+    const name = (document.getElementById('tpl-builder-name')?.value || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    const category = document.getElementById('tpl-builder-category')?.value || 'MARKETING';
+    const language = document.getElementById('tpl-builder-language')?.value || 'en';
+    const body = document.getElementById('tpl-builder-body')?.value || '';
+    const footer = document.getElementById('tpl-builder-footer')?.value || '';
+    
+    // Header
+    let header = null;
+    const headerType = document.getElementById('tpl-builder-header-type')?.value;
+    if (headerType) {
+        header = { type: headerType, content: document.getElementById('tpl-builder-header-value')?.value || '' };
+    }
+    
+    // Buttons
+    const buttons = [];
+    document.querySelectorAll('#tpl-buttons-container .tpl-button-row').forEach(row => {
+        const type = row.querySelector('.btn-type-select')?.value || 'url';
+        const text = row.querySelector('.btn-text-input')?.value || '';
+        const value = row.querySelector('.btn-value-input')?.value || '';
+        if (text) buttons.push({ type, text, value });
+    });
+    
+    return { name, category, language, header, body, footer, buttons };
+}
+
+async function saveTemplate(submitToMeta) {
+    const data = collectTemplateBuilderData();
+    
+    if (!data.name) { showToast('Template name is required', true); return; }
+    if (!data.body) { showToast('Template body text is required', true); return; }
+    
+    const btnId = submitToMeta ? 'tpl-builder-submit-meta' : 'tpl-builder-save-local';
+    const btn = document.getElementById(btnId);
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...'; }
+    
+    try {
+        const res = await fetch('/api/templates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...data, submit_to_meta: submitToMeta })
+        });
+        const result = await res.json();
+        if (res.ok && result.success) {
+            showToast(submitToMeta ? 'Template submitted to Meta for review!' : 'Template saved locally');
+            closeTemplateBuilder();
+            loadMessageTemplates();
+        } else {
+            showToast(result.detail || 'Failed to save template', true);
+        }
+    } catch (e) {
+        showToast('Error saving template', true);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = submitToMeta
+                ? '<i class="fa-brands fa-meta"></i> Save & Submit to Meta'
+                : '<i class="fa-solid fa-save"></i> Save Locally';
+        }
+    }
+}
+
+const saveLocalBtn = document.getElementById('tpl-builder-save-local');
+const submitMetaBtn = document.getElementById('tpl-builder-submit-meta');
+if (saveLocalBtn) saveLocalBtn.addEventListener('click', () => saveTemplate(false));
+if (submitMetaBtn) submitMetaBtn.addEventListener('click', () => saveTemplate(true));
+
+// ── Contact Picker (for Send tab) ────────────────────────────
+async function loadOutboundContacts() {
+    const select = document.getElementById('outbound-contact-select');
+    if (!select) return;
+    select.innerHTML = '<option value="">Pick Contact...</option>';
+    
+    try {
+        // Load leads
+        const leadsRes = await fetch('/api/leads');
+        const leadsArr = await leadsRes.json();
+        if (leadsArr.length > 0) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = 'Leads';
+            leadsArr.forEach(l => {
+                const phone = l.phone || l.phone_number || '';
+                if (phone) {
+                    const opt = document.createElement('option');
+                    opt.value = phone;
+                    opt.textContent = `${l.name || 'Unknown'} (+${phone})`;
+                    optgroup.appendChild(opt);
+                }
+            });
+            select.appendChild(optgroup);
+        }
+        
+        // Load visitors
+        const visitorsRes = await fetch('/api/visitors');
+        const visitorsArr = await visitorsRes.json();
+        if (visitorsArr.length > 0) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = 'Visitors';
+            visitorsArr.forEach(v => {
+                const phone = v.phone || '';
+                if (phone) {
+                    const opt = document.createElement('option');
+                    opt.value = phone;
+                    opt.textContent = `Visitor (+${phone})`;
+                    optgroup.appendChild(opt);
+                }
+            });
+            select.appendChild(optgroup);
+        }
+    } catch (e) {
+        console.error('Error loading outbound contacts:', e);
+    }
+}
+
+// Contact select → fill phone input
+const contactSelect = document.getElementById('outbound-contact-select');
+if (contactSelect) {
+    contactSelect.addEventListener('change', () => {
+        const phoneInput = document.getElementById('outbound-phone-input');
+        if (phoneInput && contactSelect.value) {
+            phoneInput.value = contactSelect.value;
+            updateSendPreviewRecipient();
+        }
+    });
+}
+
+// Phone input → update preview
+const phoneInput = document.getElementById('outbound-phone-input');
+if (phoneInput) {
+    phoneInput.addEventListener('input', updateSendPreviewRecipient);
+}
+
+function updateSendPreviewRecipient() {
+    const phone = document.getElementById('outbound-phone-input')?.value || '';
+    const el = document.getElementById('preview-recipient-phone');
+    if (el) el.textContent = phone ? `+${phone.replace(/^\+/, '')}` : 'Select Recipient...';
+}
+
+// ── Send Mode Toggle ─────────────────────────────────────────
+const modeTemplateBtnEl = document.getElementById('mode-template-btn');
+const modeFreeformBtnEl = document.getElementById('mode-freeform-btn');
+const templateSection = document.getElementById('template-send-section');
+const freeformSection = document.getElementById('freeform-send-section');
+
+function setSendMode(mode) {
+    outboundSendMode = mode;
+    if (mode === 'template') {
+        modeTemplateBtnEl?.classList.add('active');
+        modeFreeformBtnEl?.classList.remove('active');
+        templateSection?.classList.remove('hidden');
+        freeformSection?.classList.add('hidden');
+    } else {
+        modeFreeformBtnEl?.classList.add('active');
+        modeTemplateBtnEl?.classList.remove('active');
+        freeformSection?.classList.remove('hidden');
+        templateSection?.classList.add('hidden');
+    }
+    updateSendPreview();
+}
+
+if (modeTemplateBtnEl) modeTemplateBtnEl.addEventListener('click', () => setSendMode('template'));
+if (modeFreeformBtnEl) modeFreeformBtnEl.addEventListener('click', () => setSendMode('freeform'));
+
+// ── Template Selector (Single Send) ──────────────────────────
+const outboundTemplateSelect = document.getElementById('outbound-template-select');
+if (outboundTemplateSelect) {
+    outboundTemplateSelect.addEventListener('change', () => {
+        const tplId = outboundTemplateSelect.value;
+        const varSection = document.getElementById('template-variables-section');
+        const varList = document.getElementById('template-variables-list');
+        
+        if (!tplId) {
+            varSection?.classList.add('hidden');
+            if (varList) varList.innerHTML = '';
+            updateSendPreview();
+            return;
+        }
+        
+        const tpl = messageTemplates.find(t => t.id === tplId);
+        if (!tpl) return;
+        
+        // Extract variables
+        const vars = (tpl.body || '').match(/\{\{(\d+)\}\}/g) || [];
+        const uniqueVars = [...new Set(vars.map(v => v.replace(/[{}]/g, '')))].sort((a, b) => parseInt(a) - parseInt(b));
+        
+        if (uniqueVars.length > 0) {
+            varSection?.classList.remove('hidden');
+            varList.innerHTML = '';
+            uniqueVars.forEach(v => {
+                const row = document.createElement('div');
+                row.className = 'variable-input-row';
+                row.innerHTML = `
+                    <span class="variable-label">{{${v}}}</span>
+                    <input type="text" class="outbound-input tpl-var-input" data-var="${v}" placeholder="Value for variable ${v}..." style="flex:1;">
+                `;
+                row.querySelector('input').addEventListener('input', updateSendPreview);
+                varList.appendChild(row);
+            });
+        } else {
+            varSection?.classList.add('hidden');
+            if (varList) varList.innerHTML = '';
+        }
+        
+        updateSendPreview();
+    });
+}
+
+// ── Live Preview (Single Send) ───────────────────────────────
+function updateSendPreview() {
+    const previewText = document.getElementById('outbound-preview-text');
+    const previewHeader = document.getElementById('outbound-preview-header');
+    const previewFooter = document.getElementById('outbound-preview-footer');
+    const previewButtons = document.getElementById('outbound-preview-buttons');
+    const previewMediaBox = document.getElementById('outbound-preview-media-box');
+    const previewTime = document.getElementById('outbound-preview-time');
+    
+    if (previewTime) previewTime.textContent = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
+    
+    if (outboundSendMode === 'template') {
+        // Template mode preview
+        const tplId = document.getElementById('outbound-template-select')?.value;
+        const tpl = tplId ? messageTemplates.find(t => t.id === tplId) : null;
+        
+        if (previewMediaBox) previewMediaBox.style.display = 'none';
+        
+        if (!tpl) {
+            if (previewText) previewText.innerHTML = '<span style="color:#8696a0;font-style:italic;">Select a template to see live preview...</span>';
+            if (previewHeader) previewHeader.style.display = 'none';
+            if (previewFooter) previewFooter.style.display = 'none';
+            if (previewButtons) previewButtons.style.display = 'none';
+            return;
+        }
+        
+        // Fill variables
+        let bodyText = tpl.body || '';
+        document.querySelectorAll('#template-variables-list .tpl-var-input').forEach(input => {
+            const varNum = input.dataset.var;
+            const val = input.value || `{{${varNum}}}`;
+            bodyText = bodyText.replace(new RegExp(`\\{\\{${varNum}\\}\\}`, 'g'), val);
+        });
+        
+        // Render body
+        if (previewText) previewText.textContent = bodyText;
+        
+        // Header
+        renderPreviewHeader(previewHeader, tpl.header);
+        
+        // Footer
+        if (previewFooter) {
+            if (tpl.footer) {
+                previewFooter.style.display = 'block';
+                previewFooter.textContent = tpl.footer;
+            } else {
+                previewFooter.style.display = 'none';
+            }
+        }
+        
+        // Buttons
+        renderPreviewButtons(previewButtons, tpl.buttons);
+        
+    } else {
+        // Freeform mode preview
+        const text = document.getElementById('outbound-text-input')?.value || '';
+        if (previewText) {
+            previewText.textContent = text || '';
+            if (!text) previewText.innerHTML = '<span style="color:#8696a0;font-style:italic;">Type a message to preview...</span>';
+        }
+        if (previewHeader) previewHeader.style.display = 'none';
+        if (previewFooter) previewFooter.style.display = 'none';
+        if (previewButtons) previewButtons.style.display = 'none';
+        
+        // File preview
+        if (previewMediaBox && selectedOutboundFile) {
+            previewMediaBox.style.display = 'flex';
+            const ext = selectedOutboundFile.name.split('.').pop().toLowerCase();
+            const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext);
+            document.getElementById('outbound-preview-media-icon').className = isImage ? 'fa-solid fa-image' : 'fa-solid fa-file-pdf';
+            document.getElementById('outbound-preview-media-icon').style.color = isImage ? '#34a853' : '#ea4335';
+            document.getElementById('outbound-preview-media-name').textContent = selectedOutboundFile.name;
+            document.getElementById('outbound-preview-media-type').textContent = isImage ? 'Image' : 'Document';
+        } else if (previewMediaBox) {
+            previewMediaBox.style.display = 'none';
+        }
+    }
+}
+
+function renderPreviewHeader(container, header) {
+    if (!container) return;
+    if (!header || !header.type) { container.style.display = 'none'; return; }
+    
+    container.style.display = 'block';
+    if (header.type === 'text') {
+        container.style.cssText = 'padding: 0.6rem 0.75rem 0; font-size: 0.92rem; font-weight: 700; color: #111b21;';
+        container.textContent = header.content || '';
+    } else if (header.type === 'image') {
+        container.style.cssText = 'padding: 0; overflow: hidden; border-radius: 8px 8px 0 0;';
+        container.innerHTML = header.content
+            ? `<img src="${escapeHtml(header.content)}" style="width:100%;max-height:180px;object-fit:cover;display:block;" onerror="this.style.display='none'">`
+            : `<div style="width:100%;height:120px;background:#e4e6eb;display:flex;align-items:center;justify-content:center;color:#8696a0;"><i class="fa-solid fa-image" style="font-size:2rem;"></i></div>`;
+    } else if (header.type === 'document') {
+        container.style.cssText = 'padding: 0.5rem 0.75rem; background: #f0f2f5;';
+        container.innerHTML = `<div style="display:flex;align-items:center;gap:8px;"><i class="fa-solid fa-file-pdf" style="font-size:1.4rem;color:#ea4335;"></i><span style="font-size:0.82rem;color:#111b21;font-weight:500;">Document</span></div>`;
+    } else if (header.type === 'video') {
+        container.style.cssText = 'padding: 0; overflow: hidden; border-radius: 8px 8px 0 0;';
+        container.innerHTML = `<div style="width:100%;height:120px;background:#e4e6eb;display:flex;align-items:center;justify-content:center;color:#8696a0;"><i class="fa-solid fa-video" style="font-size:2rem;"></i></div>`;
+    }
+}
+
+function renderPreviewButtons(container, buttons) {
+    if (!container) return;
+    if (!buttons || buttons.length === 0) { container.style.display = 'none'; return; }
+    
+    container.style.display = 'block';
+    container.innerHTML = '';
+    buttons.forEach(btn => {
+        const icon = btn.type === 'url' ? 'fa-arrow-up-right-from-square' : btn.type === 'phone' ? 'fa-phone' : 'fa-reply';
+        const el = document.createElement('div');
+        el.className = 'wa-preview-button';
+        el.innerHTML = `<i class="fa-solid ${icon}"></i> ${escapeHtml(btn.text || 'Button')}`;
+        container.appendChild(el);
+    });
+}
+
+// ── Freeform mode inputs ─────────────────────────────────────
+const outboundTextInput = document.getElementById('outbound-text-input');
+if (outboundTextInput) {
+    outboundTextInput.addEventListener('input', () => {
+        updateOutboundCharCount();
+        updateSendPreview();
+    });
+}
+
+function updateOutboundCharCount() {
+    const text = document.getElementById('outbound-text-input')?.value || '';
+    const counter = document.getElementById('outbound-char-count');
+    if (counter) counter.textContent = `${text.length} / 4096`;
+}
+
+// File attachment (freeform)
+const outboundFileInput = document.getElementById('outbound-file-input');
+const outboundDropzone = document.getElementById('outbound-dropzone');
+const outboundFilePreview = document.getElementById('outbound-file-preview');
+const outboundRemoveFile = document.getElementById('outbound-remove-file-btn');
+
+if (outboundDropzone) {
+    outboundDropzone.addEventListener('click', () => outboundFileInput?.click());
+    outboundDropzone.addEventListener('dragover', e => { e.preventDefault(); outboundDropzone.style.borderColor = 'var(--accent-cyan)'; });
+    outboundDropzone.addEventListener('dragleave', () => { outboundDropzone.style.borderColor = ''; });
+    outboundDropzone.addEventListener('drop', e => {
+        e.preventDefault();
+        outboundDropzone.style.borderColor = '';
+        if (e.dataTransfer.files.length > 0) handleOutboundFile(e.dataTransfer.files[0]);
+    });
+}
+
+if (outboundFileInput) {
+    outboundFileInput.addEventListener('change', () => {
+        if (outboundFileInput.files.length > 0) handleOutboundFile(outboundFileInput.files[0]);
+    });
+}
+
+function handleOutboundFile(file) {
+    selectedOutboundFile = file;
+    const nameEl = document.getElementById('outbound-file-name-txt');
+    if (nameEl) nameEl.textContent = file.name;
+    outboundFilePreview?.classList.remove('hidden');
+    if (outboundFilePreview) outboundFilePreview.style.display = 'flex';
+    outboundDropzone.style.display = 'none';
+    updateSendPreview();
+}
+
+if (outboundRemoveFile) {
+    outboundRemoveFile.addEventListener('click', () => {
+        selectedOutboundFile = null;
+        if (outboundFileInput) outboundFileInput.value = '';
+        outboundFilePreview?.classList.add('hidden');
+        if (outboundFilePreview) outboundFilePreview.style.display = 'none';
+        if (outboundDropzone) outboundDropzone.style.display = '';
+        updateSendPreview();
+    });
+}
+
+// ── Send Message Button ──────────────────────────────────────
+const outboundSendBtn = document.getElementById('outbound-send-btn');
+if (outboundSendBtn) {
+    outboundSendBtn.addEventListener('click', async () => {
+        const phone = (document.getElementById('outbound-phone-input')?.value || '').trim().replace(/[^0-9]/g, '');
+        if (!phone) { showToast('Enter a recipient phone number', true); return; }
+        
+        outboundSendBtn.disabled = true;
+        outboundSendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
+        
+        try {
+            if (outboundSendMode === 'template') {
+                // Template send
+                const tplId = document.getElementById('outbound-template-select')?.value;
+                if (!tplId) { showToast('Select a template first', true); return; }
+                
+                // Collect variables
+                const variables = {};
+                document.querySelectorAll('#template-variables-list .tpl-var-input').forEach(input => {
+                    variables[input.dataset.var] = input.value;
+                });
+                
+                const res = await fetch(`/api/templates/${tplId}/send`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, variables })
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showToast(data.message || 'Template sent successfully!');
+                    loadOutboundHistory();
+                } else {
+                    showToast(data.detail || 'Failed to send template', true);
+                }
+            } else {
+                // Freeform send
+                const messageText = document.getElementById('outbound-text-input')?.value || '';
+                if (!messageText && !selectedOutboundFile) { showToast('Enter a message or attach a file', true); return; }
+                
+                if (selectedOutboundFile) {
+                    // Send with file
+                    const formData = new FormData();
+                    formData.append('phone', phone);
+                    formData.append('message', messageText);
+                    formData.append('file', selectedOutboundFile);
+                    
+                    const res = await fetch('/api/messages/send-media', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        showToast('Message with file sent successfully!');
+                        // Reset file
+                        selectedOutboundFile = null;
+                        if (outboundFileInput) outboundFileInput.value = '';
+                        outboundFilePreview?.classList.add('hidden');
+                        if (outboundFilePreview) outboundFilePreview.style.display = 'none';
+                        if (outboundDropzone) outboundDropzone.style.display = '';
+                    } else {
+                        showToast(data.detail || 'Failed to send message', true);
+                    }
+                } else {
+                    // Send text only
+                    const res = await fetch('/api/leads/send-message', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone, message: messageText })
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        showToast('Message sent via WhatsApp!');
+                    } else {
+                        showToast(data.detail || 'Failed to send message', true);
+                    }
+                }
+                
+                // Clear freeform input
+                const textInput = document.getElementById('outbound-text-input');
+                if (textInput) textInput.value = '';
+                updateOutboundCharCount();
+            }
+            
+            updateSendPreview();
+            loadOutboundHistory();
+        } catch (e) {
+            showToast('Error sending message: ' + e.message, true);
+        } finally {
+            outboundSendBtn.disabled = false;
+            outboundSendBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Message';
+        }
+    });
+}
+
+// ── Outbound History ─────────────────────────────────────────
+async function loadOutboundHistory() {
+    const tbody = document.getElementById('outbound-history-tbody');
+    if (!tbody) return;
+    
+    try {
+        const res = await fetch('/api/outbound-messages');
+        const data = await res.json();
+        
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted" style="padding:2rem;">No outbound messages logged yet.</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = '';
+        const recent = data.slice(0, 20);
+        recent.forEach(msg => {
+            const phone = msg.phone || msg.phone_number || '-';
+            const body = (msg.body || '').substring(0, 100) + ((msg.body || '').length > 100 ? '...' : '');
+            const time = formatDateTime(msg.timestamp || msg.created_at);
+            
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="font-family:monospace;font-size:0.8rem;color:var(--accent-cyan);">+${escapeHtml(phone)}</td>
+                <td style="font-size:0.8rem;color:var(--text-secondary);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(msg.body || '')}">${escapeHtml(body)}</td>
+                <td style="font-size:0.78rem;color:var(--text-muted);white-space:nowrap;">${time}</td>
+            `;
+            tr.style.cursor = 'pointer';
+            tr.addEventListener('click', () => {
+                document.getElementById('outbound-message-phone').textContent = '+' + phone;
+                document.getElementById('outbound-message-time').textContent = time;
+                document.getElementById('outbound-message-body').textContent = msg.body || '';
+                document.getElementById('outbound-message-modal').classList.remove('hidden');
+            });
+            tbody.appendChild(tr);
+        });
+    } catch (e) {
+        console.error('Error loading outbound history:', e);
+    }
+}
+
+// ══════════════════════════════════════════════════════════════
+// MASS BROADCAST
+// ══════════════════════════════════════════════════════════════
+
+// ── Template Selector (Broadcast) ────────────────────────────
+const broadcastTemplateSelect = document.getElementById('broadcast-template-select');
+if (broadcastTemplateSelect) {
+    broadcastTemplateSelect.addEventListener('change', () => {
+        const tplId = broadcastTemplateSelect.value;
+        const varSection = document.getElementById('broadcast-variables-section');
+        const varList = document.getElementById('broadcast-variables-list');
+        
+        if (!tplId) {
+            varSection?.classList.add('hidden');
+            if (varList) varList.innerHTML = '';
+            updateBroadcastPreview();
+            updateBroadcastSendBtn();
+            return;
+        }
+        
+        const tpl = messageTemplates.find(t => t.id === tplId);
+        if (!tpl) return;
+        
+        const vars = (tpl.body || '').match(/\{\{(\d+)\}\}/g) || [];
+        const uniqueVars = [...new Set(vars.map(v => v.replace(/[{}]/g, '')))].sort((a, b) => parseInt(a) - parseInt(b));
+        
+        if (uniqueVars.length > 0) {
+            varSection?.classList.remove('hidden');
+            varList.innerHTML = '';
+            uniqueVars.forEach(v => {
+                const row = document.createElement('div');
+                row.className = 'variable-input-row';
+                row.innerHTML = `
+                    <span class="variable-label">{{${v}}}</span>
+                    <input type="text" class="outbound-input bc-var-input" data-var="${v}" placeholder="Value for {{${v}}}..." style="flex:1;">
+                `;
+                row.querySelector('input').addEventListener('input', updateBroadcastPreview);
+                varList.appendChild(row);
+            });
+        } else {
+            varSection?.classList.add('hidden');
+            if (varList) varList.innerHTML = '';
+        }
+        
+        updateBroadcastPreview();
+        updateBroadcastSendBtn();
+    });
+}
+
+// ── Broadcast Preview ────────────────────────────────────────
+function updateBroadcastPreview() {
+    const previewText = document.getElementById('broadcast-preview-text');
+    const previewHeader = document.getElementById('broadcast-preview-header');
+    const previewFooter = document.getElementById('broadcast-preview-footer');
+    const previewButtons = document.getElementById('broadcast-preview-buttons');
+    const previewTime = document.getElementById('broadcast-preview-time');
+    
+    if (previewTime) previewTime.textContent = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
+    
+    const tplId = document.getElementById('broadcast-template-select')?.value;
+    const tpl = tplId ? messageTemplates.find(t => t.id === tplId) : null;
+    
+    if (!tpl) {
+        if (previewText) previewText.innerHTML = '<span style="color:#8696a0;font-style:italic;">Select a template to preview...</span>';
+        if (previewHeader) previewHeader.style.display = 'none';
+        if (previewFooter) previewFooter.style.display = 'none';
+        if (previewButtons) previewButtons.style.display = 'none';
+        return;
+    }
+    
+    let bodyText = tpl.body || '';
+    document.querySelectorAll('#broadcast-variables-list .bc-var-input').forEach(input => {
+        const varNum = input.dataset.var;
+        const val = input.value || `{{${varNum}}}`;
+        bodyText = bodyText.replace(new RegExp(`\\{\\{${varNum}\\}\\}`, 'g'), val);
+    });
+    
+    if (previewText) previewText.textContent = bodyText;
+    renderPreviewHeader(previewHeader, tpl.header);
+    
+    if (previewFooter) {
+        if (tpl.footer) { previewFooter.style.display = 'block'; previewFooter.textContent = tpl.footer; }
+        else { previewFooter.style.display = 'none'; }
+    }
+    renderPreviewButtons(previewButtons, tpl.buttons);
+}
+
+// ── Recipient Selection ──────────────────────────────────────
+function addBroadcastRecipients(phones) {
+    phones.forEach(p => {
+        const clean = p.replace(/[^0-9]/g, '').trim();
+        if (clean && clean.length >= 10 && !broadcastRecipients.includes(clean)) {
+            broadcastRecipients.push(clean);
+        }
+    });
+    renderBroadcastChips();
+    updateBroadcastSendBtn();
+}
+
+function removeBroadcastRecipient(phone) {
+    broadcastRecipients = broadcastRecipients.filter(p => p !== phone);
+    renderBroadcastChips();
+    updateBroadcastSendBtn();
+}
+
+function renderBroadcastChips() {
+    const container = document.getElementById('broadcast-recipients-chips');
+    const summary = document.getElementById('broadcast-recipients-summary');
+    const countEl = document.getElementById('broadcast-recipients-count');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    // Show max 20 chips, rest as summary
+    const showCount = Math.min(broadcastRecipients.length, 20);
+    for (let i = 0; i < showCount; i++) {
+        const chip = document.createElement('span');
+        chip.className = 'broadcast-chip';
+        chip.innerHTML = `+${broadcastRecipients[i]} <i class="fa-solid fa-xmark chip-remove" onclick="removeBroadcastRecipient('${broadcastRecipients[i]}')"></i>`;
+        container.appendChild(chip);
+    }
+    
+    if (summary) {
+        if (broadcastRecipients.length > 0) {
+            summary.classList.remove('hidden');
+            summary.style.display = 'flex';
+            if (countEl) countEl.textContent = broadcastRecipients.length;
+        } else {
+            summary.classList.add('hidden');
+            summary.style.display = 'none';
+        }
+    }
+}
+
+function updateBroadcastSendBtn() {
+    const btn = document.getElementById('broadcast-send-btn');
+    if (!btn) return;
+    const hasTpl = !!document.getElementById('broadcast-template-select')?.value;
+    const hasRecipients = broadcastRecipients.length > 0;
+    btn.disabled = !(hasTpl && hasRecipients);
+}
+
+// Select All Leads
+const selectLeadsBtn = document.getElementById('broadcast-select-leads');
+if (selectLeadsBtn) {
+    selectLeadsBtn.addEventListener('click', async () => {
+        try {
+            const res = await fetch('/api/leads');
+            const leads = await res.json();
+            const phones = leads.map(l => l.phone || l.phone_number || '').filter(Boolean);
+            addBroadcastRecipients(phones);
+            showToast(`Added ${phones.length} lead phone numbers`);
+        } catch (e) {
+            showToast('Error loading leads', true);
+        }
+    });
+}
+
+// Select All Visitors
+const selectVisitorsBtn = document.getElementById('broadcast-select-visitors');
+if (selectVisitorsBtn) {
+    selectVisitorsBtn.addEventListener('click', async () => {
+        try {
+            const res = await fetch('/api/visitors');
+            const visitors = await res.json();
+            const phones = visitors.map(v => v.phone || '').filter(Boolean);
+            addBroadcastRecipients(phones);
+            showToast(`Added ${phones.length} visitor phone numbers`);
+        } catch (e) {
+            showToast('Error loading visitors', true);
+        }
+    });
+}
+
+// Manual phone input toggle
+const manualAddBtn = document.getElementById('broadcast-manual-add');
+const manualInputArea = document.getElementById('broadcast-manual-input-area');
+if (manualAddBtn && manualInputArea) {
+    manualAddBtn.addEventListener('click', () => {
+        manualInputArea.classList.toggle('hidden');
+    });
+}
+
+// Add manual phones
+const addManualPhonesBtn = document.getElementById('broadcast-add-manual-phones');
+if (addManualPhonesBtn) {
+    addManualPhonesBtn.addEventListener('click', () => {
+        const textarea = document.getElementById('broadcast-manual-phones');
+        if (!textarea) return;
+        const text = textarea.value.trim();
+        if (!text) return;
+        const phones = text.split(/[\s,;\n]+/).filter(Boolean);
+        addBroadcastRecipients(phones);
+        textarea.value = '';
+        showToast(`Added ${phones.length} phone number(s)`);
+    });
+}
+
+// CSV Upload
+const csvUploadBtn = document.getElementById('broadcast-csv-upload');
+const csvInput = document.getElementById('broadcast-csv-input');
+if (csvUploadBtn && csvInput) {
+    csvUploadBtn.addEventListener('click', () => csvInput.click());
+    csvInput.addEventListener('change', () => {
+        const file = csvInput.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const text = e.target.result;
+            // Extract phone numbers from CSV — look for columns or just extract all number sequences
+            const phones = [];
+            text.split('\n').forEach(line => {
+                const parts = line.split(',');
+                parts.forEach(part => {
+                    const cleaned = part.replace(/[^0-9]/g, '').trim();
+                    if (cleaned.length >= 10) phones.push(cleaned);
+                });
+            });
+            addBroadcastRecipients(phones);
+            showToast(`Imported ${phones.length} phone numbers from CSV`);
+        };
+        reader.readAsText(file);
+        csvInput.value = '';
+    });
+}
+
+// Clear all recipients
+const clearAllRecipientsBtn = document.getElementById('broadcast-clear-all');
+if (clearAllRecipientsBtn) {
+    clearAllRecipientsBtn.addEventListener('click', () => {
+        broadcastRecipients = [];
+        renderBroadcastChips();
+        updateBroadcastSendBtn();
+    });
+}
+
+// ── Send Broadcast ───────────────────────────────────────────
+const broadcastSendBtn = document.getElementById('broadcast-send-btn');
+if (broadcastSendBtn) {
+    broadcastSendBtn.addEventListener('click', async () => {
+        const tplId = document.getElementById('broadcast-template-select')?.value;
+        if (!tplId) { showToast('Select a template', true); return; }
+        if (broadcastRecipients.length === 0) { showToast('Add at least one recipient', true); return; }
+        
+        if (!confirm(`Send broadcast to ${broadcastRecipients.length} recipients?`)) return;
+        
+        // Collect variables
+        const variables = {};
+        document.querySelectorAll('#broadcast-variables-list .bc-var-input').forEach(input => {
+            variables[input.dataset.var] = input.value;
+        });
+        
+        // Show progress
+        const progressEl = document.getElementById('broadcast-progress');
+        const progressFill = document.getElementById('broadcast-progress-fill');
+        const sentCount = document.getElementById('broadcast-sent-count');
+        const failedCount = document.getElementById('broadcast-failed-count');
+        const totalCount = document.getElementById('broadcast-total-count');
+        
+        progressEl?.classList.remove('hidden');
+        if (progressFill) progressFill.style.width = '0%';
+        if (totalCount) totalCount.textContent = broadcastRecipients.length;
+        if (sentCount) sentCount.textContent = '0';
+        if (failedCount) failedCount.textContent = '0';
+        
+        broadcastSendBtn.disabled = true;
+        broadcastSendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Broadcasting...';
+        
+        try {
+            const res = await fetch('/api/broadcast', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    template_id: tplId,
+                    phones: broadcastRecipients,
+                    variables
+                })
+            });
+            const data = await res.json();
+            
+            if (res.ok && data.success) {
+                const r = data.results;
+                if (progressFill) progressFill.style.width = '100%';
+                if (sentCount) sentCount.textContent = r.sent;
+                if (failedCount) failedCount.textContent = r.failed;
+                showToast(`Broadcast complete! ${r.sent} sent, ${r.failed} failed`);
+                
+                // Clear recipients
+                broadcastRecipients = [];
+                renderBroadcastChips();
+                updateBroadcastSendBtn();
+                loadBroadcastHistory();
+            } else {
+                showToast(data.detail || 'Broadcast failed', true);
+            }
+        } catch (e) {
+            showToast('Error sending broadcast: ' + e.message, true);
+        } finally {
+            broadcastSendBtn.disabled = false;
+            broadcastSendBtn.innerHTML = '<i class="fa-solid fa-bullhorn"></i> Send Broadcast';
+        }
+    });
+}
+
+// ── Broadcast History ────────────────────────────────────────
+async function loadBroadcastHistory() {
+    const tbody = document.getElementById('broadcast-history-tbody');
+    if (!tbody) return;
+    
+    try {
+        const res = await fetch('/api/broadcast/history');
+        const data = await res.json();
+        const history = data.history || [];
+        
+        if (history.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted" style="padding:1.5rem;">No broadcasts yet.</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = '';
+        history.slice(0, 20).forEach(bc => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="font-size:0.82rem;color:#fff;font-weight:500;">${escapeHtml(bc.template_name || '-')}</td>
+                <td style="font-size:0.82rem;color:#34d399;font-weight:600;">${bc.sent || 0}</td>
+                <td style="font-size:0.82rem;color:${bc.failed > 0 ? '#f87171' : 'var(--text-muted)'};font-weight:${bc.failed > 0 ? '600' : '400'};">${bc.failed || 0}</td>
+                <td style="font-size:0.78rem;color:var(--text-muted);white-space:nowrap;">${formatDateTime(bc.created_at)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (e) {
+        console.error('Error loading broadcast history:', e);
+    }
+}
+
+// ── Initialize on page load ──────────────────────────────────
+// Pre-populate preview time
+const previewTimeEl = document.getElementById('outbound-preview-time');
+if (previewTimeEl) previewTimeEl.textContent = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+// -------------------------------------------------------------
+// Quick Message Templates Management (Settings tab — legacy)
 // -------------------------------------------------------------
 let quickTemplates = [];
 
@@ -2160,58 +3051,10 @@ async function loadQuickTemplates() {
                 }
             ];
         }
-        renderOutboundTemplates();
         renderTemplatesConfigList();
     } catch (e) {
         console.error('Failed to load quick templates:', e);
     }
-}
-
-function renderOutboundTemplates() {
-    const select = document.getElementById('outbound-template-select');
-    const pillsContainer = document.getElementById('quick-template-pills');
-    
-    if (select) {
-        select.innerHTML = '<option value="">⚡ Load Quick Template...</option>';
-        quickTemplates.forEach(t => {
-            select.innerHTML += `<option value="${t.id}">${escapeHtml(t.title)}</option>`;
-        });
-    }
-    
-    if (pillsContainer) {
-        pillsContainer.innerHTML = '';
-        quickTemplates.forEach(t => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'btn';
-            btn.style.cssText = 'background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.25); color: var(--accent-cyan); padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 500; cursor: pointer; transition: all 0.2s;';
-            btn.innerHTML = escapeHtml(t.title);
-            btn.addEventListener('click', () => applyQuickTemplate(t.id));
-            pillsContainer.appendChild(btn);
-        });
-    }
-}
-
-function applyQuickTemplate(templateId) {
-    const template = quickTemplates.find(t => t.id === templateId);
-    if (!template) return;
-    const textInput = document.getElementById('outbound-text-input');
-    if (textInput) {
-        textInput.value = template.text;
-        updateOutboundCharCount();
-        updateOutboundLivePreview();
-        showToast(`Loaded template: ${template.title}`);
-    }
-}
-
-const outboundTemplateSelect = document.getElementById('outbound-template-select');
-if (outboundTemplateSelect) {
-    outboundTemplateSelect.addEventListener('change', () => {
-        if (outboundTemplateSelect.value) {
-            applyQuickTemplate(outboundTemplateSelect.value);
-            outboundTemplateSelect.value = '';
-        }
-    });
 }
 
 function renderTemplatesConfigList() {
@@ -2263,7 +3106,6 @@ if (saveTemplatesBtn) {
             const data = await res.json();
             if (res.ok && data.success) {
                 quickTemplates = updatedTemplates;
-                renderOutboundTemplates();
                 showToast('Quick message templates saved successfully!');
             } else {
                 showToast('Failed to save templates', true);
@@ -2280,3 +3122,4 @@ if (saveTemplatesBtn) {
 
 // Automatically load quick templates on load
 loadQuickTemplates();
+
