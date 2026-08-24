@@ -1862,6 +1862,7 @@ const pdfDropzone = document.getElementById('catalogue-pdf-dropzone');
 const pdfFileInput = document.getElementById('catalogue-pdf-file-input');
 const uploadPdfBtn = document.getElementById('upload-catalogue-pdf-btn');
 const activePdfFilename = document.getElementById('active-pdf-filename');
+const activePdfUrl = document.getElementById('active-pdf-url');
 let selectedPdfFile = null;
 
 if (pdfDropzone && pdfFileInput) {
@@ -1891,10 +1892,18 @@ if (pdfDropzone && pdfFileInput) {
 }
 
 function handlePdfSelect(file) {
+    if (file.size > 25 * 1024 * 1024) {
+        showToast('PDF file size must be less than 25MB', true);
+        return;
+    }
     selectedPdfFile = file;
     if (uploadPdfBtn) {
         uploadPdfBtn.disabled = false;
         uploadPdfBtn.innerHTML = `<i class="fa-solid fa-upload"></i> Upload & Replace (${file.name})`;
+    }
+    const label = pdfDropzone ? (pdfDropzone.querySelector('.dropzone-label') || pdfDropzone.querySelector('span')) : null;
+    if (label) {
+        label.textContent = `Selected: ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`;
     }
 }
 
@@ -1918,10 +1927,13 @@ if (uploadPdfBtn) {
             if (res.ok && data.success) {
                 showToast(`Catalogue PDF updated successfully! (${data.filename})`);
                 if (activePdfFilename) activePdfFilename.textContent = data.filename;
+                if (activePdfUrl && data.url) activePdfUrl.textContent = window.location.origin + data.url;
                 uploadPdfBtn.disabled = true;
                 uploadPdfBtn.innerHTML = '<i class="fa-solid fa-check"></i> Uploaded Successfully';
                 selectedPdfFile = null;
                 if (pdfFileInput) pdfFileInput.value = '';
+                const label = pdfDropzone ? (pdfDropzone.querySelector('.dropzone-label') || pdfDropzone.querySelector('span')) : null;
+                if (label) label.textContent = 'Click to Select or Drop New Catalogue PDF';
             } else {
                 showToast(data.detail || 'Failed to upload Catalogue PDF', true);
                 uploadPdfBtn.disabled = false;
@@ -3162,98 +3174,7 @@ async function loadBroadcastHistory() {
 const previewTimeEl = document.getElementById('outbound-preview-time');
 if (previewTimeEl) previewTimeEl.textContent = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
 
-// -------------------------------------------------------------
-// Product Catalogue PDF Upload Management
-// -------------------------------------------------------------
-let selectedCatalogueFile = null;
-const catalogueDropzone = document.getElementById('catalogue-pdf-dropzone');
-const catalogueFileInput = document.getElementById('catalogue-pdf-file-input');
-const uploadCatalogueBtn = document.getElementById('upload-catalogue-pdf-btn');
-const activePdfFilename = document.getElementById('active-pdf-filename');
-const activePdfUrl = document.getElementById('active-pdf-url');
 
-if (catalogueDropzone && catalogueFileInput && uploadCatalogueBtn) {
-    catalogueDropzone.addEventListener('click', () => catalogueFileInput.click());
-
-    catalogueDropzone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        catalogueDropzone.style.borderColor = 'var(--accent-cyan)';
-        catalogueDropzone.style.background = 'rgba(6, 182, 212, 0.1)';
-    });
-
-    catalogueDropzone.addEventListener('dragleave', () => {
-        catalogueDropzone.style.borderColor = '';
-        catalogueDropzone.style.background = '';
-    });
-
-    catalogueDropzone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        catalogueDropzone.style.borderColor = '';
-        catalogueDropzone.style.background = '';
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            handleCatalogueFileSelect(e.dataTransfer.files[0]);
-        }
-    });
-
-    catalogueFileInput.addEventListener('change', (e) => {
-        if (e.target.files && e.target.files[0]) {
-            handleCatalogueFileSelect(e.target.files[0]);
-        }
-    });
-
-    function handleCatalogueFileSelect(file) {
-        if (!file.name.toLowerCase().endsWith('.pdf')) {
-            showToast('Please select a valid PDF file (.pdf)', true);
-            return;
-        }
-        if (file.size > 25 * 1024 * 1024) {
-            showToast('PDF file size must be less than 25MB', true);
-            return;
-        }
-        selectedCatalogueFile = file;
-        const label = catalogueDropzone.querySelector('.dropzone-label') || catalogueDropzone.querySelector('span');
-        if (label) {
-            label.textContent = `Selected: ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`;
-        }
-        uploadCatalogueBtn.disabled = false;
-    }
-
-    uploadCatalogueBtn.addEventListener('click', async () => {
-        if (!selectedCatalogueFile) return;
-
-        const formData = new FormData();
-        formData.append('file', selectedCatalogueFile);
-
-        uploadCatalogueBtn.disabled = true;
-        uploadCatalogueBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading PDF...';
-
-        try {
-            const res = await fetch('/api/settings/upload-catalogue', {
-                method: 'POST',
-                body: formData
-            });
-            const data = await res.json();
-
-            if (res.ok && data.success) {
-                showToast(data.message || 'Catalogue PDF uploaded successfully!');
-                if (activePdfFilename) activePdfFilename.textContent = data.filename || selectedCatalogueFile.name;
-                if (activePdfUrl && data.url) activePdfUrl.textContent = window.location.origin + data.url;
-                selectedCatalogueFile = null;
-                catalogueFileInput.value = '';
-                const label = catalogueDropzone.querySelector('.dropzone-label') || catalogueDropzone.querySelector('span');
-                if (label) label.textContent = 'Click to Select or Drop New Catalogue PDF';
-            } else {
-                showToast(data.detail || data.error || 'Failed to upload PDF catalogue', true);
-            }
-        } catch (e) {
-            console.error('Error uploading catalogue PDF:', e);
-            showToast('Network error while uploading catalogue PDF', true);
-        } finally {
-            uploadCatalogueBtn.disabled = true;
-            uploadCatalogueBtn.innerHTML = '<i class="fa-solid fa-upload"></i> Upload & Replace PDF';
-        }
-    });
-}
 
 // -------------------------------------------------------------
 // Theme Toggle & Light/Dark Mode Manager
