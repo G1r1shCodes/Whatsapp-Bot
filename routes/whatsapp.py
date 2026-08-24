@@ -322,6 +322,7 @@ def send_whatsapp_template(to_phone, template_name, language_code, components=No
         "Authorization": f"Bearer {META_ACCESS_TOKEN}",
         "Content-Type": "application/json"
     }
+    lang = language_code or "en"
     payload = {
         "messaging_product": "whatsapp",
         "recipient_type": "individual",
@@ -329,7 +330,7 @@ def send_whatsapp_template(to_phone, template_name, language_code, components=No
         "type": "template",
         "template": {
             "name": template_name,
-            "language": {"code": language_code or "en"}
+            "language": {"code": lang}
         }
     }
     if components:
@@ -340,8 +341,22 @@ def send_whatsapp_template(to_phone, template_name, language_code, components=No
         logger.info(f"Sent template '{template_name}' to {to_phone}")
         return response.json()
     except httpx.HTTPStatusError as he:
-        logger.error(f"Error sending template message (HTTP {he.response.status_code}): {he.response.text}")
-        raise RuntimeError(f"Meta API error: {he.response.text}")
+        res_text = he.response.text
+        # Fallback for en vs en_US code if error 132001
+        if "132001" in res_text and lang == "en":
+            logger.info(f"Retrying template '{template_name}' with language code 'en_US'...")
+            payload["template"]["language"]["code"] = "en_US"
+            try:
+                res2 = http_client.post(url, json=payload, headers=headers)
+                res2.raise_for_status()
+                logger.info(f"Sent template '{template_name}' (en_US) to {to_phone}")
+                return res2.json()
+            except Exception:
+                pass
+        logger.error(f"Error sending template message (HTTP {he.response.status_code}): {res_text}")
+        if "132001" in res_text:
+            raise RuntimeError("Template is currently PENDING approval on Meta (or language code mismatch). Click 'Sync with Meta' and wait until status turns APPROVED.")
+        raise RuntimeError(f"Meta API error: {res_text}")
     except Exception as e:
         logger.error(f"Error sending template message: {e}")
         raise
@@ -655,6 +670,11 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
                             incoming_msg = interactive.get("list_reply", {}).get("title", "").strip()
                         elif interactive.get("type") == "button_reply":
                             incoming_msg = interactive.get("button_reply", {}).get("title", "").strip()
+                    elif msg_type == "button":
+                        # Template Message Quick Reply button payload from Meta
+                        btn_obj = msg.get("button", {})
+                        incoming_msg = btn_obj.get("text") or btn_obj.get("payload") or ""
+                        incoming_msg = incoming_msg.strip()
                     
                     if not incoming_msg:
                         continue

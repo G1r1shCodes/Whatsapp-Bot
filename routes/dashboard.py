@@ -787,6 +787,15 @@ async def send_template_api(template_id: str, request: Request):
     if not template:
         raise HTTPException(status_code=404, detail="Template not found.")
 
+    # Auto-fill missing variables (e.g. {{1}} -> lead name)
+    body_var_nums = re.findall(r'\{\{(\d+)\}\}', template.get("body", ""))
+    if body_var_nums:
+        lead = db.get_lead_by_phone(phone)
+        contact_name = (lead.get("name") if lead and lead.get("name") else "") or "Customer"
+        for vn in body_var_nums:
+            if not variables.get(vn):
+                variables[vn] = contact_name if vn == "1" else f"Value {vn}"
+
     # Build send-time components (fill in variable parameters)
     send_components = []
     if variables:

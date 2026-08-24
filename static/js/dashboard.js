@@ -2341,7 +2341,7 @@ async function loadOutboundContacts() {
     }
 }
 
-// Contact select → fill phone input
+// Contact select → fill phone input & auto-populate variable 1 (Name)
 const contactSelect = document.getElementById('outbound-contact-select');
 if (contactSelect) {
     contactSelect.addEventListener('change', () => {
@@ -2349,6 +2349,19 @@ if (contactSelect) {
         if (phoneInput && contactSelect.value) {
             phoneInput.value = contactSelect.value;
             updateSendPreviewRecipient();
+
+            // Auto-fill {{1}} variable with contact name if available
+            const selectedOpt = contactSelect.options[contactSelect.selectedIndex];
+            if (selectedOpt && selectedOpt.textContent) {
+                const nameMatch = selectedOpt.textContent.match(/^(.*?)\s*\(\+/);
+                if (nameMatch && nameMatch[1] && !nameMatch[1].startsWith('Visitor') && nameMatch[1] !== 'Unknown') {
+                    const var1Input = document.querySelector('#template-variables-list input[data-var="1"]');
+                    if (var1Input) {
+                        var1Input.value = nameMatch[1].trim();
+                        updateSendPreview();
+                    }
+                }
+            }
         }
     });
 }
@@ -2939,7 +2952,7 @@ if (addManualPhonesBtn) {
     });
 }
 
-// CSV Upload
+// Excel / CSV Upload
 const csvUploadBtn = document.getElementById('broadcast-csv-upload');
 const csvInput = document.getElementById('broadcast-csv-input');
 if (csvUploadBtn && csvInput) {
@@ -2947,22 +2960,82 @@ if (csvUploadBtn && csvInput) {
     csvInput.addEventListener('change', () => {
         const file = csvInput.files[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const text = e.target.result;
-            // Extract phone numbers from CSV — look for columns or just extract all number sequences
-            const phones = [];
-            text.split('\n').forEach(line => {
-                const parts = line.split(',');
-                parts.forEach(part => {
-                    const cleaned = part.replace(/[^0-9]/g, '').trim();
-                    if (cleaned.length >= 10) phones.push(cleaned);
-                });
-            });
-            addBroadcastRecipients(phones);
-            showToast(`Imported ${phones.length} phone numbers from CSV`);
-        };
-        reader.readAsText(file);
+
+        const fileName = file.name.toLowerCase();
+        const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+
+        if (isExcel) {
+            if (typeof XLSX === 'undefined') {
+                showToast('Excel parser component is loading. Please try again in a moment.', true);
+                csvInput.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    const phones = [];
+                    rows.forEach(row => {
+                        if (Array.isArray(row)) {
+                            row.forEach(cell => {
+                                if (cell !== null && cell !== undefined) {
+                                    const cleaned = String(cell).replace(/[^0-9]/g, '').trim();
+                                    if (cleaned.length >= 10 && cleaned.length <= 15) {
+                                        phones.push(cleaned);
+                                    }
+                                }
+                            });
+                        }
+                    });
+
+                    if (phones.length > 0) {
+                        addBroadcastRecipients(phones);
+                        showToast(`Imported ${phones.length} valid phone numbers from "${file.name}"`);
+                    } else {
+                        showToast('No valid phone numbers found in the uploaded Excel file.', true);
+                    }
+                } catch (err) {
+                    console.error('Excel parse error:', err);
+                    showToast('Failed to parse Excel file. Ensure it is a valid .xlsx or .xls file.', true);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        } else {
+            // Text / CSV Parsing
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const text = e.target.result;
+                    const phones = [];
+                    text.split(/\r?\n/).forEach(line => {
+                        const parts = line.split(/[,;\t]/);
+                        parts.forEach(part => {
+                            const cleaned = part.replace(/[^0-9]/g, '').trim();
+                            if (cleaned.length >= 10 && cleaned.length <= 15) {
+                                phones.push(cleaned);
+                            }
+                        });
+                    });
+
+                    if (phones.length > 0) {
+                        addBroadcastRecipients(phones);
+                        showToast(`Imported ${phones.length} phone numbers from CSV`);
+                    } else {
+                        showToast('No valid phone numbers found in CSV file.', true);
+                    }
+                } catch (err) {
+                    console.error('CSV parse error:', err);
+                    showToast('Failed to parse CSV file.', true);
+                }
+            };
+            reader.readAsText(file);
+        }
         csvInput.value = '';
     });
 }

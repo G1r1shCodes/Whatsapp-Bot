@@ -586,10 +586,10 @@
                                         <button class="btn-action-sm" id="broadcast-manual-add" title="Add Numbers Manually">
                                             <i class="fa-solid fa-keyboard"></i> Manual
                                         </button>
-                                        <button class="btn-action-sm" id="broadcast-csv-upload" title="Upload CSV">
-                                            <i class="fa-solid fa-file-csv"></i> CSV
+                                        <button class="btn-action-sm" id="broadcast-csv-upload" title="Upload Excel or CSV file">
+                                            <i class="fa-solid fa-file-excel"></i> Excel / CSV
                                         </button>
-                                        <input type="file" id="broadcast-csv-input" accept=".csv,.txt" style="display: none;">
+                                        <input type="file" id="broadcast-csv-input" accept=".xlsx,.xls,.csv,.txt" style="display: none;">
                                     </div>
 
                                     <!-- Manual Phone Input -->
@@ -1165,6 +1165,8 @@
         <span id="toast-message">Status updated successfully!</span>
     </div>
 
+    <!-- SheetJS for parsing Excel (.xlsx, .xls) files -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="/static/js/dashboard.js"></script>
 </body>
 </html>
