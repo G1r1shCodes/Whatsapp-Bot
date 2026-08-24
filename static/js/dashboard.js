@@ -3180,13 +3180,13 @@ if (previewTimeEl) previewTimeEl.textContent = new Date().toLocaleTimeString('en
 // Theme Toggle & Light/Dark Mode Manager
 // -------------------------------------------------------------
 function initTheme() {
-    const savedTheme = localStorage.getItem('kdi_theme') || 'dark';
+    const savedTheme = localStorage.getItem('kdi_theme') || 'light';
     setTheme(savedTheme);
 
     const themeToggleBtn = document.getElementById('theme-toggle');
     if (themeToggleBtn) {
         themeToggleBtn.addEventListener('click', () => {
-            const current = document.documentElement.getAttribute('data-theme') || 'dark';
+            const current = document.documentElement.getAttribute('data-theme') || 'light';
             const next = current === 'dark' ? 'light' : 'dark';
             setTheme(next);
         });
@@ -3202,11 +3202,11 @@ function setTheme(theme) {
 
     if (sunIcon && moonIcon) {
         if (theme === 'light') {
-            sunIcon.style.display = 'inline-block';
-            moonIcon.style.display = 'none';
-        } else {
             sunIcon.style.display = 'none';
             moonIcon.style.display = 'inline-block';
+        } else {
+            sunIcon.style.display = 'inline-block';
+            moonIcon.style.display = 'none';
         }
     }
 
