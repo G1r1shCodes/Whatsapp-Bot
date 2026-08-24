@@ -665,11 +665,94 @@ async def update_settings_api(request: Request):
 from logger import get_logger
 logger = get_logger(__name__)
 
+def _sync_meta_templates_into_config():
+    from routes.whatsapp import get_meta_templates
+    meta_templates = get_meta_templates()
+    if not meta_templates:
+        return config_manager.get_templates(), 0, 0
+
+    local_templates = config_manager.get_templates()
+    local_by_name = {tpl["name"]: tpl for tpl in local_templates}
+    updated_count = 0
+    imported_count = 0
+
+    for mt in meta_templates:
+        mt_name = mt.get("name", "").strip()
+        if not mt_name:
+            continue
+        
+        status = mt.get("status", "PENDING")
+        meta_id = mt.get("id")
+        rejection_reason = mt.get("rejected_reason") if status == "REJECTED" else None
+        
+        if mt_name in local_by_name:
+            tpl = local_by_name[mt_name]
+            changed = False
+            if tpl.get("meta_status") != status:
+                tpl["meta_status"] = status
+                changed = True
+            if tpl.get("meta_template_id") != meta_id:
+                tpl["meta_template_id"] = meta_id
+                changed = True
+            if tpl.get("meta_rejection_reason") != rejection_reason:
+                tpl["meta_rejection_reason"] = rejection_reason
+                changed = True
+            if changed:
+                tpl["updated_at"] = datetime.utcnow().isoformat() + "Z"
+                config_manager.save_template(tpl)
+                updated_count += 1
+        else:
+            # Import new template from Meta into local store
+            components = mt.get("components", [])
+            header = None
+            body = ""
+            footer = ""
+            buttons = []
+            for comp in components:
+                ctype = comp.get("type", "").upper()
+                if ctype == "HEADER":
+                    hformat = comp.get("format", "TEXT").lower()
+                    hval = comp.get("text", "")
+                    header = {"type": hformat, "value": hval}
+                elif ctype == "BODY":
+                    body = comp.get("text", "")
+                elif ctype == "FOOTER":
+                    footer = comp.get("text", "")
+                elif ctype == "BUTTONS":
+                    for b in comp.get("buttons", []):
+                        buttons.append({
+                            "type": b.get("type", "QUICK_REPLY").lower(),
+                            "text": b.get("text", "")
+                        })
+
+            new_tpl = config_manager.create_template_obj(
+                name=mt_name,
+                category=mt.get("category", "MARKETING"),
+                language=mt.get("language", "en"),
+                header=header,
+                body=body,
+                footer=footer,
+                buttons=buttons
+            )
+            new_tpl["meta_status"] = status
+            new_tpl["meta_template_id"] = meta_id
+            new_tpl["meta_rejection_reason"] = rejection_reason
+            config_manager.save_template(new_tpl)
+            local_by_name[mt_name] = new_tpl
+            imported_count += 1
+
+    return config_manager.get_templates(), updated_count, imported_count
+
 @router.get("/api/templates")
 def get_templates_api(request: Request):
-    """Returns all saved message templates."""
+    """Returns all saved message templates. Auto-syncs from Meta if local cache is empty."""
     auth.require_auth(request)
     templates = config_manager.get_templates()
+    if not templates:
+        try:
+            templates, _, _ = _sync_meta_templates_into_config()
+        except Exception as e:
+            logger.error(f"Auto-sync error on get_templates: {e}")
     return {"templates": templates}
 
 @router.post("/api/templates")
@@ -738,37 +821,14 @@ def delete_template_api(template_id: str, request: Request):
 
 @router.post("/api/templates/sync")
 def sync_templates_api(request: Request):
-    """Syncs local template statuses with Meta."""
+    """Syncs local template statuses with Meta and imports missing templates."""
     auth.require_auth(request)
     try:
-        from routes.whatsapp import get_meta_templates
-        meta_templates = get_meta_templates()
+        templates, updated_count, imported_count = _sync_meta_templates_into_config()
+        return {"success": True, "synced": updated_count, "imported": imported_count, "total": len(templates)}
     except Exception as e:
+        logger.error(f"Failed to sync Meta templates: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch Meta templates: {str(e)}")
-
-    # Build a lookup by name
-    meta_by_name = {}
-    for mt in meta_templates:
-        meta_by_name[mt.get("name", "")] = mt
-
-    local_templates = config_manager.get_templates()
-    updated_count = 0
-    for tpl in local_templates:
-        meta_match = meta_by_name.get(tpl["name"])
-        if meta_match:
-            new_status = meta_match.get("status", "PENDING")
-            if tpl.get("meta_status") != new_status:
-                tpl["meta_status"] = new_status
-                tpl["meta_template_id"] = meta_match.get("id")
-                if new_status == "REJECTED":
-                    tpl["meta_rejection_reason"] = meta_match.get("rejected_reason", "Unknown")
-                else:
-                    tpl["meta_rejection_reason"] = None
-                tpl["updated_at"] = datetime.utcnow().isoformat()
-                config_manager.save_template(tpl)
-                updated_count += 1
-
-    return {"success": True, "synced": updated_count, "meta_count": len(meta_templates)}
 
 @router.post("/api/templates/{template_id}/send")
 async def send_template_api(template_id: str, request: Request):
