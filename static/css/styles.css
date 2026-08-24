@@ -222,19 +222,46 @@
 }
 
 [data-theme="light"] .chat-container-bubble {
-    background: linear-gradient(rgba(229, 221, 213, 0.94), rgba(229, 221, 213, 0.94)), url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png') repeat;
-    background-size: 380px;
-    border-color: var(--border);
+    background: linear-gradient(rgba(239, 234, 226, 0.96), rgba(239, 234, 226, 0.96)), url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png') repeat !important;
+    background-size: 380px !important;
+    border-color: var(--border) !important;
 }
 
 [data-theme="light"] .chat-bubble-row.inbound .chat-bubble {
-    background: #ffffff;
-    color: #1a1d2e;
+    background: #ffffff !important;
+    color: #111b21 !important;
+    box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13) !important;
 }
 
 [data-theme="light"] .chat-bubble-row.outbound .chat-bubble {
-    background: #d9fdd3;
-    color: #1a1d2e;
+    background: #d9fdd3 !important;
+    color: #111b21 !important;
+    box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13) !important;
+}
+
+[data-theme="light"] .chat-bubble-time {
+    color: #667781 !important;
+}
+
+[data-theme="light"] .chat-bubble-body {
+    color: #111b21 !important;
+}
+
+[data-theme="light"] .chat-reply-bar {
+    border-top-color: var(--border) !important;
+}
+
+[data-theme="light"] #lead-attach-btn,
+[data-theme="light"] #visitor-attach-btn {
+    background: #f1f5f9 !important;
+    border-color: var(--border) !important;
+    color: #475569 !important;
+}
+
+[data-theme="light"] #lead-attach-btn:hover,
+[data-theme="light"] #visitor-attach-btn:hover {
+    background: #e2e8f0 !important;
+    color: #0f172a !important;
 }
 
 [data-theme="light"] .filter-btn {
@@ -309,15 +336,91 @@
     border-bottom-color: var(--border);
 }
 
-[data-theme="light"] .outbound-subtab {
-    color: var(--text-secondary);
+[data-theme="light"] .outbound-subtabs {
+    background: #e2e8f0;
     border-color: var(--border);
 }
 
+[data-theme="light"] .outbound-subtab {
+    color: #475569;
+    background: transparent;
+}
+
+[data-theme="light"] .outbound-subtab:hover {
+    color: #0f172a;
+    background: rgba(0, 0, 0, 0.05);
+}
+
 [data-theme="light"] .outbound-subtab.active {
-    background: rgba(6, 182, 212, 0.08);
-    color: var(--accent-cyan);
-    border-color: var(--accent-cyan);
+    background: #ffffff;
+    color: #0284c7;
+    border: 1px solid #cbd5e1;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .outbound-mode-toggle {
+    background: #e2e8f0;
+    border-color: var(--border);
+}
+
+[data-theme="light"] .mode-btn {
+    color: #475569;
+    background: transparent;
+}
+
+[data-theme="light"] .mode-btn:hover {
+    color: #0f172a;
+    background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .mode-btn.active {
+    background: #ffffff;
+    color: #0284c7;
+    border: 1px solid #cbd5e1;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .catalogue-info-card {
+    background: #f8fafc;
+    border-color: var(--border);
+}
+
+[data-theme="light"] .catalogue-info-card span {
+    color: #64748b;
+}
+
+[data-theme="light"] .whatsapp-preview {
+    background: #efeae2;
+    border: 1px solid var(--border);
+}
+
+[data-theme="light"] .whatsapp-preview::before {
+    background: repeating-linear-gradient(
+        45deg,
+        rgba(0,0,0,0.015),
+        rgba(0,0,0,0.015) 10px,
+        transparent 10px,
+        transparent 20px
+    );
+}
+
+[data-theme="light"] .whatsapp-bubble {
+    background: #ffffff;
+    box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
+}
+
+[data-theme="light"] #outbound-preview-recipient {
+    color: #64748b;
+    border-bottom: 1px dashed rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] #outbound-preview-text {
+    color: #111b21;
+}
+
+[data-theme="light"] #outbound-preview-media-box {
+    background: #f0f2f5;
+    border-color: #e2e8f0;
 }
 
 [data-theme="light"] .btn-action-sm {
@@ -2912,6 +3015,16 @@ select option:checked {
 
 .chat-input-field:focus {
     border-color: var(--accent-cyan);
+}
+
+.catalogue-info-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: rgba(10, 14, 23, 0.4);
+    border-radius: 10px;
+    border: 1px solid var(--border);
 }
 
 .card-outbound-history {
