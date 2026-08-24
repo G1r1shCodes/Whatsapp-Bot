@@ -188,6 +188,10 @@ function renderProductChart(distribution) {
         data.push(1);
     }
     
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const textColor = isLight ? '#4b5563' : '#94a3b8';
+    const chartBorderColor = isLight ? '#ffffff' : '#111827';
+    
     productChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
@@ -209,7 +213,7 @@ function renderProductChart(distribution) {
                     '#6b7280'  // Gray
                 ],
                 borderWidth: 2,
-                borderColor: '#111827'
+                borderColor: chartBorderColor
             }]
         },
         options: {
@@ -219,7 +223,7 @@ function renderProductChart(distribution) {
                 legend: {
                     position: 'bottom',
                     labels: {
-                        color: '#94a3b8',
+                        color: textColor,
                         font: { family: 'Inter', size: 11, weight: '500' },
                         padding: 15
                     }
@@ -244,6 +248,10 @@ function renderStatusChart(stats) {
         'Won': stats.won_leads || 0,
         'Lost': stats.lost_leads || 0
     };
+
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const textColor = isLight ? '#4b5563' : '#94a3b8';
+    const gridColor = isLight ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.05)';
     
     statusChart = new Chart(ctx, {
         type: 'bar',
@@ -278,12 +286,12 @@ function renderStatusChart(stats) {
             },
             scales: {
                 y: {
-                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                    ticks: { color: '#94a3b8', font: { family: 'Inter' }, stepSize: 1 }
+                    grid: { color: gridColor },
+                    ticks: { color: textColor, font: { family: 'Inter' }, stepSize: 1 }
                 },
                 x: {
                     grid: { display: false },
-                    ticks: { color: '#94a3b8', font: { family: 'Inter', weight: '600' } }
+                    ticks: { color: textColor, font: { family: 'Inter', weight: '600' } }
                 }
             }
         }
@@ -3155,109 +3163,165 @@ const previewTimeEl = document.getElementById('outbound-preview-time');
 if (previewTimeEl) previewTimeEl.textContent = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
 
 // -------------------------------------------------------------
-// Quick Message Templates Management (Settings tab — legacy)
+// Product Catalogue PDF Upload Management
 // -------------------------------------------------------------
-let quickTemplates = [];
+let selectedCatalogueFile = null;
+const catalogueDropzone = document.getElementById('catalogue-pdf-dropzone');
+const catalogueFileInput = document.getElementById('catalogue-pdf-file-input');
+const uploadCatalogueBtn = document.getElementById('upload-catalogue-pdf-btn');
+const activePdfFilename = document.getElementById('active-pdf-filename');
+const activePdfUrl = document.getElementById('active-pdf-url');
 
-async function loadQuickTemplates() {
-    try {
-        const res = await fetch('/api/settings');
-        const data = await res.json();
-        if (data.quick_templates && Array.isArray(data.quick_templates) && data.quick_templates.length > 0) {
-            quickTemplates = data.quick_templates;
-        } else {
-            quickTemplates = [
-                {
-                    id: "tpl_address",
-                    title: "📍 Factory & Corporate Address",
-                    text: "🏢 *KDI Power — Corporate Office & Factory*\n📍 Factory Address: H-1243, DSIDC Industrial Area, Narela, New Delhi - 110040\n🏢 Corporate Office: 912, 9th Floor, D Mall, NSP, Pitampura, Delhi - 110034\n📞 +91-9205333843 (Vipul Kumar — Marketing Manager)\n🌐 https://kdipower.com/"
-                },
-                {
-                    id: "tpl_catalogue",
-                    title: "📑 Official Product Catalogue PDF",
-                    text: "📑 *KDI Power Official Product Catalogue*\nDownload our official product catalogue featuring high-grade Aluminium/Copper XLPE Armoured Cables, House Wires, and HT Cables:\n🌐 https://kdipower.com/catalogue/CATALOUGE.pdf"
-                },
-                {
-                    id: "tpl_export",
-                    title: "🚢 Export & International Logistics Info",
-                    text: "🚢 *KDI Power Export Information*\nYes, we export our electrical cables and wires globally with logistics & customs support.\nContact Manager Vipul Kumar (+91-9205333843) for customized export quotes and shipping lead times.\n🌐 https://kdipower.com/"
-                },
-                {
-                    id: "tpl_quote",
-                    title: "💰 Commercial Quote Follow-up",
-                    text: "🎉 *KDI Power Quote Update*\nHi! Our sales team has reviewed your cable requirements. Please let us know if you need a formal commercial quotation or technical datasheet.\n📞 Call/WhatsApp: +91-9205333843\n🌐 https://kdipower.com/"
-                }
-            ];
+if (catalogueDropzone && catalogueFileInput && uploadCatalogueBtn) {
+    catalogueDropzone.addEventListener('click', () => catalogueFileInput.click());
+
+    catalogueDropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        catalogueDropzone.style.borderColor = 'var(--accent-cyan)';
+        catalogueDropzone.style.background = 'rgba(6, 182, 212, 0.1)';
+    });
+
+    catalogueDropzone.addEventListener('dragleave', () => {
+        catalogueDropzone.style.borderColor = '';
+        catalogueDropzone.style.background = '';
+    });
+
+    catalogueDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        catalogueDropzone.style.borderColor = '';
+        catalogueDropzone.style.background = '';
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            handleCatalogueFileSelect(e.dataTransfer.files[0]);
         }
-        renderTemplatesConfigList();
-    } catch (e) {
-        console.error('Failed to load quick templates:', e);
+    });
+
+    catalogueFileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+            handleCatalogueFileSelect(e.target.files[0]);
+        }
+    });
+
+    function handleCatalogueFileSelect(file) {
+        if (!file.name.toLowerCase().endsWith('.pdf')) {
+            showToast('Please select a valid PDF file (.pdf)', true);
+            return;
+        }
+        if (file.size > 25 * 1024 * 1024) {
+            showToast('PDF file size must be less than 25MB', true);
+            return;
+        }
+        selectedCatalogueFile = file;
+        const label = catalogueDropzone.querySelector('.dropzone-label') || catalogueDropzone.querySelector('span');
+        if (label) {
+            label.textContent = `Selected: ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`;
+        }
+        uploadCatalogueBtn.disabled = false;
+    }
+
+    uploadCatalogueBtn.addEventListener('click', async () => {
+        if (!selectedCatalogueFile) return;
+
+        const formData = new FormData();
+        formData.append('file', selectedCatalogueFile);
+
+        uploadCatalogueBtn.disabled = true;
+        uploadCatalogueBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading PDF...';
+
+        try {
+            const res = await fetch('/api/settings/upload-catalogue', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                showToast(data.message || 'Catalogue PDF uploaded successfully!');
+                if (activePdfFilename) activePdfFilename.textContent = data.filename || selectedCatalogueFile.name;
+                if (activePdfUrl && data.url) activePdfUrl.textContent = window.location.origin + data.url;
+                selectedCatalogueFile = null;
+                catalogueFileInput.value = '';
+                const label = catalogueDropzone.querySelector('.dropzone-label') || catalogueDropzone.querySelector('span');
+                if (label) label.textContent = 'Click to Select or Drop New Catalogue PDF';
+            } else {
+                showToast(data.detail || data.error || 'Failed to upload PDF catalogue', true);
+            }
+        } catch (e) {
+            console.error('Error uploading catalogue PDF:', e);
+            showToast('Network error while uploading catalogue PDF', true);
+        } finally {
+            uploadCatalogueBtn.disabled = true;
+            uploadCatalogueBtn.innerHTML = '<i class="fa-solid fa-upload"></i> Upload & Replace PDF';
+        }
+    });
+}
+
+// -------------------------------------------------------------
+// Theme Toggle & Light/Dark Mode Manager
+// -------------------------------------------------------------
+function initTheme() {
+    const savedTheme = localStorage.getItem('kdi_theme') || 'dark';
+    setTheme(savedTheme);
+
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', () => {
+            const current = document.documentElement.getAttribute('data-theme') || 'dark';
+            const next = current === 'dark' ? 'light' : 'dark';
+            setTheme(next);
+        });
     }
 }
 
-function renderTemplatesConfigList() {
-    const container = document.getElementById('templates-list-container');
-    if (!container) return;
-    container.innerHTML = '';
-    
-    quickTemplates.forEach((t, idx) => {
-        const item = document.createElement('div');
-        item.style.cssText = 'background: rgba(10, 14, 23, 0.5); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem;';
-        item.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <input type="text" value="${escapeHtml(t.title)}" class="tpl-title-input" data-idx="${idx}" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 4px; color: #fff; padding: 4px 8px; font-size: 0.85rem; font-weight: 600; width: 60%;">
-                <span style="font-size: 0.7rem; color: var(--text-muted);">Template #${idx + 1}</span>
-            </div>
-            <textarea class="tpl-text-input" data-idx="${idx}" rows="3" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; color: var(--text-secondary); padding: 8px; font-size: 0.8rem; font-family: inherit; resize: vertical;">${escapeHtml(t.text)}</textarea>
-        `;
-        container.appendChild(item);
-    });
-}
+function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('kdi_theme', theme);
 
-const saveTemplatesBtn = document.getElementById('save-templates-btn');
-if (saveTemplatesBtn) {
-    saveTemplatesBtn.addEventListener('click', async () => {
-        const titleInputs = document.querySelectorAll('.tpl-title-input');
-        const textInputs = document.querySelectorAll('.tpl-text-input');
-        
-        const updatedTemplates = [];
-        titleInputs.forEach((ti, idx) => {
-            const txtEl = textInputs[idx];
-            if (ti && txtEl) {
-                updatedTemplates.push({
-                    id: quickTemplates[idx] ? quickTemplates[idx].id : `tpl_${idx}`,
-                    title: ti.value.trim() || `Template ${idx + 1}`,
-                    text: txtEl.value.trim()
-                });
-            }
-        });
-        
-        saveTemplatesBtn.disabled = true;
-        saveTemplatesBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
-        
-        try {
-            const res = await fetch('/api/settings', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ quick_templates: updatedTemplates })
-            });
-            const data = await res.json();
-            if (res.ok && data.success) {
-                quickTemplates = updatedTemplates;
-                showToast('Quick message templates saved successfully!');
-            } else {
-                showToast('Failed to save templates', true);
-            }
-        } catch (e) {
-            console.error('Error saving templates:', e);
-            showToast('Error saving templates', true);
-        } finally {
-            saveTemplatesBtn.disabled = false;
-            saveTemplatesBtn.innerHTML = '<i class="fa-solid fa-save"></i> Save Templates';
+    const sunIcon = document.getElementById('theme-icon-sun');
+    const moonIcon = document.getElementById('theme-icon-moon');
+
+    if (sunIcon && moonIcon) {
+        if (theme === 'light') {
+            sunIcon.style.display = 'inline-block';
+            moonIcon.style.display = 'none';
+        } else {
+            sunIcon.style.display = 'none';
+            moonIcon.style.display = 'inline-block';
         }
-    });
+    }
+
+    // Update Chart.js themes if charts exist
+    updateChartThemes(theme);
 }
 
-// Automatically load quick templates on load
-loadQuickTemplates();
+function updateChartThemes(theme) {
+    const isLight = theme === 'light';
+    const textColor = isLight ? '#4b5563' : '#94a3b8';
+    const gridColor = isLight ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.05)';
+    const chartBorderColor = isLight ? '#ffffff' : '#111827';
+
+    if (productChart) {
+        if (productChart.options.plugins?.legend?.labels) {
+            productChart.options.plugins.legend.labels.color = textColor;
+        }
+        if (productChart.data.datasets?.[0]) {
+            productChart.data.datasets[0].borderColor = chartBorderColor;
+        }
+        productChart.update();
+    }
+
+    if (statusChart) {
+        if (statusChart.options.scales?.y) {
+            statusChart.options.scales.y.grid.color = gridColor;
+            statusChart.options.scales.y.ticks.color = textColor;
+        }
+        if (statusChart.options.scales?.x) {
+            statusChart.options.scales.x.ticks.color = textColor;
+        }
+        statusChart.update();
+    }
+}
+
+// Initialize theme on load
+initTheme();
+
 

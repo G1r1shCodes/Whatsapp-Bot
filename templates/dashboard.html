@@ -80,6 +80,10 @@
                     <button class="btn btn-secondary" id="refresh-data-btn">
                         <i class="fa-solid fa-arrows-rotate"></i> Refresh
                     </button>
+                    <button class="btn-theme-toggle" id="theme-toggle" title="Toggle Light/Dark Mode">
+                        <i class="fa-solid fa-sun" id="theme-icon-sun" style="display:none;"></i>
+                        <i class="fa-solid fa-moon" id="theme-icon-moon"></i>
+                    </button>
                     <div class="user-profile">
                         <div class="user-avatar">KDI</div>
                         <div class="user-details">
@@ -286,7 +290,7 @@
                                                 <i class="fa-solid fa-file"></i> <span id="lead-file-name">file.pdf</span>
                                                 <i class="fa-solid fa-xmark" id="lead-remove-file" style="cursor: pointer; opacity: 0.7;" title="Remove file"></i>
                                             </div>
-                                            <input type="text" id="manager-chat-input" placeholder="Type a message to reply via WhatsApp..." style="flex-grow: 1; background: var(--bg-card, #1e293b); border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--primary, #10b981)'" onblur="this.style.borderColor='rgba(255,255,255,0.15)'">
+                                            <input type="text" id="manager-chat-input" class="chat-input-field" placeholder="Type a message to reply via WhatsApp...">
                                             <button id="manager-send-btn" class="btn btn-primary" style="background: #10b981; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.85rem; flex-shrink: 0; transition: background 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
                                                 <i class="fa-solid fa-paper-plane"></i> Send
                                             </button>
@@ -367,7 +371,7 @@
                                             <i class="fa-solid fa-file"></i> <span id="visitor-file-name">file.pdf</span>
                                             <i class="fa-solid fa-xmark" id="visitor-remove-file" style="cursor: pointer; opacity: 0.7;" title="Remove file"></i>
                                         </div>
-                                        <input type="text" id="visitor-chat-input" placeholder="Type a message to reply to visitor via WhatsApp..." style="flex-grow: 1; background: var(--bg-card, #1e293b); border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--accent-cyan)'" onblur="this.style.borderColor='rgba(255,255,255,0.15)'">
+                                        <input type="text" id="visitor-chat-input" class="chat-input-field" placeholder="Type a message to reply to visitor via WhatsApp...">
                                         <button id="visitor-send-btn" class="btn btn-primary" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-indigo)); color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.85rem; flex-shrink: 0;">
                                             <i class="fa-solid fa-paper-plane"></i> Send
                                         </button>
@@ -401,10 +405,10 @@
                             <!-- Left: Send Composer -->
                             <div class="card outbound-composer-card">
                                 <div>
-                                    <h3 style="color: #fff; font-size: 1.1rem; font-weight: 700; margin-bottom: 0.25rem;">
+                                    <h3 class="section-heading" style="font-size: 1.1rem; margin-bottom: 0.25rem;">
                                         <i class="fa-solid fa-paper-plane text-cyan"></i> Send Template Message
                                     </h3>
-                                    <p style="color: var(--text-muted); font-size: 0.82rem;">Send approved templates or quick freeform messages to any WhatsApp contact.</p>
+                                    <p class="text-muted-themed" style="font-size: 0.82rem;">Send approved templates or quick freeform messages to any WhatsApp contact.</p>
                                 </div>
 
                                 <!-- Recipient Phone -->
@@ -456,7 +460,7 @@
                                         <div id="outbound-dropzone" class="media-dropzone outbound-dropzone-area">
                                             <input type="file" id="outbound-file-input" style="display: none;" accept="image/*,.pdf,.doc,.docx">
                                             <i class="fa-solid fa-cloud-arrow-up" style="font-size: 1.5rem; color: var(--accent-cyan); opacity: 0.7; margin-bottom: 0.3rem; display: block;"></i>
-                                            <span style="font-size: 0.82rem; color: #fff; font-weight: 500;">Click or Drag & Drop</span>
+                                            <span class="dropzone-label" style="font-size: 0.82rem; font-weight: 500;">Click or Drag & Drop</span>
                                             <span style="font-size: 0.72rem; color: var(--text-muted);">JPG, PNG, WEBP, PDF</span>
                                         </div>
                                         <div id="outbound-file-preview" class="hidden outbound-file-preview-bar">
@@ -474,7 +478,7 @@
 
                             <!-- Right: Live WhatsApp Preview -->
                             <div class="card outbound-preview-card">
-                                <h3 style="margin-bottom: 1rem; font-weight: 600; color: #fff; width: 100%; text-align: left; display: flex; align-items: center; justify-content: space-between;">
+                                <h3 class="card-heading" style="width: 100%; text-align: left; display: flex; align-items: center; justify-content: space-between;">
                                     <span><i class="fa-brands fa-whatsapp" style="color: #25d366; margin-right: 6px;"></i> Live Message Preview</span>
                                     <span class="outbound-badge-green">Outbound</span>
                                 </h3>
@@ -523,26 +527,6 @@
                             </div>
                         </div>
 
-                        <!-- Outbound Message History -->
-                        <div class="card" style="margin-top: 1.25rem; padding: 1.25rem;">
-                            <h3 style="color: #fff; font-size: 1rem; font-weight: 600; margin-bottom: 1rem;">
-                                <i class="fa-solid fa-clock-rotate-left text-cyan"></i> Recent Sent Messages
-                            </h3>
-                            <div class="table-responsive">
-                                <table class="catalog-table" style="font-size: 0.82rem;">
-                                    <thead>
-                                        <tr>
-                                            <th>Recipient</th>
-                                            <th>Message</th>
-                                            <th>Sent At</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="outbound-history-tbody">
-                                        <tr><td colspan="3" class="text-center text-muted" style="padding: 2rem;">No outbound messages logged yet.</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
                     </div>
 
                     <!-- ═══════════════════════════════════════════ -->
@@ -637,7 +621,7 @@
                             <div style="display: flex; flex-direction: column; gap: 1.25rem;">
                                 <!-- Broadcast Preview -->
                                 <div class="card outbound-preview-card" style="flex: 0 0 auto; min-height: auto;">
-                                    <h3 style="margin-bottom: 1rem; font-weight: 600; color: #fff; display: flex; align-items: center; justify-content: space-between;">
+                                    <h3 class="card-heading" style="display: flex; align-items: center; justify-content: space-between;">
                                         <span><i class="fa-brands fa-whatsapp" style="color: #25d366; margin-right: 6px;"></i> Broadcast Preview</span>
                                         <span class="outbound-badge-amber">Broadcast</span>
                                     </h3>
@@ -658,12 +642,12 @@
                                 </div>
 
                                 <!-- Broadcast History -->
-                                <div class="card" style="padding: 1.25rem; flex: 1;">
-                                    <h3 style="color: #fff; font-size: 1rem; font-weight: 600; margin-bottom: 1rem;">
-                                        <i class="fa-solid fa-clock-rotate-left text-cyan"></i> Broadcast History
+                                <div class="card card-outbound-history">
+                                    <h3 class="card-heading">
+                                        <i class="fa-solid fa-clock-rotate-left"></i> Broadcast History
                                     </h3>
                                     <div class="table-responsive">
-                                        <table class="catalog-table" style="font-size: 0.82rem;">
+                                        <table class="catalog-table">
                                             <thead>
                                                 <tr>
                                                     <th>Template</th>
@@ -689,10 +673,10 @@
                         <div class="card" style="padding: 1.5rem;">
                             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.25rem;">
                                 <div>
-                                    <h3 style="color: #fff; font-size: 1.1rem; font-weight: 700; margin-bottom: 0.25rem;">
+                                    <h3 class="section-heading" style="font-size: 1.1rem; font-weight: 700; margin-bottom: 0.25rem;">
                                         <i class="fa-solid fa-puzzle-piece text-cyan"></i> Message Templates
                                     </h3>
-                                    <p style="color: var(--text-muted); font-size: 0.82rem;">Create, manage, and submit WhatsApp message templates for Meta approval.</p>
+                                    <p class="text-muted-themed" style="font-size: 0.82rem;">Create, manage, and submit WhatsApp message templates for Meta approval.</p>
                                 </div>
                                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                                     <button class="btn-action-sm" id="sync-templates-btn" title="Sync statuses with Meta">
@@ -709,8 +693,8 @@
                                 <!-- Dynamic template cards rendered by JS -->
                                 <div class="templates-empty-state" id="templates-empty">
                                     <i class="fa-solid fa-puzzle-piece" style="font-size: 2.5rem; color: var(--accent-cyan); opacity: 0.4; margin-bottom: 1rem;"></i>
-                                    <h4 style="color: #fff; font-weight: 600;">No Templates Yet</h4>
-                                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.25rem;">Create your first message template to start sending outbound messages.</p>
+                                    <h4 class="section-heading" style="margin-bottom: 0.25rem;">No Templates Yet</h4>
+                                    <p class="text-muted-themed" style="font-size: 0.85rem;">Create your first message template to start sending outbound messages.</p>
                                 </div>
                             </div>
                         </div>
@@ -721,7 +705,7 @@
                 <!-- MODAL: Template Builder                     -->
                 <!-- ═══════════════════════════════════════════ -->
                 <div class="modal-overlay hidden" id="template-builder-modal">
-                    <div class="modal-card" style="max-width: 720px; max-height: 90vh; overflow-y: auto;">
+                    <div class="modal-card modal-template-builder" style="max-width: 860px; max-height: 90vh; overflow-y: auto;">
                         <div class="modal-header">
                             <h3><i class="fa-solid fa-puzzle-piece text-cyan"></i> Create Message Template</h3>
                             <button class="modal-close-btn" id="close-template-builder"><i class="fa-solid fa-xmark"></i></button>
@@ -933,14 +917,16 @@
 
                 <!-- Add Cable Modal -->
                 <div class="modal-overlay hidden" id="add-cable-modal">
-                    <div class="modal-card">
-                        <div class="modal-header">
-                            <h3><i class="fa-solid fa-cable-car"></i> Add New Cable</h3>
+                    <div class="modal-card modal-cable">
+                        <div class="modal-header modal-header-accent">
+                            <h3><i class="fa-solid fa-plug-circle-bolt"></i> Add New Cable Product</h3>
                             <button class="modal-close-btn" id="modal-close-btn"><i class="fa-solid fa-xmark"></i></button>
                         </div>
                         <div class="modal-body">
+                            <!-- Section: Product Information -->
+                            <div class="modal-section-label"><i class="fa-solid fa-tag"></i> Product Information</div>
                             <div class="modal-form-grid">
-                                <div class="form-group">
+                                <div class="form-group" style="grid-column: 1 / -1;">
                                     <label for="new-cable-name">Product Name <span class="required">*</span></label>
                                     <input type="text" id="new-cable-name" placeholder="e.g. Aluminium Power Cable 3.5C x 400 sq mm Armoured" maxlength="200">
                                 </div>
@@ -964,6 +950,11 @@
                                         <option value="Chromel/Alumel">Chromel/Alumel</option>
                                     </select>
                                 </div>
+                            </div>
+
+                            <!-- Section: Technical Specs -->
+                            <div class="modal-section-label"><i class="fa-solid fa-gear"></i> Technical Specifications</div>
+                            <div class="modal-form-grid">
                                 <div class="form-group">
                                     <label for="new-cable-size">Size <span class="required">*</span></label>
                                     <input type="text" id="new-cable-size" placeholder="e.g. 95 sq mm">
@@ -982,6 +973,15 @@
                                         <option value="Triple Layer PVC">Triple Layer PVC</option>
                                     </select>
                                 </div>
+                                <div class="form-group" style="grid-column: 1 / -1;">
+                                    <label for="new-cable-specs">Specifications / Notes</label>
+                                    <input type="text" id="new-cable-specs" placeholder="e.g. XLPE insulated, PVC sheathed, armoured" maxlength="500">
+                                </div>
+                            </div>
+
+                            <!-- Section: Pricing & Stock -->
+                            <div class="modal-section-label"><i class="fa-solid fa-indian-rupee-sign"></i> Pricing & Availability</div>
+                            <div class="modal-form-grid">
                                 <div class="form-group">
                                     <label for="new-cable-price">Price per Meter (INR) <span class="required">*</span></label>
                                     <input type="number" id="new-cable-price" step="0.01" min="0" placeholder="e.g. 182.13">
@@ -994,10 +994,6 @@
                                         <option value="Custom Only">Custom Only</option>
                                     </select>
                                 </div>
-                            </div>
-                            <div class="form-group" style="margin-top: 0.5rem;">
-                                <label for="new-cable-specs">Specifications / Notes</label>
-                                <input type="text" id="new-cable-specs" placeholder="e.g. XLPE insulated, PVC sheathed, armoured" maxlength="500">
                             </div>
                         </div>
                         <div class="modal-footer">
@@ -1012,7 +1008,7 @@
                     <!-- Greeting Configuration -->
                     <div class="settings-grid">
                         <div class="settings-form card">
-                            <h3 style="margin-bottom: 20px; font-weight: 600; color: #fff;">WhatsApp Greeting Configuration</h3>
+                            <h3 class="section-heading">WhatsApp Greeting Configuration</h3>
                             <div class="input-group">
                                 <label for="welcome-image">Header Image (Filename / URL)</label>
                                 <input type="text" id="welcome-image" class="modern-input" placeholder="e.g. kdi-logo-white-bg.jpg">
@@ -1029,7 +1025,7 @@
                         </div>
                         
                         <div class="settings-preview card">
-                            <h3 style="margin-bottom: 20px; font-weight: 600; color: #fff;">Live Preview</h3>
+                            <h3 class="section-heading">Live Preview</h3>
                             <div class="whatsapp-preview">
                                 <div class="whatsapp-bubble">
                                     <div class="wa-image-placeholder">
@@ -1054,7 +1050,7 @@
                         <div class="settings-form card" id="categories-form-card">
                             <div class="categories-header">
                                 <div>
-                                    <h3 style="font-weight: 600; color: #fff; margin: 0;">WhatsApp Browse Categories</h3>
+                                    <h3 class="section-heading" style="margin: 0;">WhatsApp Browse Categories</h3>
                                     <p class="help-text" style="margin-top: 4px;">These categories appear when a customer taps <strong style="color: var(--accent-emerald);">Browse Products</strong> in WhatsApp.</p>
                                 </div>
                                 <span class="cat-count-badge" id="cat-count-badge">0 / 10</span>
@@ -1078,7 +1074,7 @@
                         </div>
                         
                         <div class="settings-preview card">
-                            <h3 style="margin-bottom: 20px; font-weight: 600; color: #fff;">
+                            <h3 class="section-heading" style="margin-bottom: 20px;">
                                 <i class="fa-brands fa-whatsapp" style="color: #25d366; margin-right: 6px;"></i> List Menu Preview
                             </h3>
                             <div class="wa-list-preview">
@@ -1104,7 +1100,7 @@
                         <div class="settings-form card" style="grid-column: 1 / -1;">
                             <div class="categories-header">
                                 <div>
-                                    <h3 style="font-weight: 600; color: #fff; margin: 0;"><i class="fa-solid fa-file-pdf text-cyan" style="margin-right: 8px;"></i> Product Catalogue PDF Configuration</h3>
+                                    <h3 class="section-heading" style="margin: 0;"><i class="fa-solid fa-file-pdf text-cyan" style="margin-right: 8px;"></i> Product Catalogue PDF Configuration</h3>
                                     <p class="help-text" style="margin-top: 4px;">Upload and replace the official PDF product catalogue sent to WhatsApp users when requested.</p>
                                 </div>
                                 <a href="/catalogue/CATALOUGE.pdf" target="_blank" class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; border-radius: 6px;">
@@ -1116,18 +1112,18 @@
                                 <div id="catalogue-pdf-dropzone" style="border: 2px dashed var(--accent-cyan); border-radius: 12px; padding: 2rem; text-align: center; background: rgba(6, 182, 212, 0.04); cursor: pointer; transition: all 0.2s;">
                                     <input type="file" id="catalogue-pdf-file-input" style="display: none;" accept=".pdf">
                                     <i class="fa-solid fa-file-arrow-up" style="font-size: 2.5rem; color: var(--accent-cyan); margin-bottom: 0.75rem; display: block;"></i>
-                                    <span style="font-weight: 600; color: #fff; font-size: 0.95rem; display: block; margin-bottom: 4px;">Click to Select or Drop New Catalogue PDF</span>
+                                    <span class="dropzone-label">Click to Select or Drop New Catalogue PDF</span>
                                     <span style="font-size: 0.78rem; color: var(--text-muted);">Must be a valid PDF file (.pdf) • Up to 25MB</span>
                                 </div>
 
                                 <div style="display: flex; flex-direction: column; gap: 1rem; padding: 1rem; background: rgba(10, 14, 23, 0.4); border-radius: 10px; border: 1px solid var(--border);">
                                     <div>
                                         <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Active Catalogue File</span>
-                                        <h4 id="active-pdf-filename" style="color: var(--accent-cyan); font-size: 1rem; margin-top: 2px; font-weight: 600;">CATALOUGE.pdf</h4>
+                                        <h4 id="active-pdf-filename" class="active-file-label">CATALOUGE.pdf</h4>
                                     </div>
                                     <div>
                                         <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Download URL</span>
-                                        <p style="font-size: 0.8rem; color: #fff; word-break: break-all; margin-top: 2px;">https://whatsapp-bot-4ukk.onrender.com/catalogue/CATALOUGE.pdf</p>
+                                        <p class="download-url-text" id="active-pdf-url">https://whatsapp-bot-4ukk.onrender.com/catalogue/CATALOUGE.pdf</p>
                                     </div>
                                     <button id="upload-catalogue-pdf-btn" class="btn btn-primary" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-indigo)); color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.85rem;" disabled>
                                         <i class="fa-solid fa-upload"></i> Upload & Replace PDF
@@ -1135,24 +1131,7 @@
                                 </div>
                             </div>
                         </div>
-                    <!-- Quick Message Templates Manager -->
-                    <div class="settings-grid" style="margin-top: 0;">
-                        <div class="settings-form card" style="grid-column: 1 / -1;">
-                            <div class="categories-header">
-                                <div>
-                                    <h3 style="font-weight: 600; color: #fff; margin: 0;"><i class="fa-solid fa-bolt text-cyan" style="margin-right: 8px;"></i> Quick Message Templates Configuration</h3>
-                                    <p class="help-text" style="margin-top: 4px;">Customize standard pre-saved response templates used in Outbound Direct Messaging.</p>
-                                </div>
-                                <button id="save-templates-btn" class="action-btn primary" style="font-size: 0.82rem; padding: 0.55rem 1rem;">
-                                    <i class="fa-solid fa-save"></i> Save Templates
-                                </button>
-                            </div>
 
-                            <div id="templates-list-container" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
-                                <!-- Dynamic template items rendered by JS -->
-                            </div>
-                        </div>
-                    </div>
                 </section>
                 
             </div>
