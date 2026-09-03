@@ -505,7 +505,7 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
         elif lower_msg == "browse products":
             reply_text = ""
             cat_match = True
-        elif lower_msg in ["power cables", "electrical wires", "armoured cables", "unarmoured cables", "control cables"]:
+        elif lower_msg in ["power cables", "electrical wires", "armoured cables", "unarmoured cables", "control cables" "conductors"]:
             # Fast-path for Category Selection
             all_prods = db.get_all_products()
             cat_keywords = {
