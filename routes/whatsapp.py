@@ -512,6 +512,8 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
                 "power cables": ["power"],
                 "electrical wires": ["wire", "house"],
                 "armoured cables": ["armoured", "armored"],
+                "conductors": ["conductor"],
+                "arieal bunched cable": ["aerial", "arieal", "bunched", "abc"],
                 "unarmoured cables": ["unarmoured", "unarmored"],
                 "control cables": ["control"]
             }
