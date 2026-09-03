@@ -19,6 +19,10 @@
             "title": "Unarmoured Cables"
         },
         {
+            "id": "cat_Conductors",
+            "title": "Conductors"
+        },
+        {
             "id": "cat_control",
             "title": "Control Cables"
         }
