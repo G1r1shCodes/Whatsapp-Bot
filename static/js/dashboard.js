@@ -1140,23 +1140,23 @@ if (modalSaveBtn) {
 // -------------------------------------------------------------
 const manageCategoriesBtn = document.getElementById('manage-categories-btn');
 const manageCategoriesModal = document.getElementById('manage-categories-modal');
-const manageCatCloseBtn = document.getElementById('manage-cat-close-btn');
-const manageCatDoneBtn = document.getElementById('manage-cat-done-btn');
-const newCategoryInput = document.getElementById('new-category-input');
-const addCategoryBtn = document.getElementById('add-category-btn');
-const categoriesList = document.getElementById('categories-list');
+const prodCatCloseBtn = document.getElementById('prod-cat-close-btn');
+const prodCatDoneBtn = document.getElementById('prod-cat-done-btn');
+const prodCatInput = document.getElementById('prod-cat-input');
+const addProdCatBtn = document.getElementById('prod-cat-add-btn');
+const prodCatList = document.getElementById('prod-cat-list');
 
-async function renderCategoriesList() {
-    if (!categoriesList) return;
-    categoriesList.innerHTML = '<li style="color: #94a3b8; font-size: 0.85rem;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</li>';
+async function renderProdCategoriesList() {
+    if (!prodCatList) return;
+    prodCatList.innerHTML = '<li style="color: #94a3b8; font-size: 0.85rem;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</li>';
     const categories = await fetchProductCategories();
     
     if (categories.length === 0) {
-        categoriesList.innerHTML = '<li style="color: #94a3b8; font-size: 0.85rem;">No categories found</li>';
+        prodCatList.innerHTML = '<li style="color: #94a3b8; font-size: 0.85rem;">No categories found</li>';
         return;
     }
     
-    categoriesList.innerHTML = categories.map(cat => `
+    prodCatList.innerHTML = categories.map(cat => `
         <li style="display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.05); padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1);">
             <span style="font-size: 0.9rem; font-weight: 500; color: #f8fafc;">${cat}</span>
             <button class="btn-delete-cat" data-category="${cat}" style="background: transparent; border: none; color: #ef4444; cursor: pointer; padding: 0.25rem 0.5rem; font-size: 0.85rem; transition: opacity 0.2s;" title="Delete Category">
@@ -1166,12 +1166,15 @@ async function renderCategoriesList() {
     `).join('');
 }
 
-async function handleAddCategory() {
-    const val = newCategoryInput.value.trim();
+async function handleAddProdCategory() {
+    if (!prodCatInput) return;
+    const val = prodCatInput.value.trim();
     if (!val) return;
     
-    addCategoryBtn.disabled = true;
-    addCategoryBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Adding...';
+    if (addProdCatBtn) {
+        addProdCatBtn.disabled = true;
+        addProdCatBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Adding...';
+    }
     try {
         const res = await fetch('/api/product-categories', {
             method: 'POST',
@@ -1180,8 +1183,8 @@ async function handleAddCategory() {
         });
         const result = await res.json();
         if (res.ok && result.success) {
-            newCategoryInput.value = '';
-            await renderCategoriesList();
+            prodCatInput.value = '';
+            await renderProdCategoriesList();
             loadCatalogData();
         } else {
             alert(result.detail || result.message || 'Failed to add category');
@@ -1190,12 +1193,14 @@ async function handleAddCategory() {
         console.error('Error adding category:', err);
         alert('Network error while adding category');
     } finally {
-        addCategoryBtn.disabled = false;
-        addCategoryBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Add Category';
+        if (addProdCatBtn) {
+            addProdCatBtn.disabled = false;
+            addProdCatBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Add Category';
+        }
     }
 }
 
-async function handleDeleteCategory(catName) {
+async function handleDeleteProdCategory(catName) {
     if (!confirm(`Are you sure you want to remove category "${catName}"?`)) return;
     try {
         const res = await fetch(`/api/product-categories/${encodeURIComponent(catName)}`, {
@@ -1203,7 +1208,7 @@ async function handleDeleteCategory(catName) {
         });
         const result = await res.json();
         if (res.ok && result.success) {
-            await renderCategoriesList();
+            await renderProdCategoriesList();
             loadCatalogData();
         } else {
             alert(result.detail || result.message || 'Failed to delete category');
@@ -1216,37 +1221,37 @@ async function handleDeleteCategory(catName) {
 
 if (manageCategoriesBtn) {
     manageCategoriesBtn.addEventListener('click', () => {
-        manageCategoriesModal.classList.remove('hidden');
-        renderCategoriesList();
+        if (manageCategoriesModal) manageCategoriesModal.classList.remove('hidden');
+        renderProdCategoriesList();
     });
 }
-if (manageCatCloseBtn) {
-    manageCatCloseBtn.addEventListener('click', () => {
-        manageCategoriesModal.classList.add('hidden');
+if (prodCatCloseBtn) {
+    prodCatCloseBtn.addEventListener('click', () => {
+        if (manageCategoriesModal) manageCategoriesModal.classList.add('hidden');
     });
 }
-if (manageCatDoneBtn) {
-    manageCatDoneBtn.addEventListener('click', () => {
-        manageCategoriesModal.classList.add('hidden');
+if (prodCatDoneBtn) {
+    prodCatDoneBtn.addEventListener('click', () => {
+        if (manageCategoriesModal) manageCategoriesModal.classList.add('hidden');
     });
 }
-if (addCategoryBtn) {
-    addCategoryBtn.addEventListener('click', handleAddCategory);
+if (addProdCatBtn) {
+    addProdCatBtn.addEventListener('click', handleAddProdCategory);
 }
-if (newCategoryInput) {
-    newCategoryInput.addEventListener('keydown', (e) => {
+if (prodCatInput) {
+    prodCatInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            handleAddCategory();
+            handleAddProdCategory();
         }
     });
 }
-if (categoriesList) {
-    categoriesList.addEventListener('click', (e) => {
+if (prodCatList) {
+    prodCatList.addEventListener('click', (e) => {
         const delBtn = e.target.closest('.btn-delete-cat');
         if (delBtn) {
             const cat = delBtn.dataset.category;
-            if (cat) handleDeleteCategory(cat);
+            if (cat) handleDeleteProdCategory(cat);
         }
     });
 }
