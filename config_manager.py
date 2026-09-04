@@ -15,6 +15,10 @@ DEFAULT_CONFIG = {
         {"id": "cat_unarmour", "title": "Unarmoured Cables"},
         {"id": "cat_control", "title": "Control Cables"}
     ],
+    "product_categories": [
+        "Power Cables", "House Wires", "Control Cables", "Rubber Cable",
+        "Aerial Bunched Cable", "Instrumentation Wires", "Conductor"
+    ],
     "message_templates": [],
     "broadcast_history": []
 }
@@ -112,4 +116,36 @@ def add_broadcast_entry(entry):
     config["broadcast_history"] = history[:100]
     save_config(config)
     return entry
+
+# ── Product Categories CRUD ───────────────────────────────
+
+def get_product_categories():
+    """Returns the list of product categories."""
+    config = get_config()
+    return config.get("product_categories", DEFAULT_CONFIG["product_categories"])
+
+def add_product_category(category_name):
+    """Adds a new product category if it doesn't already exist."""
+    config = get_config()
+    categories = config.get("product_categories", DEFAULT_CONFIG["product_categories"][:])
+    # Case-insensitive duplicate check
+    if any(c.lower() == category_name.strip().lower() for c in categories):
+        return False, "Category already exists"
+    categories.append(category_name.strip())
+    categories.sort()
+    config["product_categories"] = categories
+    save_config(config)
+    return True, "Category added"
+
+def delete_product_category(category_name):
+    """Deletes a product category."""
+    config = get_config()
+    categories = config.get("product_categories", DEFAULT_CONFIG["product_categories"][:])
+    original_len = len(categories)
+    categories = [c for c in categories if c.lower() != category_name.strip().lower()]
+    if len(categories) == original_len:
+        return False, "Category not found"
+    config["product_categories"] = categories
+    save_config(config)
+    return True, "Category deleted"
 

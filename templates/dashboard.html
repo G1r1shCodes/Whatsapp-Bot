@@ -882,13 +882,16 @@
                                 <label for="category-select">Category:</label>
                                 <select id="category-select" class="dropdown-filter">
                                     <option value="All">All Categories</option>
-                                    <option value="House Wires">House Wires</option>
-                                    <option value="Power Cables">Power Cables</option>
-                                    <option value="Rubber Cable">Rubber Cable</option>
-                                    <option value="Control Cables">Control Cables</option>
+                                    <!-- Populated dynamically from API -->
                                 </select>
                                 <button class="btn-add-cable" id="add-cable-btn" title="Add a new cable to the catalog">
                                     <i class="fa-solid fa-plus"></i> Add Cable
+                                </button>
+                                <button class="btn-add-cable" id="bulk-upload-btn" title="Bulk upload products from an Excel file" style="background: linear-gradient(135deg, #059669, #10b981); margin-left: 6px;">
+                                    <i class="fa-solid fa-file-excel"></i> Excel Upload
+                                </button>
+                                <button class="btn-add-cable" id="manage-categories-btn" title="Manage product categories" style="background: linear-gradient(135deg, #7c3aed, #a855f7); margin-left: 6px;">
+                                    <i class="fa-solid fa-tags"></i> Categories
                                 </button>
                             </div>
                             <span class="info-note"><i class="fa-solid fa-circle-info text-cyan"></i> Click on the Price or Stock fields in the table below to edit product details directly.</span>
@@ -915,6 +918,72 @@
                     </div>
                 </section>
 
+                <!-- Bulk Excel Upload Modal -->
+                <div class="modal-overlay hidden" id="bulk-upload-modal">
+                    <div class="modal-card modal-cable" style="max-width: 600px;">
+                        <div class="modal-header modal-header-accent" style="background: linear-gradient(135deg, #059669, #10b981);">
+                            <h3><i class="fa-solid fa-file-excel"></i> Bulk Product Upload</h3>
+                            <button class="modal-close-btn" id="bulk-modal-close-btn"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div class="modal-body" style="padding: 1.5rem;">
+                            <!-- Download Template Link -->
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; padding: 0.75rem 1rem; background: rgba(6, 182, 212, 0.08); border: 1px solid rgba(6, 182, 212, 0.2); border-radius: 8px;">
+                                <div style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-secondary);">
+                                    <i class="fa-solid fa-download" style="color: var(--accent-cyan);"></i>
+                                    <span>Not sure about the format? Download our template first.</span>
+                                </div>
+                                <a href="/api/products/bulk-template" class="btn" style="background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan); border: 1px solid rgba(6, 182, 212, 0.3); padding: 6px 14px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; text-decoration: none; white-space: nowrap;">
+                                    <i class="fa-solid fa-file-arrow-down"></i> Download Template
+                                </a>
+                            </div>
+
+                            <!-- Info about expected columns -->
+                            <div style="margin-bottom: 1.25rem; font-size: 0.8rem; color: var(--text-muted); line-height: 1.6;">
+                                <strong style="color: var(--text-primary);">Expected Columns:</strong> Category, Product Name, Conductor, Size, Cores, Est. Price (per meter), Stock Status, Insulation
+                                <br><em>Prices can include "INR" prefix (e.g. "INR 213.15"). Existing products will be updated with new data.</em>
+                            </div>
+
+                            <!-- Dropzone -->
+                            <div id="bulk-upload-dropzone" style="border: 2px dashed rgba(16, 185, 129, 0.4); border-radius: 12px; padding: 2.5rem 1.5rem; text-align: center; cursor: pointer; transition: all 0.2s ease; background: rgba(16, 185, 129, 0.03);">
+                                <input type="file" id="bulk-upload-file-input" accept=".xlsx,.xls" style="display: none;">
+                                <i class="fa-solid fa-cloud-arrow-up" style="font-size: 2.5rem; color: #10b981; margin-bottom: 0.75rem; display: block;"></i>
+                                <span id="bulk-dropzone-label" style="font-size: 0.9rem; color: var(--text-secondary); font-weight: 500;">Click to Select or Drop Excel File (.xlsx)</span>
+                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">Max file size: 10MB</div>
+                            </div>
+
+                            <!-- Upload Results (initially hidden) -->
+                            <div id="bulk-upload-results" style="display: none; margin-top: 1.25rem; padding: 1rem; border-radius: 10px; background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.2);">
+                                <h4 style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: var(--text-primary);"><i class="fa-solid fa-chart-bar" style="color: #10b981;"></i> Upload Results</h4>
+                                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; text-align: center;">
+                                    <div style="padding: 0.5rem; background: rgba(255,255,255,0.05); border-radius: 6px;">
+                                        <div style="font-size: 1.3rem; font-weight: 700; color: var(--accent-cyan);" id="bulk-result-total">0</div>
+                                        <div style="font-size: 0.7rem; color: var(--text-muted);">Total Rows</div>
+                                    </div>
+                                    <div style="padding: 0.5rem; background: rgba(255,255,255,0.05); border-radius: 6px;">
+                                        <div style="font-size: 1.3rem; font-weight: 700; color: #10b981;" id="bulk-result-created">0</div>
+                                        <div style="font-size: 0.7rem; color: var(--text-muted);">Created</div>
+                                    </div>
+                                    <div style="padding: 0.5rem; background: rgba(255,255,255,0.05); border-radius: 6px;">
+                                        <div style="font-size: 1.3rem; font-weight: 700; color: #f59e0b;" id="bulk-result-updated">0</div>
+                                        <div style="font-size: 0.7rem; color: var(--text-muted);">Updated</div>
+                                    </div>
+                                    <div style="padding: 0.5rem; background: rgba(255,255,255,0.05); border-radius: 6px;">
+                                        <div style="font-size: 1.3rem; font-weight: 700; color: var(--text-muted);" id="bulk-result-skipped">0</div>
+                                        <div style="font-size: 0.7rem; color: var(--text-muted);">Skipped</div>
+                                    </div>
+                                </div>
+                                <div id="bulk-result-errors" style="display: none; margin-top: 0.75rem; padding: 0.5rem; background: rgba(239, 68, 68, 0.08); border-radius: 6px; font-size: 0.78rem; color: #f87171; max-height: 100px; overflow-y: auto;"></div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn-modal-cancel" id="bulk-modal-cancel-btn">Close</button>
+                            <button class="btn-modal-save" id="bulk-upload-submit-btn" disabled style="background: linear-gradient(135deg, #059669, #10b981);">
+                                <i class="fa-solid fa-upload"></i> Upload & Import
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Add Cable Modal -->
                 <div class="modal-overlay hidden" id="add-cable-modal">
                     <div class="modal-card modal-cable">
@@ -934,13 +1003,7 @@
                                     <label for="new-cable-category">Category <span class="required">*</span></label>
                                     <select id="new-cable-category">
                                         <option value="">Select category...</option>
-                                        <option value="Power Cables">Power Cables</option>
-                                        <option value="Flexible/Housewire">Flexible/Housewire</option>
-                                        <option value="Control Cables">Control Cables</option>
-                                        <option value="Rubber Cable">Rubber Cable</option>
-                                        <option value="Aerial Bunched Cable">Aerial Bunched Cable</option>
-                                        <option value="Conductors">Conductors</option>
-                                        <option value="Instrumentation Wires">Instrumentation Wires</option>
+                                        <!-- Populated dynamically from API -->
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -1004,6 +1067,36 @@
                     </div>
                 </div>
                 
+                <!-- Manage Categories Modal -->
+                <div class="modal-overlay hidden" id="manage-categories-modal">
+                    <div class="modal-card" style="max-width: 500px;">
+                        <div class="modal-header modal-header-accent">
+                            <h3><i class="fa-solid fa-tags"></i> Manage Product Categories</h3>
+                            <button class="modal-close-btn" id="manage-cat-close-btn"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <div style="margin-bottom: 1.25rem;">
+                                <label style="font-weight: 600; font-size: 0.85rem; color: #94a3b8; display: block; margin-bottom: 0.5rem;">Add New Category</label>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <input type="text" id="new-category-input" class="modern-input" placeholder="e.g. Conductor, Control Cable..." style="flex: 1;" maxlength="50">
+                                    <button class="btn-add-cable" id="add-category-btn" style="white-space: nowrap;">
+                                        <i class="fa-solid fa-plus"></i> Add Category
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                <label style="font-weight: 600; font-size: 0.85rem; color: #94a3b8; display: block; margin-bottom: 0.5rem;">Current Categories</label>
+                                <ul id="categories-list" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-height: 250px; overflow-y: auto;">
+                                    <!-- Populated dynamically -->
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn-modal-cancel" id="manage-cat-done-btn">Done</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Tab: Settings -->
                 <section id="settings-tab" class="tab-panel">
                     <!-- Greeting Configuration -->

@@ -644,6 +644,204 @@ async def delete_product_api(product_name: str, request: Request):
     db.request_supabase("products", "DELETE", params={"name": f"eq.{decoded_name}"})
     return {"success": True, "product": decoded_name, "message": "Product deleted successfully."}
 
+@router.post("/api/products/bulk-upload")
+async def bulk_upload_products_api(request: Request, file: UploadFile = File(...)):
+    """Uploads an Excel (.xlsx) file to bulk-add or update products in the catalog."""
+    auth.require_auth(request)
+
+    if not file or not file.filename:
+        raise HTTPException(status_code=400, detail="No file uploaded.")
+    if not file.filename.lower().endswith((".xlsx", ".xls")):
+        raise HTTPException(status_code=400, detail="File must be an Excel spreadsheet (.xlsx).")
+
+    from openpyxl import load_workbook
+
+    try:
+        contents = await file.read()
+        wb = load_workbook(filename=io.BytesIO(contents), read_only=True, data_only=True)
+        ws = wb.active
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to parse Excel file: {str(e)}")
+
+    # Read header row to map column indices
+    header_row = [str(cell.value or "").strip().lower() for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+
+    # Flexible column name mapping
+    COLUMN_MAP = {
+        "category": ["category"],
+        "name": ["product name", "name", "product"],
+        "conductor": ["conductor", "conductor material"],
+        "size": ["size", "conductor size"],
+        "core": ["cores", "core", "number of cores"],
+        "price_per_meter": ["est. price (per meter)", "price", "price per meter", "price_per_meter", "est price", "price (per meter)"],
+        "stock_status": ["stock status", "stock_status", "stock", "availability"],
+        "insulation": ["insulation", "insulation material"],
+    }
+
+    col_indices = {}
+    for field, aliases in COLUMN_MAP.items():
+        for idx, header in enumerate(header_row):
+            if header in aliases:
+                col_indices[field] = idx
+                break
+
+    if "name" not in col_indices:
+        raise HTTPException(status_code=400, detail="Excel file must have a 'Product Name' column. Found headers: " + ", ".join(header_row))
+
+    results = {"created": 0, "updated": 0, "skipped": 0, "errors": [], "total_rows": 0}
+
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        results["total_rows"] += 1
+
+        def get_val(field, default=""):
+            idx = col_indices.get(field)
+            if idx is None or idx >= len(row):
+                return default
+            val = row[idx]
+            if val is None:
+                return default
+            return str(val).strip()
+
+        name = get_val("name")
+        if not name or len(name) < 3:
+            results["skipped"] += 1
+            continue
+
+        category = get_val("category", "Power Cables")
+        conductor = get_val("conductor", "")
+        size = get_val("size", "")
+        insulation = get_val("insulation", "XLPE") or "XLPE"
+        stock_status = get_val("stock_status", "In Stock") or "In Stock"
+
+        # Parse core — handle formats like "1 core", "3.5", "4 Core"
+        core_raw = get_val("core", "1")
+        core_match = re.match(r'([\d.]+)', core_raw)
+        try:
+            core = float(core_match.group(1)) if core_match else 1
+            core = int(core) if core == int(core) else core
+        except (ValueError, TypeError):
+            core = 1
+
+        # Parse price — handle formats like "INR 213.15", "₹ 213.15", "213.15"
+        price_raw = get_val("price_per_meter", "0")
+        price_cleaned = re.sub(r'[^0-9.]', '', price_raw.replace(",", ""))
+        try:
+            price = float(price_cleaned) if price_cleaned else 0
+        except ValueError:
+            price = 0
+
+        product_data = {
+            "name": name[:200],
+            "category": category[:100],
+            "conductor": conductor[:100],
+            "size": size[:50],
+            "core": core,
+            "insulation": insulation[:100],
+            "price_per_meter": price,
+            "stock_status": stock_status,
+        }
+
+        try:
+            status = db.upsert_product(product_data)
+            if status == "created":
+                results["created"] += 1
+            elif status == "updated":
+                results["updated"] += 1
+            else:
+                results["skipped"] += 1
+        except Exception as e:
+            results["errors"].append({"product": name, "error": str(e)})
+
+    wb.close()
+    return {
+        "success": True,
+        "message": f"Bulk upload complete: {results['created']} created, {results['updated']} updated, {results['skipped']} skipped.",
+        "results": results,
+        "filename": file.filename
+    }
+
+
+@router.get("/api/products/bulk-template")
+def download_bulk_template(request: Request):
+    """Downloads a sample Excel template for bulk product upload."""
+    auth.require_auth(request)
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Products Template"
+
+    headers = ["Category", "Product Name", "Conductor", "Size", "Cores", "Est. Price (per meter)", "Stock Status", "INSULATION"]
+    HEADER_FILL = PatternFill("solid", fgColor="C0521F")
+    HEADER_FONT = Font(name="Calibri", bold=True, color="FFFFFF", size=11)
+    thin = Side(style="thin", color="CCCCCC")
+    BORDER = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    for col_idx, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_idx, value=header)
+        cell.fill = HEADER_FILL
+        cell.font = HEADER_FONT
+        cell.border = BORDER
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    # Add two sample rows
+    sample_rows = [
+        ["Power Cables", "Aluminium Power Cable 120 sq mm 1C Armoured", "Aluminium", "120 sq mm", "1 core", "INR 213.15", "In Stock", "XLPE"],
+        ["House Wires", "KDI 1.5 sq mm FR House Wire (Copper)", "Copper", "1.5 sq mm", "1 core", "INR 24.50", "In Stock", "PVC"],
+    ]
+    for row_data in sample_rows:
+        ws.append(row_data)
+
+    # Auto-fit column widths
+    col_widths = [18, 50, 14, 14, 10, 22, 14, 14]
+    from openpyxl.utils import get_column_letter
+    for i, width in enumerate(col_widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = width
+
+    ws.freeze_panes = "A2"
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=KDI_Product_Upload_Template.xlsx"}
+    )
+
+# ── Product Category Management API ───────────────────────
+@router.get("/api/product-categories")
+def get_product_categories_api(request: Request):
+    auth.require_auth(request)
+    categories = config_manager.get_product_categories()
+    return {"success": True, "categories": categories}
+
+@router.post("/api/product-categories")
+async def add_product_category_api(request: Request):
+    auth.require_auth(request)
+    payload = await request.json()
+    name = (payload.get("name") or "").strip()
+    if not name or len(name) < 2:
+        raise HTTPException(status_code=400, detail="Category name must be at least 2 characters.")
+    if len(name) > 50:
+        raise HTTPException(status_code=400, detail="Category name must be under 50 characters.")
+    success, msg = config_manager.add_product_category(name)
+    if not success:
+        raise HTTPException(status_code=409, detail=msg)
+    return {"success": True, "message": msg, "categories": config_manager.get_product_categories()}
+
+@router.delete("/api/product-categories/{category_name}")
+def delete_product_category_api(request: Request, category_name: str):
+    auth.require_auth(request)
+    import urllib.parse
+    decoded = urllib.parse.unquote(category_name)
+    success, msg = config_manager.delete_product_category(decoded)
+    if not success:
+        raise HTTPException(status_code=404, detail=msg)
+    return {"success": True, "message": msg, "categories": config_manager.get_product_categories()}
+
+
 @router.get("/api/settings")
 def get_settings_api(request: Request):
     auth.require_auth(request)

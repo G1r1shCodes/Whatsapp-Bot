@@ -505,17 +505,28 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
         elif lower_msg == "browse products":
             reply_text = ""
             cat_match = True
-        elif lower_msg in ["power cables", "electrical wires", "armoured cables", "unarmoured cables", "control cables" "conductors"]:
+        elif lower_msg in [
+            "power cables", "electrical wires", "house wires", "flexible/housewire",
+            "armoured cables", "unarmoured cables", "control cables", "conductors",
+            "conductor", "aerial bunched cable", "aerial bunched cables", "rubber cable",
+            "instrumentation wires"
+        ]:
             # Fast-path for Category Selection
             all_prods = db.get_all_products()
             cat_keywords = {
                 "power cables": ["power"],
-                "electrical wires": ["wire", "house"],
+                "electrical wires": ["wire", "house", "flexible"],
+                "house wires": ["wire", "house", "flexible"],
+                "flexible/housewire": ["wire", "house", "flexible"],
                 "armoured cables": ["armoured", "armored"],
-                "conductors": ["conductor"],
-                "arieal bunched cable": ["aerial", "arieal", "bunched", "abc"],
                 "unarmoured cables": ["unarmoured", "unarmored"],
-                "control cables": ["control"]
+                "control cables": ["control"],
+                "conductors": ["conductor"],
+                "conductor": ["conductor"],
+                "aerial bunched cable": ["aerial", "arieal", "bunched", "abc"],
+                "aerial bunched cables": ["aerial", "arieal", "bunched", "abc"],
+                "rubber cable": ["rubber"],
+                "instrumentation wires": ["instrumentation"]
             }
             kws = cat_keywords.get(lower_msg, [lower_msg])
             matching = [p for p in all_prods if any(kw in p.get("name", "").lower() or kw in p.get("category", "").lower() for kw in kws)]
@@ -688,4 +699,3 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
     except Exception as e:
         logger.error(f"Webhook error: {e}")
         return Response(status_code=500)
-

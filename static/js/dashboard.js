@@ -756,10 +756,26 @@ document.addEventListener('keydown', (e) => {
 // 3. Cables Catalog
 // -------------------------------------------------------------
 const categorySelect = document.getElementById('category-select');
+let cachedCategories = [];
 
-categorySelect.addEventListener('change', () => {
-    loadCatalogData();
-});
+async function fetchProductCategories() {
+    try {
+        const res = await fetch('/api/product-categories');
+        const data = await res.json();
+        if (Array.isArray(data)) {
+            cachedCategories = data;
+        }
+    } catch (err) {
+        console.error('Error loading product categories:', err);
+    }
+    return cachedCategories;
+}
+
+if (categorySelect) {
+    categorySelect.addEventListener('change', () => {
+        loadCatalogData();
+    });
+}
 
 async function loadCatalogData() {
     const tableBody = document.getElementById('catalog-table-body');
@@ -772,20 +788,26 @@ async function loadCatalogData() {
     `;
     
     try {
-        const res = await fetch('/api/products');
-        catalogData = await res.json();
+        const [resProducts, categories] = await Promise.all([
+            fetch('/api/products').then(r => r.json()),
+            fetchProductCategories()
+        ]);
+        catalogData = resProducts;
         
-        // Rebuild category filter dropdown with only categories present in actual product data
-        const dataCategories = [...new Set(catalogData.map(p => p.category).filter(Boolean))].sort();
-        const allCategories = ['All', ...dataCategories];
-        const currentSelected = categorySelect.value;
-        categorySelect.innerHTML = allCategories.map(cat => {
-            const label = cat === 'All' ? 'All Categories' : cat;
-            const selected = cat === currentSelected ? 'selected' : '';
-            return `<option value="${cat}" ${selected}>${label}</option>`;
-        }).join('');
+        // Rebuild category filter dropdown merging configured categories + actual product categories
+        const dataCategories = [...new Set(catalogData.map(p => p.category).filter(Boolean))];
+        const mergedCategories = [...new Set([...categories, ...dataCategories])].sort();
+        const allCategories = ['All', ...mergedCategories];
+        const currentSelected = categorySelect ? categorySelect.value : 'All';
+        if (categorySelect) {
+            categorySelect.innerHTML = allCategories.map(cat => {
+                const label = cat === 'All' ? 'All Categories' : cat;
+                const selected = cat === currentSelected ? 'selected' : '';
+                return `<option value="${cat}" ${selected}>${label}</option>`;
+            }).join('');
+        }
         
-        const filter = categorySelect.value;
+        const filter = categorySelect ? categorySelect.value : 'All';
         const filteredProducts = filter === 'All' 
             ? catalogData 
             : catalogData.filter(p => p.category === filter);
@@ -1005,15 +1027,14 @@ const modalCloseBtn = document.getElementById('modal-close-btn');
 const modalCancelBtn = document.getElementById('modal-cancel-btn');
 const modalSaveBtn = document.getElementById('modal-save-btn');
 
-function openAddCableModal() {
-    // Dynamically populate category dropdown from current catalog data
+async function openAddCableModal() {
     const catSelect = document.getElementById('new-cable-category');
-    if (catSelect && catalogData.length > 0) {
-        const existingCategories = [...new Set(catalogData.map(p => p.category).filter(Boolean))].sort();
-        // Rebuild options preserving any custom categories
-        const defaultOpts = ['Power Cables', 'House Wires', 'Control Cables', 'Rubber Cable', 'Aerial Bunched Cable', 'Instrumentation Wires'];
-        const allCats = [...new Set([...defaultOpts, ...existingCategories])].sort();
-        catSelect.innerHTML = '<option value="">Select category...</option>' + allCats.map(c => `<option value="${c}">${c}</option>`).join('');
+    if (catSelect) {
+        const categories = await fetchProductCategories();
+        const dataCategories = catalogData.length > 0 ? [...new Set(catalogData.map(p => p.category).filter(Boolean))] : [];
+        const allCats = [...new Set([...categories, ...dataCategories])].sort();
+        const currentVal = catSelect.value;
+        catSelect.innerHTML = '<option value="">Select category...</option>' + allCats.map(c => `<option value="${c}" ${c === currentVal ? 'selected' : ''}>${c}</option>`).join('');
     }
     
     addCableModal.classList.remove('hidden');
@@ -1113,9 +1134,291 @@ if (modalSaveBtn) {
         }
     });
 }
+
 // -------------------------------------------------------------
-// Global Actions
+// Manage Categories Modal Logic
 // -------------------------------------------------------------
+const manageCategoriesBtn = document.getElementById('manage-categories-btn');
+const manageCategoriesModal = document.getElementById('manage-categories-modal');
+const manageCatCloseBtn = document.getElementById('manage-cat-close-btn');
+const manageCatDoneBtn = document.getElementById('manage-cat-done-btn');
+const newCategoryInput = document.getElementById('new-category-input');
+const addCategoryBtn = document.getElementById('add-category-btn');
+const categoriesList = document.getElementById('categories-list');
+
+async function renderCategoriesList() {
+    if (!categoriesList) return;
+    categoriesList.innerHTML = '<li style="color: #94a3b8; font-size: 0.85rem;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</li>';
+    const categories = await fetchProductCategories();
+    
+    if (categories.length === 0) {
+        categoriesList.innerHTML = '<li style="color: #94a3b8; font-size: 0.85rem;">No categories found</li>';
+        return;
+    }
+    
+    categoriesList.innerHTML = categories.map(cat => `
+        <li style="display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.05); padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1);">
+            <span style="font-size: 0.9rem; font-weight: 500; color: #f8fafc;">${cat}</span>
+            <button class="btn-delete-cat" data-category="${cat}" style="background: transparent; border: none; color: #ef4444; cursor: pointer; padding: 0.25rem 0.5rem; font-size: 0.85rem; transition: opacity 0.2s;" title="Delete Category">
+                <i class="fa-solid fa-trash"></i>
+            </button>
+        </li>
+    `).join('');
+}
+
+async function handleAddCategory() {
+    const val = newCategoryInput.value.trim();
+    if (!val) return;
+    
+    addCategoryBtn.disabled = true;
+    addCategoryBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Adding...';
+    try {
+        const res = await fetch('/api/product-categories', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ category: val })
+        });
+        const result = await res.json();
+        if (res.ok && result.success) {
+            newCategoryInput.value = '';
+            await renderCategoriesList();
+            loadCatalogData();
+        } else {
+            alert(result.detail || result.message || 'Failed to add category');
+        }
+    } catch (err) {
+        console.error('Error adding category:', err);
+        alert('Network error while adding category');
+    } finally {
+        addCategoryBtn.disabled = false;
+        addCategoryBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Add Category';
+    }
+}
+
+async function handleDeleteCategory(catName) {
+    if (!confirm(`Are you sure you want to remove category "${catName}"?`)) return;
+    try {
+        const res = await fetch(`/api/product-categories/${encodeURIComponent(catName)}`, {
+            method: 'DELETE'
+        });
+        const result = await res.json();
+        if (res.ok && result.success) {
+            await renderCategoriesList();
+            loadCatalogData();
+        } else {
+            alert(result.detail || result.message || 'Failed to delete category');
+        }
+    } catch (err) {
+        console.error('Error deleting category:', err);
+        alert('Network error while deleting category');
+    }
+}
+
+if (manageCategoriesBtn) {
+    manageCategoriesBtn.addEventListener('click', () => {
+        manageCategoriesModal.classList.remove('hidden');
+        renderCategoriesList();
+    });
+}
+if (manageCatCloseBtn) {
+    manageCatCloseBtn.addEventListener('click', () => {
+        manageCategoriesModal.classList.add('hidden');
+    });
+}
+if (manageCatDoneBtn) {
+    manageCatDoneBtn.addEventListener('click', () => {
+        manageCategoriesModal.classList.add('hidden');
+    });
+}
+if (addCategoryBtn) {
+    addCategoryBtn.addEventListener('click', handleAddCategory);
+}
+if (newCategoryInput) {
+    newCategoryInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAddCategory();
+        }
+    });
+}
+if (categoriesList) {
+    categoriesList.addEventListener('click', (e) => {
+        const delBtn = e.target.closest('.btn-delete-cat');
+        if (delBtn) {
+            const cat = delBtn.dataset.category;
+            if (cat) handleDeleteCategory(cat);
+        }
+    });
+}
+
+// -------------------------------------------------------------
+// Bulk Excel Upload Modal Logic
+// -------------------------------------------------------------
+const bulkUploadBtn = document.getElementById('bulk-upload-btn');
+const bulkUploadModal = document.getElementById('bulk-upload-modal');
+const bulkModalCloseBtn = document.getElementById('bulk-modal-close-btn');
+const bulkModalCancelBtn = document.getElementById('bulk-modal-cancel-btn');
+const bulkDropzone = document.getElementById('bulk-upload-dropzone');
+const bulkFileInput = document.getElementById('bulk-upload-file-input');
+const bulkSubmitBtn = document.getElementById('bulk-upload-submit-btn');
+const bulkDropzoneLabel = document.getElementById('bulk-dropzone-label');
+let selectedBulkFile = null;
+
+function openBulkUploadModal() {
+    if (!bulkUploadModal) return;
+    // Reset state
+    selectedBulkFile = null;
+    if (bulkFileInput) bulkFileInput.value = '';
+    if (bulkDropzoneLabel) bulkDropzoneLabel.textContent = 'Click to Select or Drop Excel File (.xlsx)';
+    if (bulkSubmitBtn) { bulkSubmitBtn.disabled = true; bulkSubmitBtn.innerHTML = '<i class="fa-solid fa-upload"></i> Upload & Import'; }
+    const resultsArea = document.getElementById('bulk-upload-results');
+    if (resultsArea) resultsArea.style.display = 'none';
+    bulkUploadModal.classList.remove('hidden');
+}
+
+function closeBulkUploadModal() {
+    if (bulkUploadModal) bulkUploadModal.classList.add('hidden');
+}
+
+if (bulkUploadBtn) bulkUploadBtn.addEventListener('click', openBulkUploadModal);
+if (bulkModalCloseBtn) bulkModalCloseBtn.addEventListener('click', closeBulkUploadModal);
+if (bulkModalCancelBtn) bulkModalCancelBtn.addEventListener('click', closeBulkUploadModal);
+
+// Close on overlay click
+if (bulkUploadModal) {
+    bulkUploadModal.addEventListener('click', (e) => {
+        if (e.target === bulkUploadModal) closeBulkUploadModal();
+    });
+}
+
+// Dropzone click → open file picker
+if (bulkDropzone && bulkFileInput) {
+    bulkDropzone.addEventListener('click', () => bulkFileInput.click());
+
+    // Drag & drop support
+    bulkDropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        bulkDropzone.style.borderColor = '#10b981';
+        bulkDropzone.style.background = 'rgba(16, 185, 129, 0.08)';
+    });
+    bulkDropzone.addEventListener('dragleave', () => {
+        bulkDropzone.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+        bulkDropzone.style.background = 'rgba(16, 185, 129, 0.03)';
+    });
+    bulkDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        bulkDropzone.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+        bulkDropzone.style.background = 'rgba(16, 185, 129, 0.03)';
+        if (e.dataTransfer.files.length > 0) {
+            const file = e.dataTransfer.files[0];
+            if (file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls')) {
+                handleBulkFileSelect(file);
+            } else {
+                showToast('Please select an Excel file (.xlsx)', true);
+            }
+        }
+    });
+
+    bulkFileInput.addEventListener('change', () => {
+        if (bulkFileInput.files.length > 0) {
+            handleBulkFileSelect(bulkFileInput.files[0]);
+        }
+    });
+}
+
+function handleBulkFileSelect(file) {
+    if (file.size > 10 * 1024 * 1024) {
+        showToast('File size must be less than 10MB', true);
+        return;
+    }
+    selectedBulkFile = file;
+    if (bulkDropzoneLabel) {
+        bulkDropzoneLabel.textContent = `Selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+    }
+    if (bulkSubmitBtn) {
+        bulkSubmitBtn.disabled = false;
+        bulkSubmitBtn.innerHTML = `<i class="fa-solid fa-upload"></i> Upload & Import (${file.name})`;
+    }
+    // Hide previous results
+    const resultsArea = document.getElementById('bulk-upload-results');
+    if (resultsArea) resultsArea.style.display = 'none';
+}
+
+// Submit upload
+if (bulkSubmitBtn) {
+    bulkSubmitBtn.addEventListener('click', async () => {
+        if (!selectedBulkFile) {
+            showToast('Please select an Excel file first', true);
+            return;
+        }
+
+        bulkSubmitBtn.disabled = true;
+        bulkSubmitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading & Processing...';
+
+        const formData = new FormData();
+        formData.append('file', selectedBulkFile);
+
+        try {
+            const res = await fetch('/api/products/bulk-upload', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                showToast(data.message);
+
+                // Show results
+                const resultsArea = document.getElementById('bulk-upload-results');
+                if (resultsArea) {
+                    resultsArea.style.display = 'block';
+                    const r = data.results;
+                    document.getElementById('bulk-result-total').textContent = r.total_rows || 0;
+                    document.getElementById('bulk-result-created').textContent = r.created || 0;
+                    document.getElementById('bulk-result-updated').textContent = r.updated || 0;
+                    document.getElementById('bulk-result-skipped').textContent = r.skipped || 0;
+
+                    const errorsArea = document.getElementById('bulk-result-errors');
+                    if (r.errors && r.errors.length > 0) {
+                        errorsArea.style.display = 'block';
+                        errorsArea.innerHTML = '<strong>Errors:</strong><br>' + r.errors.map(e =>
+                            `• ${escapeHtml(e.product)}: ${escapeHtml(e.error)}`
+                        ).join('<br>');
+                    } else {
+                        errorsArea.style.display = 'none';
+                    }
+                }
+
+                // Reset file selection
+                selectedBulkFile = null;
+                if (bulkFileInput) bulkFileInput.value = '';
+                if (bulkDropzoneLabel) bulkDropzoneLabel.textContent = 'Click to Select or Drop Excel File (.xlsx)';
+
+                bulkSubmitBtn.innerHTML = '<i class="fa-solid fa-check"></i> Upload Complete!';
+                bulkSubmitBtn.disabled = true;
+
+                // Refresh catalog table
+                loadCatalogData();
+            } else {
+                let errorMsg = 'Failed to upload products';
+                if (typeof data.detail === 'string') {
+                    errorMsg = data.detail;
+                } else if (Array.isArray(data.detail) && data.detail.length > 0) {
+                    errorMsg = data.detail.map(d => d.msg || d.message || JSON.stringify(d)).join(', ');
+                }
+                showToast(errorMsg, true);
+                bulkSubmitBtn.disabled = false;
+                bulkSubmitBtn.innerHTML = '<i class="fa-solid fa-upload"></i> Retry Upload';
+            }
+        } catch (err) {
+            console.error('Error bulk uploading products:', err);
+            showToast('Error uploading products: ' + err.message, true);
+            bulkSubmitBtn.disabled = false;
+            bulkSubmitBtn.innerHTML = '<i class="fa-solid fa-upload"></i> Retry Upload';
+        }
+    });
+}
+
 refreshBtn.addEventListener('click', () => {
     const originalContent = refreshBtn.innerHTML;
     refreshBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Refreshing...';
