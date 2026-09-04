@@ -197,8 +197,34 @@
     border-color: var(--border);
 }
 
+[data-theme="light"] .editable-price {
+    color: #0d9488;
+    background: rgba(13, 148, 136, 0.08);
+    border: 1px dashed rgba(13, 148, 136, 0.3);
+}
+
+[data-theme="light"] .editable-price:hover {
+    background: rgba(13, 148, 136, 0.15);
+    border-color: #0d9488;
+    color: #0f766e;
+}
+
 [data-theme="light"] .editable-price-input {
-    background: var(--input-bg);
+    background: #ffffff;
+    color: #0d9488;
+    border-color: #0d9488;
+}
+
+[data-theme="light"] .btn-add-cable {
+    background: linear-gradient(135deg, #0284c7, #2563eb);
+    border-color: #0284c7;
+    color: #ffffff !important;
+}
+
+[data-theme="light"] .btn-add-cable:hover {
+    background: linear-gradient(135deg, #0369a1, #1d4ed8);
+    border-color: #0369a1;
+    color: #ffffff !important;
 }
 
 [data-theme="light"] .toast {
