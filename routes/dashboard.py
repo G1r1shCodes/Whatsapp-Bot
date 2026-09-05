@@ -982,20 +982,39 @@ async def create_template_api(request: Request):
     )
 
     # Optionally submit to Meta
+    meta_error = None
     if submit_to_meta:
         try:
-            from routes.whatsapp import build_meta_components, create_meta_template
-            components = build_meta_components(header, body, footer, buttons)
-            result = create_meta_template(name, category, language, components)
-            template["meta_template_id"] = result.get("id")
-            template["meta_status"] = result.get("status", "PENDING")
+            from routes.whatsapp import build_meta_components, create_meta_template, upload_media_for_header
+            # For media headers (image/video/document), we need to upload via Meta's
+            # resumable upload API to get a header_handle — raw URLs are not accepted.
+            resolved_header = header
+            if header and header.get("type") in ("image", "video", "document") and header.get("content"):
+                try:
+                    handle = upload_media_for_header(header["content"], header["type"])
+                    resolved_header = {**header, "handle": handle}
+                except Exception as upload_err:
+                    logger.error(f"Media upload for header failed: {upload_err}")
+                    meta_error = f"Failed to upload header media: {upload_err}"
+
+            if not meta_error:
+                components = build_meta_components(resolved_header, body, footer, buttons)
+                result = create_meta_template(name, category, language, components)
+                template["meta_template_id"] = result.get("id")
+                template["meta_status"] = result.get("status", "PENDING")
         except Exception as e:
             logger.error(f"Meta template submission failed: {e}")
             template["meta_status"] = "LOCAL"
-            # Still save locally, just note it wasn't submitted
+            meta_error = str(e)
 
     config_manager.save_template(template)
-    return {"success": True, "template": template}
+    response = {"success": True, "template": template}
+    if meta_error:
+        response["meta_error"] = meta_error
+        response["meta_submitted"] = False
+    else:
+        response["meta_submitted"] = submit_to_meta
+    return response
 
 @router.delete("/api/templates/{template_id}")
 def delete_template_api(template_id: str, request: Request):

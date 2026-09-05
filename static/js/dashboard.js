@@ -2599,7 +2599,14 @@ async function saveTemplate(submitToMeta) {
         });
         const result = await res.json();
         if (res.ok && result.success) {
-            showToast(submitToMeta ? 'Template submitted to Meta for review!' : 'Template saved locally');
+            if (submitToMeta && result.meta_error) {
+                // Template saved locally, but Meta submission failed — show the error
+                showToast(`Template saved locally but Meta submission failed: ${result.meta_error}`, true);
+            } else if (submitToMeta && result.meta_submitted) {
+                showToast('Template submitted to Meta for review!');
+            } else {
+                showToast('Template saved locally');
+            }
             closeTemplateBuilder();
             loadMessageTemplates();
         } else {

@@ -361,6 +361,69 @@ def send_whatsapp_template(to_phone, template_name, language_code, components=No
         logger.error(f"Error sending template message: {e}")
         raise
 
+def upload_media_for_header(media_url, media_type):
+    """Uploads media from a URL to Meta's resumable upload API and returns a header handle.
+    Meta's template creation API requires a header_handle (not a raw URL) for media headers.
+    
+    Steps:
+    1. Download the media from the provided URL
+    2. Create an upload session via Meta Graph API
+    3. Upload the binary data to get a handle
+    """
+    if not META_ACCESS_TOKEN:
+        raise RuntimeError("META_ACCESS_TOKEN is required for media upload.")
+    
+    # Map types to MIME types
+    mime_map = {
+        "image": "image/jpeg",
+        "video": "video/mp4",
+        "document": "application/pdf"
+    }
+    mime_type = mime_map.get(media_type.lower(), "application/octet-stream")
+    
+    # Step 1: Download the media
+    try:
+        dl_response = http_client.get(media_url, timeout=30.0)
+        dl_response.raise_for_status()
+        file_data = dl_response.content
+        file_size = len(file_data)
+    except Exception as e:
+        raise RuntimeError(f"Failed to download media from URL: {e}")
+    
+    # Step 2: Create upload session
+    try:
+        session_url = f"https://graph.facebook.com/v21.0/app/uploads"
+        session_params = {
+            "file_length": file_size,
+            "file_type": mime_type,
+            "access_token": META_ACCESS_TOKEN
+        }
+        session_res = http_client.post(session_url, params=session_params)
+        session_res.raise_for_status()
+        upload_session_id = session_res.json().get("id")
+        if not upload_session_id:
+            raise RuntimeError("No upload session ID returned from Meta")
+    except httpx.HTTPStatusError as he:
+        raise RuntimeError(f"Failed to create upload session: {he.response.text}")
+    
+    # Step 3: Upload the file data
+    try:
+        upload_url = f"https://graph.facebook.com/v21.0/{upload_session_id}"
+        upload_headers = {
+            "Authorization": f"OAuth {META_ACCESS_TOKEN}",
+            "file_offset": "0",
+            "Content-Type": mime_type
+        }
+        upload_res = http_client.post(upload_url, headers=upload_headers, content=file_data, timeout=60.0)
+        upload_res.raise_for_status()
+        handle = upload_res.json().get("h")
+        if not handle:
+            raise RuntimeError("No handle returned from Meta upload")
+        logger.info(f"Media uploaded successfully, handle: {handle[:30]}...")
+        return handle
+    except httpx.HTTPStatusError as he:
+        raise RuntimeError(f"Failed to upload media: {he.response.text}")
+
 def build_meta_components(header=None, body="", footer="", buttons=None):
     """Builds Meta-compatible components array from template data.
     Used when creating a template via the Meta API.
@@ -375,11 +438,15 @@ def build_meta_components(header=None, body="", footer="", buttons=None):
             h["text"] = header.get("content", "")
         elif htype in ["IMAGE", "VIDEO", "DOCUMENT"]:
             h["format"] = htype
-            # For media headers, Meta requires an example handle during creation.
-            # The actual media is provided at send-time via components parameters.
-            example_url = header.get("content", "")
-            if example_url:
-                h["example"] = {"header_handle": [example_url]}
+            # Use pre-uploaded handle if available (from upload_media_for_header),
+            # otherwise fall back to URL (will likely fail for create, but works for reference)
+            handle = header.get("handle")
+            if handle:
+                h["example"] = {"header_handle": [handle]}
+            else:
+                example_url = header.get("content", "")
+                if example_url:
+                    h["example"] = {"header_handle": [example_url]}
         components.append(h)
     # Body
     if body:
@@ -418,6 +485,7 @@ def build_meta_components(header=None, body="", footer="", buttons=None):
         if btn_component["buttons"]:
             components.append(btn_component)
     return components
+
 
 @router.get("/webhook")
 async def verify_webhook(request: Request):
