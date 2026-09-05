@@ -1,5 +1,5 @@
 {
-    "welcome_text": "Hi {profile_name}! 👋\nWelcome to *KDI Power*!",
+    "welcome_text": "Hi {profile_name}! \ud83d\udc4b\nWelcome to *KDI Power*!",
     "welcome_image": "BOT-IMAGE.jpg",
     "browse_categories": [
         {
@@ -37,5 +37,13 @@
         "Conductor"
     ],
     "message_templates": [],
-    "broadcast_history": []
+    "broadcast_history": [],
+    "product_overrides": {
+        "KDI 1.5 sq mm FR House Wire (Copper)": {
+            "price": 24.5,
+            "stock_status": "In Stock"
+        }
+    },
+    "deleted_products": [],
+    "custom_products": []
 }

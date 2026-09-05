@@ -3292,6 +3292,43 @@ select option:checked {
     gap: 0.85rem;
 }
 
+/* ── Template Viewer Modal & Realistic WhatsApp Mockup ─────── */
+.modal-card.modal-template-viewer {
+    width: 980px !important;
+    max-width: 96vw !important;
+    max-height: 92vh !important;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-template-viewer .modal-body {
+    padding: 1.25rem 1.5rem;
+    overflow-y: auto;
+}
+
+.template-viewer-grid {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 350px !important;
+    gap: 1.5rem !important;
+    align-items: start !important;
+}
+
+@media (max-width: 860px) {
+    .modal-card.modal-template-viewer {
+        width: 95vw !important;
+    }
+    .template-viewer-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+.template-viewer-specs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
 .viewer-rejection-alert {
     background: rgba(239, 68, 68, 0.1);
     border: 1px solid rgba(239, 68, 68, 0.35);
@@ -3302,86 +3339,179 @@ select option:checked {
     line-height: 1.45;
 }
 
-.viewer-spec-box {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.85rem 1rem;
-}
-
-.viewer-meta-grid {
+/* 2x2 Specs Grid */
+.viewer-meta-cards-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, 1fr);
     gap: 0.75rem;
-    font-size: 0.82rem;
 }
 
-.viewer-spec-label {
-    color: var(--text-muted);
-    display: block;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-weight: 600;
-    margin-bottom: 2px;
-}
-
-.viewer-spec-value {
-    color: #fff;
-    font-size: 0.85rem;
-}
-
-.viewer-spec-mono {
-    color: var(--text-secondary);
-    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
-    font-size: 0.78rem;
-    word-break: break-all;
-}
-
-.viewer-component-box {
-    background: rgba(255, 255, 255, 0.02);
+.viewer-stat-card {
+    background: var(--input-bg);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 10px;
     padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    transition: var(--transition-smooth);
 }
 
-.viewer-component-title {
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    margin-bottom: 0.35rem;
+[data-theme="light"] .viewer-stat-card {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+.viewer-stat-card:hover {
+    border-color: var(--accent-cyan);
+}
+
+.viewer-card-label {
     display: flex;
     align-items: center;
     gap: 6px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
 }
 
-.viewer-component-content {
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-    line-height: 1.4;
+.viewer-card-val {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    word-break: break-all;
+}
+
+[data-theme="light"] .viewer-card-val {
+    color: #0f172a;
+}
+
+.viewer-card-val.category-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: rgba(139, 92, 246, 0.12);
+    color: #8b5cf6;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    width: fit-content;
+}
+
+.viewer-card-val.lang-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: rgba(6, 182, 212, 0.12);
+    color: var(--accent-cyan);
+    border: 1px solid rgba(6, 182, 212, 0.3);
+    width: fit-content;
+}
+
+.viewer-card-val.mono-val {
+    font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+    font-size: 0.8rem;
+    color: var(--text-primary);
+}
+
+[data-theme="light"] .viewer-card-val.mono-val {
+    color: #0f172a;
+}
+
+.btn-copy-mini {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: var(--transition-smooth);
+}
+
+.btn-copy-mini:hover {
+    color: var(--accent-cyan);
+    background: rgba(6, 182, 212, 0.12);
+    border-color: rgba(6, 182, 212, 0.25);
+}
+
+/* Component Cards */
+.viewer-component-card {
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    transition: var(--transition-smooth);
+}
+
+[data-theme="light"] .viewer-component-card {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+.viewer-comp-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.45rem;
+}
+
+.viewer-comp-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.viewer-comp-body {
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    line-height: 1.45;
     word-break: break-word;
 }
 
-.viewer-body-raw {
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-    white-space: pre-wrap;
+[data-theme="light"] .viewer-comp-body {
+    color: #1e293b;
+}
+
+.viewer-body-code {
     font-family: ui-monospace, 'SF Mono', Consolas, monospace;
-    background: rgba(0, 0, 0, 0.25);
-    padding: 0.6rem 0.75rem;
-    border-radius: 6px;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--text-primary);
+    background: var(--bg-primary);
     border: 1px solid var(--border);
-    line-height: 1.5;
+    border-radius: 8px;
+    padding: 0.75rem 0.9rem;
+    white-space: pre-wrap;
+    word-break: break-word;
     max-height: 160px;
     overflow-y: auto;
 }
 
-.viewer-buttons-list {
+[data-theme="light"] .viewer-body-code {
+    background: #ffffff;
+    border-color: #e2e8f0;
+    color: #0f172a;
+}
+
+.viewer-buttons-flex {
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
+    gap: 0.4rem;
 }
 
 .viewer-button-chip {
@@ -3389,11 +3519,17 @@ select option:checked {
     align-items: center;
     gap: 8px;
     font-size: 0.78rem;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--bg-primary);
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 4px 10px;
-    color: var(--text-secondary);
+    padding: 6px 10px;
+    color: var(--text-primary);
+}
+
+[data-theme="light"] .viewer-button-chip {
+    background: #ffffff;
+    border-color: #e2e8f0;
+    color: #0f172a;
 }
 
 .viewer-button-chip .btn-tag {
@@ -3406,33 +3542,242 @@ select option:checked {
     color: var(--accent-cyan);
 }
 
-.template-viewer-preview-col {
+/* ── Realistic WhatsApp Phone Mockup ──────────────────────── */
+.wa-phone-device {
+    width: 100%;
+    max-width: 340px;
+    border-radius: 28px;
+    background: #111b21;
+    padding: 6px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(255, 255, 255, 0.08);
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+}
+
+[data-theme="light"] .wa-phone-device {
+    background: #1f2937;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+.wa-phone-speaker {
+    display: flex;
+    justify-content: center;
     align-items: center;
+    padding: 4px 0 5px;
 }
 
-.viewer-preview-header {
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    margin-bottom: 0.5rem;
-    text-align: center;
-    width: 100%;
+.wa-phone-camera {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #374151;
 }
 
-.viewer-wa-container {
-    width: 100%;
-    min-height: 360px;
-    padding: 1.25rem 0.75rem;
-    background: #e5ddd5;
-    border-radius: 12px;
-    background-image: radial-gradient(#d4cbbf 1px, transparent 1px);
-    background-size: 16px 16px;
+.wa-app-bar {
+    background: #008069;
+    color: #ffffff;
+    padding: 8px 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 18px 18px 0 0;
+}
+
+.wa-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.wa-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #128c7e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.wa-avatar img {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+}
+
+.wa-contact-info {
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
 }
+
+.wa-contact-name {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    line-height: 1.15;
+}
+
+.wa-contact-status {
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.wa-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #ffffff;
+    font-size: 0.78rem;
+    opacity: 0.9;
+}
+
+/* Chat Screen */
+.wa-chat-screen {
+    background-color: #efeae2;
+    background-image: radial-gradient(#d4cbbf 1px, transparent 1px);
+    background-size: 14px 14px;
+    min-height: 350px;
+    max-height: 420px;
+    overflow-y: auto;
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+}
+
+.wa-date-pill {
+    align-self: center;
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 6px;
+    padding: 2px 10px;
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: #54656f;
+    box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.12);
+    margin-bottom: 10px;
+}
+
+.wa-bubble-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.wa-card-bubble {
+    background: #ffffff !important;
+    border-radius: 8px 0px 8px 8px !important;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.15) !important;
+    color: #111b21 !important;
+    margin: 0 0 6px auto;
+    width: 100%;
+    max-width: 290px;
+    overflow: hidden;
+}
+
+.wa-bubble-header {
+    border-radius: 8px 0 0 0;
+    overflow: hidden;
+}
+
+.wa-bubble-body {
+    font-size: 0.85rem;
+    color: #111b21;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-break: break-word;
+    padding: 0.65rem 0.75rem 0.25rem;
+}
+
+.wa-bubble-meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 0 0.75rem 0.45rem;
+}
+
+.wa-bubble-footer {
+    font-size: 0.7rem;
+    color: #667781;
+    font-style: italic;
+    line-height: 1.3;
+    flex: 1;
+}
+
+.wa-timestamp-box {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.65rem;
+    color: #667781;
+    white-space: nowrap;
+    margin-left: auto;
+}
+
+.wa-bubble-buttons {
+    border-top: 1px solid #f0f2f5;
+    display: flex;
+    flex-direction: column;
+}
+
+.wa-preview-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 10px;
+    color: #00a884;
+    font-weight: 600;
+    font-size: 0.8rem;
+    border-bottom: 1px solid #f0f2f5;
+    text-align: center;
+    transition: background 0.15s ease;
+}
+
+.wa-preview-button:last-child {
+    border-bottom: none;
+}
+
+.wa-preview-button:hover {
+    background: #f7f9fa;
+}
+
+/* Phone bottom bar */
+.wa-input-bar {
+    background: #f0f2f5;
+    padding: 5px 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 0 0 18px 18px;
+}
+
+.wa-input-pill {
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 5px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.78rem;
+    color: #8696a0;
+    flex: 1;
+}
+
+.wa-mic-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #00a884;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+}
+
 

@@ -13,7 +13,7 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="/static/css/styles.css?v=2.3">
+    <link rel="stylesheet" href="/static/css/styles.css?v=3.0">
 </head>
 <body>
     <div class="app-container">
@@ -706,108 +706,185 @@
                 <!-- MODAL: Template Viewer / WhatsApp Preview   -->
                 <!-- ═══════════════════════════════════════════ -->
                 <div class="modal-overlay hidden" id="template-viewer-modal">
-                    <div class="modal-card modal-template-viewer" style="max-width: 860px; max-height: 90vh; overflow-y: auto;">
-                        <div class="modal-header">
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <h3><i class="fa-solid fa-puzzle-piece text-cyan"></i> <span id="view-tpl-name">template_name</span></h3>
-                                <span id="view-tpl-status-badge" class="tpl-status-badge local">LOCAL</span>
+                    <div class="modal-card modal-template-viewer" style="width: 980px; max-width: 96vw; max-height: 92vh; overflow-y: auto; padding: 0;">
+                        <div class="modal-header" style="padding: 1.1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(6, 182, 212, 0.12); display: flex; align-items: center; justify-content: center; color: var(--accent-cyan); font-size: 1.1rem; border: 1px solid rgba(6, 182, 212, 0.25);">
+                                    <i class="fa-solid fa-layer-group"></i>
+                                </div>
+                                <div>
+                                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                        <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em;" id="view-tpl-name">template_name</h3>
+                                        <span id="view-tpl-status-badge" class="tpl-status-badge local">LOCAL</span>
+                                    </div>
+                                    <span style="font-size: 0.76rem; color: var(--text-muted);">WhatsApp Business Outbound Message Template</span>
+                                </div>
                             </div>
-                            <button class="modal-close-btn" id="close-template-viewer"><i class="fa-solid fa-xmark"></i></button>
+                            <button class="modal-close-btn" id="close-template-viewer" title="Close"><i class="fa-solid fa-xmark"></i></button>
                         </div>
-                        <div class="modal-body" style="padding: 1.25rem;">
+                        <div class="modal-body" style="padding: 1.25rem 1.5rem;">
                             <!-- Grid: Left side metadata, Right side WhatsApp bubble preview -->
-                            <div class="template-viewer-grid">
+                            <div class="template-viewer-grid" style="display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 1.5rem; align-items: start;">
                                 <!-- Left: Details & Info -->
                                 <div class="template-viewer-specs">
                                     <!-- Rejection Alert if REJECTED -->
                                     <div id="view-tpl-rejection-banner" class="hidden viewer-rejection-alert">
-                                        <div style="font-weight: 700; margin-bottom: 3px;"><i class="fa-solid fa-triangle-exclamation"></i> Meta Rejection Reason:</div>
+                                        <div style="font-weight: 700; margin-bottom: 3px; display: flex; align-items: center; gap: 6px;">
+                                            <i class="fa-solid fa-triangle-exclamation"></i> Meta Rejection Reason:
+                                        </div>
                                         <div id="view-tpl-rejection-text">-</div>
                                     </div>
 
-                                    <!-- Meta & Template Spec Box -->
-                                    <div class="viewer-spec-box">
-                                        <div class="viewer-meta-grid">
-                                            <div>
-                                                <span class="viewer-spec-label">Category</span>
-                                                <strong id="view-tpl-category" class="viewer-spec-value">MARKETING</strong>
+                                    <!-- Meta 2x2 Quick Specs Grid -->
+                                    <div class="viewer-meta-cards-grid">
+                                        <div class="viewer-stat-card">
+                                            <span class="viewer-card-label"><i class="fa-solid fa-layer-group"></i> Category</span>
+                                            <div><span id="view-tpl-category" class="viewer-card-val category-pill">MARKETING</span></div>
+                                        </div>
+                                        <div class="viewer-stat-card">
+                                            <span class="viewer-card-label"><i class="fa-solid fa-globe"></i> Language</span>
+                                            <div><span id="view-tpl-language" class="viewer-card-val lang-pill">en</span></div>
+                                        </div>
+                                        <div class="viewer-stat-card">
+                                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                                <span class="viewer-card-label"><i class="fa-brands fa-meta"></i> Meta Template ID</span>
+                                                <button type="button" class="btn-copy-mini" id="view-tpl-copy-id" title="Copy Meta Template ID">
+                                                    <i class="fa-regular fa-copy"></i>
+                                                </button>
                                             </div>
-                                            <div>
-                                                <span class="viewer-spec-label">Language</span>
-                                                <strong id="view-tpl-language" class="viewer-spec-value">en</strong>
-                                            </div>
-                                            <div>
-                                                <span class="viewer-spec-label">Meta Template ID</span>
-                                                <strong id="view-tpl-meta-id" class="viewer-spec-mono">None (Local)</strong>
-                                            </div>
-                                            <div>
-                                                <span class="viewer-spec-label">Last Updated</span>
-                                                <span id="view-tpl-updated" class="viewer-spec-value">-</span>
-                                            </div>
+                                            <strong id="view-tpl-meta-id" class="viewer-card-val mono-val">None (Local)</strong>
+                                        </div>
+                                        <div class="viewer-stat-card">
+                                            <span class="viewer-card-label"><i class="fa-regular fa-clock"></i> Last Updated</span>
+                                            <span id="view-tpl-updated" class="viewer-card-val" style="font-size: 0.82rem;">-</span>
                                         </div>
                                     </div>
 
                                     <!-- Header component details -->
-                                    <div class="viewer-component-box">
-                                        <div class="viewer-component-title">
-                                            <i class="fa-solid fa-heading"></i> Header Component
+                                    <div class="viewer-component-card">
+                                        <div class="viewer-comp-header">
+                                            <div class="viewer-comp-title">
+                                                <i class="fa-solid fa-heading text-cyan"></i> Header Component
+                                            </div>
                                         </div>
-                                        <div id="view-tpl-header-info" class="viewer-component-content">None</div>
+                                        <div id="view-tpl-header-info" class="viewer-comp-body">None</div>
                                     </div>
 
                                     <!-- Body component details -->
-                                    <div class="viewer-component-box">
-                                        <div class="viewer-component-title">
-                                            <i class="fa-solid fa-align-left"></i> Body Text
+                                    <div class="viewer-component-card">
+                                        <div class="viewer-comp-header">
+                                            <div class="viewer-comp-title">
+                                                <i class="fa-solid fa-align-left text-cyan"></i> Body Text
+                                            </div>
+                                            <button type="button" class="btn-copy-mini" id="view-tpl-copy-body" title="Copy Body Text">
+                                                <i class="fa-regular fa-copy"></i> Copy
+                                            </button>
                                         </div>
-                                        <div id="view-tpl-body-raw" class="viewer-body-raw"></div>
+                                        <div id="view-tpl-body-raw" class="viewer-body-code"></div>
                                     </div>
 
                                     <!-- Footer component details -->
-                                    <div id="view-tpl-footer-box" class="viewer-component-box">
-                                        <div class="viewer-component-title">
-                                            <i class="fa-solid fa-shoe-prints"></i> Footer
+                                    <div id="view-tpl-footer-box" class="viewer-component-card">
+                                        <div class="viewer-comp-header">
+                                            <div class="viewer-comp-title">
+                                                <i class="fa-solid fa-shoe-prints text-cyan"></i> Footer
+                                            </div>
                                         </div>
-                                        <div id="view-tpl-footer-info" class="viewer-component-content" style="font-style: italic;">None</div>
+                                        <div id="view-tpl-footer-info" class="viewer-comp-body" style="font-style: italic; color: var(--text-muted);">None</div>
                                     </div>
 
                                     <!-- Buttons component details -->
-                                    <div id="view-tpl-buttons-box" class="viewer-component-box">
-                                        <div class="viewer-component-title">
-                                            <i class="fa-solid fa-hand-pointer"></i> Buttons (<span id="view-tpl-buttons-count">0</span>)
+                                    <div id="view-tpl-buttons-box" class="viewer-component-card">
+                                        <div class="viewer-comp-header">
+                                            <div class="viewer-comp-title">
+                                                <i class="fa-solid fa-hand-pointer text-cyan"></i> Interactive Buttons (<span id="view-tpl-buttons-count">0</span>)
+                                            </div>
                                         </div>
-                                        <div id="view-tpl-buttons-list" class="viewer-buttons-list"></div>
+                                        <div id="view-tpl-buttons-list" class="viewer-buttons-flex"></div>
                                     </div>
                                 </div>
 
                                 <!-- Right: Realistic WhatsApp Preview -->
-                                <div class="template-viewer-preview-col">
-                                    <div class="viewer-preview-header">
-                                        <i class="fa-brands fa-whatsapp" style="color: #25d366;"></i> WhatsApp Live Preview
+                                <div class="template-viewer-preview-col" style="display: flex; flex-direction: column; align-items: center;">
+                                    <div class="viewer-preview-header-label" style="font-size: 0.74rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 6px;">
+                                        <i class="fa-brands fa-whatsapp" style="color: #25d366; font-size: 0.95rem;"></i> WhatsApp Live Preview
                                     </div>
-                                    <div class="whatsapp-preview viewer-wa-container">
-                                        <div class="whatsapp-bubble" style="width: 100%; max-width: 320px; background: #ffffff; border-radius: 8px 0px 8px 8px; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); padding: 0; overflow: hidden;">
-                                            <!-- Header Preview -->
-                                            <div id="view-preview-header" style="display: none;"></div>
-                                            <!-- Body Preview -->
-                                            <div id="view-preview-body" class="wa-text" style="font-size: 0.88rem; color: #111b21; line-height: 1.45; white-space: pre-wrap; word-break: break-word; padding: 0.65rem 0.75rem;"></div>
-                                            <!-- Footer Preview -->
-                                            <div id="view-preview-footer" style="display: none; padding: 0 0.75rem 0.4rem; font-size: 0.72rem; color: #8696a0;"></div>
-                                            <!-- Timestamp & Ticks -->
-                                            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px; padding: 0 0.75rem 0.5rem; font-size: 0.68rem; color: #667781;">
-                                                <span id="view-preview-time">12:00</span>
-                                                <i class="fa-solid fa-check-double" style="color: #53bdeb; font-size: 0.78rem;"></i>
+                                    
+                                    <!-- Realistic Smartphone Device Frame -->
+                                    <div class="wa-phone-device">
+                                        <!-- Top Speaker & Notch -->
+                                        <div class="wa-phone-speaker">
+                                            <div class="wa-phone-camera"></div>
+                                        </div>
+                                        
+                                        <!-- WhatsApp App Bar -->
+                                        <div class="wa-app-bar">
+                                            <div class="wa-bar-left">
+                                                <i class="fa-solid fa-arrow-left" style="font-size: 0.8rem; color: #fff; opacity: 0.9;"></i>
+                                                <div class="wa-avatar">
+                                                    <img src="/static/images/kdi-logo-white.png" alt="KDI" onerror="this.src='/static/images/kdi-logo-white.png'">
+                                                </div>
+                                                <div class="wa-contact-info">
+                                                    <div class="wa-contact-name">
+                                                        <span>KDI Power</span>
+                                                        <i class="fa-solid fa-circle-check" style="color: #25d366; font-size: 0.7rem; margin-left: 3px;" title="Meta Verified Business"></i>
+                                                    </div>
+                                                    <div class="wa-contact-status">Business Account</div>
+                                                </div>
                                             </div>
-                                            <!-- Buttons Preview -->
-                                            <div id="view-preview-buttons" style="display: none; border-top: 1px solid #e4e6eb;"></div>
+                                            <div class="wa-bar-right">
+                                                <i class="fa-solid fa-video"></i>
+                                                <i class="fa-solid fa-phone"></i>
+                                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- WhatsApp Chat Screen with Wallpaper -->
+                                        <div class="wa-chat-screen">
+                                            <div class="wa-date-pill"><span>TODAY</span></div>
+                                            
+                                            <!-- Outbound Message Bubble -->
+                                            <div class="wa-bubble-container">
+                                                <div class="whatsapp-bubble wa-card-bubble">
+                                                    <!-- Header Preview -->
+                                                    <div id="view-preview-header" class="wa-bubble-header" style="display: none;"></div>
+                                                    <!-- Body Preview -->
+                                                    <div id="view-preview-body" class="wa-bubble-body"></div>
+                                                    <!-- Footer & Timestamp -->
+                                                    <div class="wa-bubble-meta-row">
+                                                        <div id="view-preview-footer" class="wa-bubble-footer" style="display: none;"></div>
+                                                        <div class="wa-timestamp-box">
+                                                            <span id="view-preview-time">12:00</span>
+                                                            <i class="fa-solid fa-check-double" style="color: #53bdeb; font-size: 0.72rem;"></i>
+                                                        </div>
+                                                    </div>
+                                                    <!-- Interactive Buttons -->
+                                                    <div id="view-preview-buttons" class="wa-bubble-buttons" style="display: none;"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- WhatsApp Bottom Input Bar -->
+                                        <div class="wa-input-bar">
+                                            <div class="wa-input-pill">
+                                                <i class="fa-regular fa-face-smile" style="color: #8696a0; font-size: 0.9rem;"></i>
+                                                <span>Message</span>
+                                                <div style="margin-left: auto; display: flex; gap: 8px; color: #8696a0; font-size: 0.85rem;">
+                                                    <i class="fa-solid fa-paperclip"></i>
+                                                    <i class="fa-solid fa-camera"></i>
+                                                </div>
+                                            </div>
+                                            <div class="wa-mic-btn">
+                                                <i class="fa-solid fa-microphone"></i>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                        <div class="modal-footer" style="padding: 1rem 1.5rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
                             <div>
-                                <button class="btn-action-sm delete-btn" id="view-tpl-delete-btn" style="color: #ef4444;" title="Delete Template">
+                                <button class="btn-action-sm delete-btn" id="view-tpl-delete-btn" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.3);" title="Delete Template">
                                     <i class="fa-solid fa-trash-can"></i> Delete
                                 </button>
                             </div>

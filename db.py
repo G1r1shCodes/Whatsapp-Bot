@@ -513,37 +513,71 @@ def get_all_products(category_filter=None):
         params["category"] = f"eq.{category_filter}"
     
     products = request_supabase("products", "GET", params=params)
-    if products is None:
-        # Supabase error — fall back to local static catalog
-        local_products = get_static_dummy_products()
+    if not products:
+        # Supabase error or empty/RLS-blocked table — fall back to static catalog + custom products
+        products = get_static_dummy_products()
+        try:
+            import config_manager
+            custom_products = config_manager.get_custom_products()
+            existing_names = {p["name"].strip().lower() for p in products if p.get("name")}
+            for cp in custom_products:
+                if cp.get("name", "").strip().lower() not in existing_names:
+                    products.append(dict(cp))
+            
+            # Apply saved price/stock overrides
+            overrides = config_manager.get_product_overrides()
+            for p in products:
+                name = p.get("name")
+                if name in overrides:
+                    ov = overrides[name]
+                    if "price" in ov and ov["price"] is not None:
+                        p["price_per_meter"] = ov["price"]
+                    if "stock_status" in ov and ov["stock_status"] is not None:
+                        p["stock_status"] = ov["stock_status"]
+            
+            # Filter out any deleted products
+            deleted_names = {d.strip().lower() for d in config_manager.get_deleted_products()}
+            if deleted_names:
+                products = [p for p in products if p.get("name", "").strip().lower() not in deleted_names]
+        except Exception as err:
+            logger.error(f"Error loading custom products or overrides: {err}")
+
         if category_filter:
-            local_products = [p for p in local_products if p["category"] == category_filter]
-        return local_products
+            products = [p for p in products if p.get("category") == category_filter]
+
     for product in products:
         product["category"] = normalize_category(product.get("category"))
     return products
 
 def get_product_by_id(product_name):
     res = request_supabase("products", "GET", params={"name": f"eq.{product_name}"})
-    if res is None:
-        # Supabase error — fall back to static data
-        local_products = get_static_dummy_products()
-        matches = [p for p in local_products if p["name"] == product_name]
+    if not res:
+        # Fall back to local catalog
+        all_prods = get_all_products()
+        matches = [p for p in all_prods if p.get("name", "").strip().lower() == product_name.strip().lower()]
         return matches[0] if matches else None
     if res:
         res[0]["category"] = normalize_category(res[0].get("category"))
     return res[0] if res else None
 
 def update_product_price_and_stock(product_name, price, stock_status):
-    # Only update the fields that were actually provided, so a stock-only edit
-    # can never overwrite the price with a stale/null value (and vice versa).
+    # Always save to local config so changes persist reliably
+    try:
+        import config_manager
+        config_manager.save_product_override(product_name, price, stock_status)
+    except Exception as err:
+        logger.error(f"Error saving product override to config: {err}")
+
     data = {}
     if price is not None:
         data["price_per_meter"] = price
     if stock_status is not None:
         data["stock_status"] = stock_status
     if data:
-        request_supabase("products", "PATCH", data=data, params={"name": f"eq.{product_name}"})
+        try:
+            request_supabase("products", "PATCH", data=data, params={"name": f"eq.{product_name}"})
+        except Exception as e:
+            logger.warning(f"Supabase PATCH failed: {e}")
 
 def upsert_product(product_data):
     name = product_data.get("name")
@@ -554,35 +588,60 @@ def upsert_product(product_data):
     
     existing = get_product_by_id(name)
     if existing:
-        request_supabase("products", "PATCH", data=product_data, params={"name": f"eq.{name}"})
+        update_product_price_and_stock(name, product_data.get("price_per_meter"), product_data.get("stock_status"))
+        try:
+            request_supabase("products", "PATCH", data=product_data, params={"name": f"eq.{name}"})
+        except Exception:
+            pass
         return "updated"
     else:
-        result = request_supabase("products", "POST", data=product_data)
-        return "created" if result is not None else None
+        return create_product(product_data)
 
 def create_product(product_data):
-    """Directly create a product in Supabase (no fallback confusion)."""
     name = product_data.get("name")
     if not name:
         return None
     
     product_data["category"] = normalize_category(product_data.get("category"))
     
-    # Check Supabase directly — don't use get_product_by_id which has static fallback
-    existing = request_supabase("products", "GET", params={"name": f"eq.{name}"})
-    if existing is None:
-        logger.error(f"Cannot check for existing product — Supabase error")
-        return None
-    if existing:  # Product already exists in Supabase
+    existing = get_product_by_id(name)
+    if existing:
         return "exists"
     
-    result = request_supabase("products", "POST", data=product_data)
-    return "created" if result is not None else None
+    # Save locally to ensure product is immediately available and preserved
+    try:
+        import config_manager
+        config_manager.add_custom_product(product_data)
+    except Exception as err:
+        logger.error(f"Error saving custom product to config: {err}")
+
+    # Also attempt Supabase insert
+    try:
+        request_supabase("products", "POST", data=product_data)
+    except Exception as e:
+        logger.warning(f"Supabase POST failed, saved locally: {e}")
+
+    return "created"
+
+def delete_product(product_name):
+    """Deletes a product from local overrides/custom products and Supabase."""
+    try:
+        import config_manager
+        config_manager.mark_product_deleted(product_name)
+    except Exception as err:
+        logger.error(f"Error marking product deleted in config: {err}")
+    try:
+        request_supabase("products", "DELETE", params={"name": f"eq.{product_name}"})
+    except Exception as err:
+        logger.warning(f"Supabase DELETE failed: {err}")
+    return True
 
 def get_product_categories():
     products = get_all_products()
-    categories = list(set([p["category"] for p in products]))
-    return categories
+    categories = list(set([p["category"] for p in products if p.get("category")]))
+    return sorted(categories)
+
+
 
 # Chat History loggers
 def log_chat_message(phone, direction, body):

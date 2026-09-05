@@ -671,7 +671,7 @@ async def delete_product_api(product_name: str, request: Request):
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail=f"Product '{decoded_name}' not found.")
     
-    db.request_supabase("products", "DELETE", params={"name": f"eq.{decoded_name}"})
+    db.delete_product(decoded_name)
     return {"success": True, "product": decoded_name, "message": "Product deleted successfully."}
 
 @router.post("/api/products/bulk-upload")

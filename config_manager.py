@@ -149,3 +149,81 @@ def delete_product_category(category_name):
     save_config(config)
     return True, "Category deleted"
 
+# ── Custom Products & Overrides ───────────────────────────
+
+def get_custom_products():
+    """Returns list of custom user-added products."""
+    config = get_config()
+    return config.get("custom_products", [])
+
+def add_custom_product(product):
+    """Adds or updates a custom product."""
+    config = get_config()
+    prods = config.get("custom_products", [])
+    name = product.get("name", "").strip().lower()
+    prods = [p for p in prods if p.get("name", "").strip().lower() != name]
+    prods.append(product)
+    config["custom_products"] = prods
+    save_config(config)
+    return product
+
+def delete_custom_product(product_name):
+    """Deletes a custom product and any overrides."""
+    config = get_config()
+    prods = config.get("custom_products", [])
+    name = product_name.strip().lower()
+    config["custom_products"] = [p for p in prods if p.get("name", "").strip().lower() != name]
+    overrides = config.get("product_overrides", {})
+    if product_name in overrides:
+        del overrides[product_name]
+        config["product_overrides"] = overrides
+    save_config(config)
+    return True
+
+def get_product_overrides():
+    """Returns dictionary of product price/stock overrides."""
+    config = get_config()
+    return config.get("product_overrides", {})
+
+def save_product_override(product_name, price=None, stock_status=None):
+    """Saves price or stock override for a product."""
+    config = get_config()
+    overrides = config.get("product_overrides", {})
+    if product_name not in overrides:
+        overrides[product_name] = {}
+    if price is not None:
+        overrides[product_name]["price"] = price
+    if stock_status is not None:
+        overrides[product_name]["stock_status"] = stock_status
+    config["product_overrides"] = overrides
+    save_config(config)
+    return overrides[product_name]
+
+def get_deleted_products():
+    """Returns list of product names that were deleted by user."""
+    config = get_config()
+    return config.get("deleted_products", [])
+
+def mark_product_deleted(product_name):
+    """Marks a product as deleted and cleans up overrides."""
+    config = get_config()
+    deleted = config.get("deleted_products", [])
+    name_clean = product_name.strip()
+    if name_clean.lower() not in [d.lower() for d in deleted]:
+        deleted.append(name_clean)
+        config["deleted_products"] = deleted
+    
+    # Remove from custom products if present
+    prods = config.get("custom_products", [])
+    config["custom_products"] = [p for p in prods if p.get("name", "").strip().lower() != name_clean.lower()]
+    
+    # Remove from overrides
+    overrides = config.get("product_overrides", {})
+    if name_clean in overrides:
+        del overrides[name_clean]
+        config["product_overrides"] = overrides
+        
+    save_config(config)
+    return True
+
+

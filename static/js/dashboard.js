@@ -764,11 +764,13 @@ async function fetchProductCategories() {
         const data = await res.json();
         if (Array.isArray(data)) {
             cachedCategories = data;
+        } else if (data && Array.isArray(data.categories)) {
+            cachedCategories = data.categories;
         }
     } catch (err) {
         console.error('Error loading product categories:', err);
     }
-    return cachedCategories;
+    return cachedCategories || [];
 }
 
 if (categorySelect) {
@@ -792,7 +794,7 @@ async function loadCatalogData() {
             fetch('/api/products').then(r => r.json()),
             fetchProductCategories()
         ]);
-        catalogData = resProducts;
+        catalogData = Array.isArray(resProducts) ? resProducts : [];
         
         // Rebuild category filter dropdown merging configured categories + actual product categories
         const dataCategories = [...new Set(catalogData.map(p => p.category).filter(Boolean))];
@@ -2517,20 +2519,72 @@ function openTemplateViewer(templateId) {
     const updatedEl = document.getElementById('view-tpl-updated');
     if (updatedEl) updatedEl.textContent = formatDateTime(tpl.updated_at || tpl.created_at);
 
+    // Copy Meta ID Button
+    const copyIdBtn = document.getElementById('view-tpl-copy-id');
+    if (copyIdBtn) {
+        if (tpl.meta_template_id) {
+            copyIdBtn.style.display = 'inline-flex';
+            copyIdBtn.onclick = (e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(tpl.meta_template_id);
+                copyIdBtn.innerHTML = '<i class="fa-solid fa-check" style="color: #22c55e;"></i>';
+                setTimeout(() => { copyIdBtn.innerHTML = '<i class="fa-regular fa-copy"></i>'; }, 1500);
+            };
+        } else {
+            copyIdBtn.style.display = 'none';
+        }
+    }
+
     // Header Spec
     const hInfo = document.getElementById('view-tpl-header-info');
     if (hInfo) {
         if (tpl.header && tpl.header.type) {
-            const val = tpl.header.content || tpl.header.value || '';
-            hInfo.innerHTML = `<strong>${escapeHtml(tpl.header.type.toUpperCase())}</strong>: <span style="word-break:break-all;">${escapeHtml(val || '(none)')}</span>`;
+            const hType = (tpl.header.type || '').toUpperCase();
+            const rawVal = tpl.header.content || tpl.header.value || '';
+            const resolvedUrl = resolveDirectMediaUrl(rawVal);
+            if (rawVal && (hType === 'IMAGE' || hType === 'DOCUMENT' || hType === 'VIDEO')) {
+                hInfo.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span class="btn-tag" style="background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan); font-weight: 700; font-size: 0.72rem; padding: 2px 8px; border-radius: 4px;">${escapeHtml(hType)}</span>
+                        <a href="${escapeHtml(resolvedUrl || rawVal)}" target="_blank" rel="noopener noreferrer" style="color: var(--accent-cyan); font-size: 0.8rem; text-decoration: underline; word-break: break-all; display: inline-flex; align-items: center; gap: 4px;">
+                            ${escapeHtml(rawVal.length > 50 ? rawVal.substring(0, 50) + '...' : rawVal)} <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 0.7rem;"></i>
+                        </a>
+                    </div>
+                `;
+            } else if (rawVal) {
+                hInfo.innerHTML = `<strong>${escapeHtml(hType)}</strong>: <span>${escapeHtml(rawVal)}</span>`;
+            } else {
+                hInfo.innerHTML = `<span class="text-muted" style="font-style: italic;">(${escapeHtml(hType)} header with no URL or text)</span>`;
+            }
         } else {
-            hInfo.textContent = 'None';
+            hInfo.innerHTML = '<span class="text-muted" style="font-style: italic;">(No header configured)</span>';
         }
     }
 
     // Body Spec
     const bodyRaw = document.getElementById('view-tpl-body-raw');
-    if (bodyRaw) bodyRaw.textContent = tpl.body || '(No body text)';
+    if (bodyRaw) {
+        if (tpl.body) {
+            // Highlight {{1}}, {{2}} in raw view
+            const highlighted = escapeHtml(tpl.body).replace(/\{\{(\d+)\}\}/g, '<span style="background: rgba(6, 182, 212, 0.2); color: var(--accent-cyan); font-weight: 700; padding: 1px 6px; border-radius: 4px; border: 1px solid rgba(6, 182, 212, 0.4);">{{$1}}</span>');
+            bodyRaw.innerHTML = highlighted;
+        } else {
+            bodyRaw.innerHTML = '<span class="text-muted" style="font-style: italic;">(No body text)</span>';
+        }
+    }
+
+    // Copy Body Button
+    const copyBodyBtn = document.getElementById('view-tpl-copy-body');
+    if (copyBodyBtn) {
+        copyBodyBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (tpl.body) {
+                navigator.clipboard.writeText(tpl.body);
+                copyBodyBtn.innerHTML = '<i class="fa-solid fa-check" style="color: #22c55e;"></i> Copied!';
+                setTimeout(() => { copyBodyBtn.innerHTML = '<i class="fa-regular fa-copy"></i> Copy'; }, 1500);
+            }
+        };
+    }
 
     // Footer Spec
     const footerInfo = document.getElementById('view-tpl-footer-info');
@@ -2560,6 +2614,7 @@ function openTemplateViewer(templateId) {
             btnsList.innerHTML = '<span style="color:var(--text-muted);font-style:italic;">No interactive buttons</span>';
         }
     }
+
 
     // Live WhatsApp Bubble Preview
     const pHeader = document.getElementById('view-preview-header');
