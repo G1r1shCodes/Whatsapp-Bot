@@ -11,8 +11,38 @@ import os
 import shutil
 import config_manager
 from datetime import datetime
+from logger import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter()
+
+def resolve_direct_media_url(url):
+    """Converts sharing URLs (Google Drive, Dropbox, etc.) to direct download URLs.
+    Meta's WhatsApp API requires a URL that serves the actual media binary with the
+    correct Content-Type. Sharing links from Drive/Dropbox serve HTML pages instead.
+    """
+    if not url:
+        return url
+    # Google Drive: extract file ID and use lh3 direct link
+    # Handles: drive.google.com/file/d/FILE_ID/view, drive.google.com/open?id=FILE_ID
+    gdrive_match = re.search(r'drive\.google\.com/file/d/([a-zA-Z0-9_-]+)', url)
+    if gdrive_match:
+        file_id = gdrive_match.group(1)
+        return f"https://lh3.googleusercontent.com/d/{file_id}"
+    gdrive_open = re.search(r'drive\.google\.com/open\?id=([a-zA-Z0-9_-]+)', url)
+    if gdrive_open:
+        file_id = gdrive_open.group(1)
+        return f"https://lh3.googleusercontent.com/d/{file_id}"
+    # Google Drive uc?export links (already direct-ish but can redirect for large files)
+    gdrive_uc = re.search(r'drive\.google\.com/uc\?.*id=([a-zA-Z0-9_-]+)', url)
+    if gdrive_uc:
+        file_id = gdrive_uc.group(1)
+        return f"https://lh3.googleusercontent.com/d/{file_id}"
+    # Dropbox: replace dl=0 with dl=1
+    if 'dropbox.com' in url and 'dl=0' in url:
+        return url.replace('dl=0', 'dl=1')
+    return url
 
 class TestChatMessage(BaseModel):
     phone: str
@@ -860,9 +890,6 @@ async def update_settings_api(request: Request):
 
 # ── Template Management API ───────────────────────────────
 
-from logger import get_logger
-logger = get_logger(__name__)
-
 def _sync_meta_templates_into_config():
     from routes.whatsapp import get_meta_templates
     meta_templates = get_meta_templates()
@@ -991,7 +1018,8 @@ async def create_template_api(request: Request):
             resolved_header = header
             if header and header.get("type") in ("image", "video", "document") and header.get("content"):
                 try:
-                    handle = upload_media_for_header(header["content"], header["type"])
+                    media_url = resolve_direct_media_url(header["content"])
+                    handle = upload_media_for_header(media_url, header["type"])
                     resolved_header = {**header, "handle": handle}
                 except Exception as upload_err:
                     logger.error(f"Media upload for header failed: {upload_err}")
@@ -1087,8 +1115,11 @@ async def send_template_api(template_id: str, request: Request):
         h_type = template["header"]["type"]
         h_content = template["header"].get("content", "")
         if h_content:
+            direct_url = resolve_direct_media_url(h_content)
+            if direct_url != h_content:
+                logger.info(f"Resolved media URL: {h_content[:60]}... → {direct_url[:60]}...")
             header_param = {"type": h_type}
-            header_param[h_type] = {"link": h_content}
+            header_param[h_type] = {"link": direct_url}
             send_components.append({"type": "header", "parameters": [header_param]})
 
     try:
@@ -1150,8 +1181,9 @@ async def send_broadcast_api(request: Request):
         h_type = template["header"]["type"]
         h_content = template["header"].get("content", "")
         if h_content:
+            direct_url = resolve_direct_media_url(h_content)
             header_param = {"type": h_type}
-            header_param[h_type] = {"link": h_content}
+            header_param[h_type] = {"link": direct_url}
             send_components.append({"type": "header", "parameters": [header_param]})
 
     from routes.whatsapp import send_whatsapp_template
