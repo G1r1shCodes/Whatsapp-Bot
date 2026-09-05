@@ -1191,9 +1191,9 @@ async function renderProdCategoriesList() {
     }
     
     prodCatList.innerHTML = categories.map(cat => `
-        <li style="display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.05); padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1);">
-            <span style="font-size: 0.9rem; font-weight: 500; color: #f8fafc;">${cat}</span>
-            <button class="btn-delete-cat" data-category="${cat}" style="background: transparent; border: none; color: #ef4444; cursor: pointer; padding: 0.25rem 0.5rem; font-size: 0.85rem; transition: opacity 0.2s;" title="Delete Category">
+        <li style="display: flex; justify-content: space-between; align-items: center; background: var(--input-bg); padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid var(--border);">
+            <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-primary);">${escapeHtml(cat)}</span>
+            <button class="btn-delete-cat" data-category="${escapeHtml(cat)}" style="background: transparent; border: none; color: #ef4444; cursor: pointer; padding: 0.25rem 0.5rem; font-size: 0.85rem; transition: opacity 0.2s;" title="Delete Category">
                 <i class="fa-solid fa-trash"></i>
             </button>
         </li>

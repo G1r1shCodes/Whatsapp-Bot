@@ -1233,18 +1233,32 @@ async def send_template_api(template_id: str, request: Request):
     if not template:
         raise HTTPException(status_code=404, detail="Template not found.")
 
-    # Auto-fill missing variables (e.g. {{1}} -> lead name)
-    body_var_nums = re.findall(r'\{\{(\d+)\}\}', template.get("body", ""))
-    if body_var_nums:
+def _resolve_contact_name(phone: str) -> str:
+    """Finds the contact's name from leads DB or chat history, falling back to 'Customer'."""
+    if not phone:
+        return "Customer"
+    try:
         lead = db.get_lead_by_phone(phone)
-        contact_name = (lead.get("name") if lead and lead.get("name") else "") or "Customer"
-        for vn in body_var_nums:
-            if not variables.get(vn):
-                variables[vn] = contact_name if vn == "1" else f"Value {vn}"
+        if lead and lead.get("name") and lead["name"].strip() not in ["", "Unknown"]:
+            return lead["name"].strip()
+    except Exception:
+        pass
+    
+    try:
+        chats = db.get_chat_history(phone)
+        for c in chats:
+            name = c.get("profile_name")
+            if name and name.strip() not in ["", "Unknown", "Tester"]:
+                return name.strip()
+    except Exception:
+        pass
+        
+    return "Customer"
 
-def _build_send_template_components(template, variables, request: Request = None):
+def _build_send_template_components(template, variables, phone: str = "", request: Request = None):
     """Builds component parameters array for Meta template message API."""
     send_components = []
+    contact_name = _resolve_contact_name(phone)
     
     # 1. Header Component
     header_obj = template.get("header")
@@ -1268,16 +1282,31 @@ def _build_send_template_components(template, variables, request: Request = None
             if h_var_nums:
                 h_params = []
                 for vn in h_var_nums:
-                    val = variables.get(f"h_{vn}") or variables.get(vn) or "Value"
+                    val = (variables.get(f"h_{vn}") if variables else None) or (variables.get(vn) if variables else None) or (contact_name if str(vn) == "1" else f"Value {vn}")
                     h_params.append({"type": "text", "text": str(val)})
                 if h_params:
                     send_components.append({"type": "header", "parameters": h_params})
 
     # 2. Body Component
-    if variables:
+    body_text = template.get("body", "")
+    body_var_nums = re.findall(r'\{\{(\d+)\}\}', body_text)
+    
+    final_vars = dict(variables) if variables else {}
+    
+    # Auto-fill missing variables (e.g. {{1}} -> contact_name)
+    if body_var_nums:
+        for vn in body_var_nums:
+            curr_val = final_vars.get(str(vn))
+            if curr_val is None or str(curr_val).strip() == "":
+                final_vars[str(vn)] = contact_name if str(vn) == "1" else f"Value {vn}"
+
+    if final_vars:
         params = []
-        for key in sorted(variables.keys(), key=lambda x: int(x)):
-            params.append({"type": "text", "text": str(variables[key])})
+        for key in sorted(final_vars.keys(), key=lambda x: int(x) if str(x).isdigit() else 999):
+            val = str(final_vars[key]).strip()
+            if not val:
+                val = contact_name if str(key) == "1" else f"Value {key}"
+            params.append({"type": "text", "text": val})
         if params:
             send_components.append({"type": "body", "parameters": params})
 
@@ -1300,17 +1329,8 @@ async def send_template_api(template_id: str, request: Request):
     if not template:
         raise HTTPException(status_code=404, detail="Template not found.")
 
-    # Auto-fill missing variables (e.g. {{1}} -> lead name)
-    body_var_nums = re.findall(r'\{\{(\d+)\}\}', template.get("body", ""))
-    if body_var_nums:
-        lead = db.get_lead_by_phone(phone)
-        contact_name = (lead.get("name") if lead and lead.get("name") else "") or "Customer"
-        for vn in body_var_nums:
-            if not variables.get(vn):
-                variables[vn] = contact_name if vn == "1" else f"Value {vn}"
-
-    # Build send-time components
-    send_components = _build_send_template_components(template, variables, request=request)
+    # Build send-time components with resolved contact name for {{1}}
+    send_components = _build_send_template_components(template, variables, phone=phone, request=request)
 
     try:
         from routes.whatsapp import send_whatsapp_template
@@ -1358,9 +1378,6 @@ async def send_broadcast_api(request: Request):
     if not template:
         raise HTTPException(status_code=404, detail="Template not found.")
 
-    # Build send-time components
-    send_components = _build_send_template_components(template, variables, request=request)
-
     from routes.whatsapp import send_whatsapp_template
     import time
 
@@ -1373,11 +1390,12 @@ async def send_broadcast_api(request: Request):
             results["errors"].append({"phone": phone, "error": "Invalid phone number"})
             continue
         try:
+            recipient_components = _build_send_template_components(template, variables, phone=clean_phone, request=request)
             send_whatsapp_template(
                 to_phone=clean_phone,
                 template_name=template["name"],
                 language_code=template.get("language", "en"),
-                components=send_components if send_components else None
+                components=recipient_components if recipient_components else None
             )
             # Log outbound
             body_text = template.get("body", "")
