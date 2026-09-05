@@ -705,13 +705,15 @@ def get_product_categories():
 
 
 # Chat History loggers
-def log_chat_message(phone, direction, body):
+def log_chat_message(phone, direction, body, profile_name=None):
     data = {
         "phone": phone,
         "direction": direction,
         "body": body,
         "created_at": datetime.utcnow().isoformat() + "Z"
     }
+    if profile_name:
+        data["profile_name"] = profile_name
     request_supabase("chat_history", "POST", data=data)
 
 def get_chat_history(phone, limit=50):

@@ -3435,12 +3435,12 @@ if (outboundSendBtn) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ phone, variables })
                 });
-                const data = await res.json();
-                if (res.ok && data.success) {
+                const data = await res.json().catch(() => ({ detail: 'Failed to process server response' }));
+                if (res.ok && data && data.success) {
                     showToast(data.message || 'Template sent successfully!');
                     loadOutboundHistory();
                 } else {
-                    showToast(data.detail || 'Failed to send template', true);
+                    showToast((data && (data.detail || data.message)) || 'Failed to send template', true);
                 }
             } else {
                 // Freeform send
@@ -3455,8 +3455,8 @@ if (outboundSendBtn) {
                     formData.append('file', selectedOutboundFile);
                     
                     const res = await fetch('/api/messages/send-media', { method: 'POST', body: formData });
-                    const data = await res.json();
-                    if (res.ok && data.success) {
+                    const data = await res.json().catch(() => ({ detail: 'Failed to process server response' }));
+                    if (res.ok && data && data.success) {
                         showToast('Message with file sent successfully!');
                         // Reset file
                         selectedOutboundFile = null;
@@ -3465,7 +3465,7 @@ if (outboundSendBtn) {
                         if (outboundFilePreview) outboundFilePreview.style.display = 'none';
                         if (outboundDropzone) outboundDropzone.style.display = '';
                     } else {
-                        showToast(data.detail || 'Failed to send message', true);
+                        showToast((data && (data.detail || data.message)) || 'Failed to send message', true);
                     }
                 } else {
                     // Send text only
@@ -3474,11 +3474,11 @@ if (outboundSendBtn) {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ phone, message: messageText })
                     });
-                    const data = await res.json();
-                    if (res.ok && data.success) {
+                    const data = await res.json().catch(() => ({ detail: 'Failed to process server response' }));
+                    if (res.ok && data && data.success) {
                         showToast('Message sent via WhatsApp!');
                     } else {
-                        showToast(data.detail || 'Failed to send message', true);
+                        showToast((data && (data.detail || data.message)) || 'Failed to send message', true);
                     }
                 }
                 

@@ -380,6 +380,23 @@ def send_whatsapp_template(to_phone, template_name, language_code, components=No
                 return res2.json()
             except Exception:
                 pass
+
+        # Fallback for header image format mismatch (error 132012)
+        if "132012" in res_text and ("expected IMAGE" in res_text or "header" in res_text.lower()):
+            logger.info(f"Retrying template '{template_name}' with image header component...")
+            img_header = {"type": "header", "parameters": [{"type": "image", "image": {"link": "https://raw.githubusercontent.com/public-assets/kdi-logo.jpg"}}]}
+            current_components = list(payload["template"].get("components", []))
+            current_components = [c for c in current_components if c.get("type") != "header"]
+            current_components.insert(0, img_header)
+            payload["template"]["components"] = current_components
+            try:
+                res3 = http_client.post(url, json=payload, headers=headers)
+                res3.raise_for_status()
+                logger.info(f"Sent template '{template_name}' with image header to {to_phone}")
+                return res3.json()
+            except Exception as e3:
+                logger.error(f"Retry with image header failed: {e3}")
+
         logger.error(f"Error sending template message (HTTP {he.response.status_code}): {res_text}")
         if "132001" in res_text:
             raise RuntimeError("Template is currently PENDING approval on Meta (or language code mismatch). Click 'Sync with Meta' and wait until status turns APPROVED.")
@@ -534,7 +551,7 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
     """Processes the message in the background to avoid Meta webhook timeouts."""
     try:
         # Process Message
-        db.log_chat_message(from_number, "inbound", incoming_msg)
+        db.log_chat_message(from_number, "inbound", incoming_msg, profile_name=profile_name)
         
         # Intercept static buttons and greetings to save API calls & respond instantly
         lower_msg = incoming_msg.lower().strip()
