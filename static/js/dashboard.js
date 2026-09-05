@@ -3584,15 +3584,33 @@ if (broadcastTemplateSelect) {
         const vars = (tpl.body || '').match(/\{\{(\d+)\}\}/g) || [];
         const uniqueVars = [...new Set(vars.map(v => v.replace(/[{}]/g, '')))].sort((a, b) => parseInt(a) - parseInt(b));
         
-        if (uniqueVars.length > 0) {
+        const hasMediaHeader = tpl.header && ['image', 'document', 'video'].includes((tpl.header.type || '').toLowerCase());
+        
+        if (uniqueVars.length > 0 || hasMediaHeader) {
             varSection?.classList.remove('hidden');
-            varList.innerHTML = '';
+            if (varList) varList.innerHTML = '';
+            
+            if (hasMediaHeader) {
+                const hType = (tpl.header.type || 'IMAGE').toUpperCase();
+                const defaultUrl = (tpl.header && (tpl.header.content || tpl.header.value || tpl.header.link)) || '';
+                const hRow = document.createElement('div');
+                hRow.className = 'variable-input-row';
+                hRow.innerHTML = `
+                    <span class="variable-label" style="font-size:0.75rem;font-weight:600;color:var(--text-muted);">${hType} Header URL</span>
+                    <input type="text" class="outbound-input bc-var-input" data-var="header_url" value="${defaultUrl}" placeholder="Optional ${hType} image/file link for broadcast..." style="flex:1;">
+                `;
+                hRow.querySelector('input').addEventListener('input', updateBroadcastPreview);
+                varList.appendChild(hRow);
+            }
+
             uniqueVars.forEach(v => {
                 const row = document.createElement('div');
                 row.className = 'variable-input-row';
+                const isVar1 = String(v) === '1';
+                const placeholder = isVar1 ? 'Auto-personalized for each contact (or enter custom name)...' : `Value for {{${v}}}...`;
                 row.innerHTML = `
                     <span class="variable-label">{{${v}}}</span>
-                    <input type="text" class="outbound-input bc-var-input" data-var="${v}" placeholder="Value for {{${v}}}..." style="flex:1;">
+                    <input type="text" class="outbound-input bc-var-input" data-var="${v}" placeholder="${placeholder}" style="flex:1;">
                 `;
                 row.querySelector('input').addEventListener('input', updateBroadcastPreview);
                 varList.appendChild(row);
