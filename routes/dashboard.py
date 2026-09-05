@@ -1266,16 +1266,16 @@ def _build_send_template_components(template, variables, phone: str = "", reques
         h_type = str(header_obj["type"]).lower()
         if h_type in ["image", "document", "video"]:
             h_content = header_obj.get("content") or header_obj.get("value") or header_obj.get("link") or ""
-            if not h_content and h_type == "image":
-                base_url = str(request.base_url).rstrip("/") if request else ""
-                h_content = f"{base_url}/static/images/BOT-IMAGE.jpg" if base_url else "https://raw.githubusercontent.com/public-assets/kdi-logo.jpg"
+            if not h_content or "localhost" in h_content or "127.0.0.1" in h_content or not h_content.startswith("http"):
+                base_url = os.environ.get("BASE_URL", "").rstrip("/")
+                if base_url and not "localhost" in base_url and not "127.0.0.1" in base_url:
+                    h_content = f"{base_url}/static/images/BOT-IMAGE.jpg"
+                else:
+                    h_content = "https://raw.githubusercontent.com/public-assets/kdi-logo.jpg"
             
-            if h_content:
-                direct_url = resolve_direct_media_url(h_content)
-                if direct_url != h_content:
-                    logger.info(f"Resolved header media URL: {h_content[:60]}... → {direct_url[:60]}...")
-                header_param = {"type": h_type, h_type: {"link": direct_url}}
-                send_components.append({"type": "header", "parameters": [header_param]})
+            direct_url = resolve_direct_media_url(h_content)
+            header_param = {"type": h_type, h_type: {"link": direct_url}}
+            send_components.append({"type": "header", "parameters": [header_param]})
         elif h_type == "text":
             h_val = header_obj.get("content") or header_obj.get("value") or ""
             h_var_nums = re.findall(r'\{\{(\d+)\}\}', h_val)
@@ -1293,17 +1293,12 @@ def _build_send_template_components(template, variables, phone: str = "", reques
     
     final_vars = dict(variables) if variables else {}
     
-    # Auto-fill missing variables (e.g. {{1}} -> contact_name)
+    # Ensure every placeholder variable in body text has a value
     if body_var_nums:
-        for vn in body_var_nums:
-            curr_val = final_vars.get(str(vn))
-            if curr_val is None or str(curr_val).strip() == "":
-                final_vars[str(vn)] = contact_name if str(vn) == "1" else f"Value {vn}"
-
-    if final_vars:
+        var_keys = sorted(list(set(body_var_nums + [str(k) for k in final_vars.keys()])), key=lambda x: int(x) if str(x).isdigit() else 999)
         params = []
-        for key in sorted(final_vars.keys(), key=lambda x: int(x) if str(x).isdigit() else 999):
-            val = str(final_vars[key]).strip()
+        for key in var_keys:
+            val = str(final_vars.get(str(key), "")).strip()
             if not val:
                 val = contact_name if str(key) == "1" else f"Value {key}"
             params.append({"type": "text", "text": val})
