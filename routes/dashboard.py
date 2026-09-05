@@ -1216,23 +1216,6 @@ def sync_templates_api(request: Request):
         logger.error(f"Failed to sync Meta templates: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch Meta templates: {str(e)}")
 
-@router.post("/api/templates/{template_id}/send")
-async def send_template_api(template_id: str, request: Request):
-    """Sends a template message to a single phone number."""
-    auth.require_auth(request)
-    payload = await request.json()
-    phone = payload.get("phone", "").strip().replace("+", "")
-    phone = re.sub(r'[^0-9]', '', phone)
-    variables = payload.get("variables", {})  # { "1": "value1", "2": "value2" }
-
-    if not phone:
-        raise HTTPException(status_code=400, detail="Phone number is required.")
-
-    templates = config_manager.get_templates()
-    template = next((t for t in templates if t["id"] == template_id), None)
-    if not template:
-        raise HTTPException(status_code=404, detail="Template not found.")
-
 def _resolve_contact_name(phone: str) -> str:
     """Finds the contact's name from leads DB or chat history, falling back to 'Customer'."""
     if not phone:
@@ -1364,8 +1347,11 @@ async def send_template_api(template_id: str, request: Request):
 
         return {"success": True, "message": f"Template sent to +{phone}"}
     except Exception as e:
-        logger.error(f"Error sending template '{template.get('name')}': {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        from routes.whatsapp import extract_meta_error_message
+        clean_err = extract_meta_error_message(str(e))
+        logger.error(f"Error sending template '{template.get('name')}': {clean_err}")
+        raise HTTPException(status_code=400, detail=clean_err)
+
 
 # ── Mass Broadcast API ────────────────────────────────────
 
@@ -1417,9 +1403,11 @@ async def send_broadcast_api(request: Request):
             # Rate limiting: ~10 messages per second max for Meta
             time.sleep(0.15)
         except Exception as e:
+            from routes.whatsapp import extract_meta_error_message
+            clean_err = extract_meta_error_message(str(e))
             results["failed"] += 1
-            results["errors"].append({"phone": clean_phone, "error": str(e)})
-            logger.error(f"Broadcast send error to {clean_phone}: {e}")
+            results["errors"].append({"phone": clean_phone, "error": clean_err})
+            logger.error(f"Broadcast send error to {clean_phone}: {clean_err}")
 
     # Log broadcast in history
     broadcast_entry = {

@@ -19,6 +19,43 @@ META_ACCESS_TOKEN = os.environ.get("META_ACCESS_TOKEN")
 META_PHONE_NUMBER_ID = os.environ.get("META_PHONE_NUMBER_ID")
 META_WABA_ID = os.environ.get("META_WABA_ID")
 
+def extract_meta_error_message(res_text: str) -> str:
+    """Extracts a clear, human-readable error message from Meta API's JSON response."""
+    if not res_text:
+        return "Unknown error from Meta API"
+    if isinstance(res_text, Exception):
+        res_text = str(res_text)
+    res_str = str(res_text).strip()
+    try:
+        err_json = json.loads(res_str)
+        if isinstance(err_json, dict):
+            error_obj = err_json.get("error")
+            if isinstance(error_obj, dict):
+                code = error_obj.get("code")
+                msg = error_obj.get("message")
+                details = None
+                error_data = error_obj.get("error_data")
+                if isinstance(error_data, dict):
+                    details = error_data.get("details")
+                
+                primary_detail = details or msg
+                if primary_detail:
+                    clean_msg = re.sub(r'^\(#\d+\)\s*', '', str(primary_detail)).strip()
+                    if code:
+                        return f"Meta Error #{code}: {clean_msg}"
+                    return clean_msg
+                return str(error_obj)
+            elif "message" in err_json:
+                return str(err_json["message"])
+            elif "detail" in err_json:
+                return str(err_json["detail"])
+    except Exception:
+        pass
+    
+    res_str = re.sub(r'^RuntimeError\((.*)\)$', r'\1', res_str).strip("'\"")
+    return res_str
+
+
 def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_menu: bool = False, show_categories_menu: bool = False):
     """Sends a message to the user via Meta Cloud API."""
     if not META_ACCESS_TOKEN or not META_PHONE_NUMBER_ID:
@@ -211,7 +248,8 @@ def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_
                 logger.error(f"Error sending Meta text (HTTP {he.response.status_code}): {res_text}")
                 if "131047" in res_text or "24 hour" in res_text.lower() or "outside the allowed window" in res_text.lower():
                     raise RuntimeError("24H_WINDOW_EXPIRED")
-                raise RuntimeError(f"Meta API Error: {res_text}")
+                clean_err = extract_meta_error_message(res_text)
+                raise RuntimeError(clean_err)
             except Exception as e:
                 logger.error(f"Error sending Meta text: {e}")
                 raise e
@@ -289,8 +327,9 @@ def create_meta_template(name, category, language, components):
         response.raise_for_status()
         return response.json()
     except httpx.HTTPStatusError as he:
+        clean_err = extract_meta_error_message(he.response.text)
         logger.error(f"Meta template creation failed (HTTP {he.response.status_code}): {he.response.text}")
-        raise RuntimeError(f"Meta API error: {he.response.text}")
+        raise RuntimeError(clean_err)
     except Exception as e:
         logger.error(f"Error creating Meta template: {e}")
         raise
@@ -316,8 +355,9 @@ def update_meta_template(template_id, category=None, components=None):
         response.raise_for_status()
         return response.json()
     except httpx.HTTPStatusError as he:
+        clean_err = extract_meta_error_message(he.response.text)
         logger.error(f"Meta template update failed (HTTP {he.response.status_code}): {he.response.text}")
-        raise RuntimeError(f"Meta API error: {he.response.text}")
+        raise RuntimeError(clean_err)
     except Exception as e:
         logger.error(f"Error updating Meta template: {e}")
         raise
@@ -386,13 +426,7 @@ def send_whatsapp_template(to_phone, template_name, language_code, components=No
                 pass
 
         # Extract human readable error message from Meta JSON
-        clean_err = res_text
-        try:
-            err_json = json.loads(res_text)
-            clean_err = err_json.get("error", {}).get("message", res_text)
-        except Exception:
-            pass
-
+        clean_err = extract_meta_error_message(res_text)
         logger.error(f"Error sending template message (HTTP {he.response.status_code}): {res_text}")
         raise RuntimeError(clean_err)
     except Exception as e:
