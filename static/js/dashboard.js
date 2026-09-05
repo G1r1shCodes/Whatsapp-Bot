@@ -3232,9 +3232,11 @@ if (outboundTemplateSelect) {
             uniqueVars.forEach(v => {
                 const row = document.createElement('div');
                 row.className = 'variable-input-row';
+                const isVar1 = String(v) === '1';
+                const placeholder = isVar1 ? 'Contact WhatsApp Name (e.g. Girish, John)...' : `Value for variable ${v}...`;
                 row.innerHTML = `
                     <span class="variable-label">{{${v}}}</span>
-                    <input type="text" class="outbound-input tpl-var-input" data-var="${v}" placeholder="Value for variable ${v}..." style="flex:1;">
+                    <input type="text" class="outbound-input tpl-var-input" data-var="${v}" placeholder="${placeholder}" style="flex:1;">
                 `;
                 row.querySelector('input').addEventListener('input', updateSendPreview);
                 varList.appendChild(row);

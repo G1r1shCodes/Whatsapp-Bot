@@ -1217,22 +1217,53 @@ def sync_templates_api(request: Request):
         raise HTTPException(status_code=500, detail=f"Failed to fetch Meta templates: {str(e)}")
 
 def _resolve_contact_name(phone: str) -> str:
-    """Finds the contact's name from leads DB or chat history, falling back to 'Customer'."""
+    """Finds the contact's name from leads DB, chat history, or visitor records, falling back to 'Customer'."""
     if not phone:
         return "Customer"
+    clean_digits = re.sub(r'[^0-9]', '', str(phone))
+    if not clean_digits:
+        return "Customer"
+    
+    # 1. Direct lookup in Leads
     try:
-        lead = db.get_lead_by_phone(phone)
-        if lead and lead.get("name") and lead["name"].strip() not in ["", "Unknown"]:
-            return lead["name"].strip()
+        lead = db.get_lead_by_phone(phone) or db.get_lead_by_phone(clean_digits) or db.get_lead_by_phone(f"+{clean_digits}")
+        if lead and lead.get("name") and str(lead["name"]).strip() not in ["", "Unknown", "Customer"]:
+            return str(lead["name"]).strip()
     except Exception:
         pass
     
+    # 2. Iterate leads matching last 10 digits
+    last10 = clean_digits[-10:] if len(clean_digits) >= 10 else clean_digits
     try:
-        chats = db.get_chat_history(phone)
+        leads = db.get_leads()
+        for l in leads:
+            p_digits = re.sub(r'[^0-9]', '', str(l.get("phone", "")))
+            if p_digits and (p_digits.endswith(last10) or last10.endswith(p_digits)):
+                name = str(l.get("name", "")).strip()
+                if name and name not in ["Unknown", "Customer"]:
+                    return name
+    except Exception:
+        pass
+    
+    # 3. Check Chat History (inbound profile_name)
+    try:
+        chats = db.get_chat_history(clean_digits) or db.get_chat_history(phone) or db.get_chat_history(last10)
         for c in chats:
             name = c.get("profile_name")
-            if name and name.strip() not in ["", "Unknown", "Tester"]:
-                return name.strip()
+            if name and str(name).strip() not in ["", "Unknown", "Tester", "Customer"]:
+                return str(name).strip()
+    except Exception:
+        pass
+    
+    # 4. Check Visitor Chats
+    try:
+        visitors = db.get_visitor_chats()
+        for v in visitors:
+            v_digits = re.sub(r'[^0-9]', '', str(v.get("phone", "")))
+            if v_digits and (v_digits.endswith(last10) or last10.endswith(v_digits)):
+                name = str(v.get("profile_name", "")).strip()
+                if name and name not in ["Unknown", "Customer", "Visitor"]:
+                    return name
     except Exception:
         pass
         
