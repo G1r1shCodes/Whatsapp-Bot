@@ -31,9 +31,10 @@ function showToast(message, isError = false) {
     
     toast.classList.remove('hidden');
     
-    setTimeout(() => {
+    if (window.toastTimer) clearTimeout(window.toastTimer);
+    window.toastTimer = setTimeout(() => {
         toast.classList.add('hidden');
-    }, 3000);
+    }, isError ? 7000 : 3500);
 }
 
 // Format datetime helper
