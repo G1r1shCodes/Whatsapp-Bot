@@ -372,7 +372,7 @@
                                             <i class="fa-solid fa-xmark" id="visitor-remove-file" style="cursor: pointer; opacity: 0.7;" title="Remove file"></i>
                                         </div>
                                         <input type="text" id="visitor-chat-input" class="chat-input-field" placeholder="Type a message to reply to visitor via WhatsApp...">
-                                        <button id="visitor-send-btn" class="btn btn-primary" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-indigo)); color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.85rem; flex-shrink: 0;">
+                                        <button id="visitor-send-btn" class="btn btn-primary" style="background: #10b981; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 0.85rem; flex-shrink: 0; transition: background 0.2s;" onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
                                             <i class="fa-solid fa-paper-plane"></i> Send
                                         </button>
                                     </div>
@@ -1086,35 +1086,40 @@
                 <!-- 3. Cables Catalog Tab -->
                 <section id="catalog-tab" class="tab-panel">
                     <div class="catalog-container card">
-                        <div class="catalog-header">
-                            <div class="catalog-filters" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <label for="category-select" style="font-weight: 600; font-size: 0.82rem; margin: 0;">Category:</label>
-                                    <select id="category-select" class="dropdown-filter">
-                                        <option value="All">All Categories</option>
-                                        <!-- Populated dynamically from API -->
-                                    </select>
+                        <div class="catalog-header-bar" style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.85rem;">
+                            <div class="catalog-filters-row" style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+                                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1; min-width: 280px;">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <label for="category-select" style="font-weight: 600; font-size: 0.82rem; margin: 0; color: var(--text-secondary);">Category:</label>
+                                        <select id="category-select" class="dropdown-filter">
+                                            <option value="All">All Categories</option>
+                                            <!-- Populated dynamically from API -->
+                                        </select>
+                                    </div>
+                                    <div class="catalog-search-box" style="position: relative; min-width: 220px; max-width: 320px; flex: 1;">
+                                        <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.8rem;"></i>
+                                        <input type="text" id="catalog-search" placeholder="Search 370+ cables by name, size..." style="width: 100%; padding: 6px 12px 6px 30px; border-radius: 8px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text-primary); font-size: 0.8rem; outline: none;">
+                                    </div>
+                                    <span id="catalog-count-badge" style="font-size: 0.75rem; font-weight: 700; color: var(--accent-cyan); background: rgba(6, 182, 212, 0.1); padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(6, 182, 212, 0.2); white-space: nowrap;">
+                                        376 Products
+                                    </span>
                                 </div>
-                                <div class="catalog-search-box" style="position: relative; min-width: 220px; max-width: 320px; flex: 1;">
-                                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.8rem;"></i>
-                                    <input type="text" id="catalog-search" placeholder="Search 370+ cables by name, size..." style="width: 100%; padding: 6px 12px 6px 30px; border-radius: 8px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text-primary); font-size: 0.8rem; outline: none;">
-                                </div>
-                                <span id="catalog-count-badge" style="font-size: 0.74rem; font-weight: 700; color: var(--accent-cyan); background: rgba(6, 182, 212, 0.12); padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(6, 182, 212, 0.25); white-space: nowrap;">
-                                    376 Products
-                                </span>
-                                <div style="margin-left: auto; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                                    <button class="btn-add-cable" id="add-cable-btn" title="Add a new cable to the catalog">
+                                <div class="catalog-actions-group" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <button class="btn-solid-primary" id="add-cable-btn" title="Add a new cable to the catalog">
                                         <i class="fa-solid fa-plus"></i> Add Cable
                                     </button>
-                                    <button class="btn-add-cable" id="bulk-upload-btn" title="Bulk upload products from an Excel file" style="background: linear-gradient(135deg, #059669, #10b981); color: #ffffff !important;">
+                                    <button class="btn-solid-emerald" id="bulk-upload-btn" title="Bulk upload products from an Excel file">
                                         <i class="fa-solid fa-file-excel"></i> Excel Upload
                                     </button>
-                                    <button class="btn-add-cable" id="manage-categories-btn" title="Manage product categories" style="background: linear-gradient(135deg, #6d28d9, #7c3aed); color: #ffffff !important;">
+                                    <button class="btn-solid-slate" id="manage-categories-btn" title="Manage product categories">
                                         <i class="fa-solid fa-tags"></i> Categories
                                     </button>
                                 </div>
                             </div>
-                            <span class="info-note"><i class="fa-solid fa-circle-info text-cyan"></i> Click on the Price or Stock fields in the table below to edit product details directly.</span>
+                            <div class="catalog-info-banner" style="display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--text-secondary); background: rgba(6, 182, 212, 0.05); padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(6, 182, 212, 0.15);">
+                                <i class="fa-solid fa-circle-info text-cyan"></i>
+                                <span>Click on the Price or Stock fields in the table below to edit product details directly.</span>
+                            </div>
                         </div>
                         <div class="table-responsive">
                             <table class="catalog-table">
@@ -1141,7 +1146,7 @@
                 <!-- Bulk Excel Upload Modal -->
                 <div class="modal-overlay hidden" id="bulk-upload-modal">
                     <div class="modal-card modal-cable" style="max-width: 600px;">
-                        <div class="modal-header modal-header-accent" style="background: linear-gradient(135deg, #059669, #10b981);">
+                        <div class="modal-header modal-header-accent" style="background: #059669; color: #ffffff;">
                             <h3><i class="fa-solid fa-file-excel"></i> Bulk Product Upload</h3>
                             <button class="modal-close-btn" id="bulk-modal-close-btn"><i class="fa-solid fa-xmark"></i></button>
                         </div>
@@ -1197,7 +1202,7 @@
                         </div>
                         <div class="modal-footer">
                             <button class="btn-modal-cancel" id="bulk-modal-cancel-btn">Close</button>
-                            <button class="btn-modal-save" id="bulk-upload-submit-btn" disabled style="background: linear-gradient(135deg, #059669, #10b981);">
+                            <button class="btn-modal-save" id="bulk-upload-submit-btn" disabled style="background: #059669; color: #ffffff; border: none;">
                                 <i class="fa-solid fa-upload"></i> Upload & Import
                             </button>
                         </div>
@@ -1439,7 +1444,7 @@
                                         <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Download URL</span>
                                         <p class="download-url-text" id="active-pdf-url">https://whatsapp-bot-4ukk.onrender.com/catalogue/CATALOUGE.pdf</p>
                                     </div>
-                                    <button id="upload-catalogue-pdf-btn" class="btn btn-primary" style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-indigo)); color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.85rem;" disabled>
+                                    <button id="upload-catalogue-pdf-btn" class="btn btn-primary" style="background: #0f172a; color: #fff; border: 1px solid #1e293b; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.85rem; transition: background 0.2s;" onmouseover="this.style.background='#1e293b'" onmouseout="this.style.background='#0f172a'" disabled>
                                         <i class="fa-solid fa-upload"></i> Upload & Replace PDF
                                     </button>
                                 </div>

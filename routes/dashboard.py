@@ -938,7 +938,7 @@ def _sync_meta_templates_into_config():
                 if ctype == "HEADER":
                     hformat = comp.get("format", "TEXT").lower()
                     hval = comp.get("text", "")
-                    header = {"type": hformat, "value": hval}
+                    header = {"type": hformat, "value": hval, "content": hval}
                 elif ctype == "BODY":
                     body = comp.get("text", "")
                 elif ctype == "FOOTER":
@@ -1242,8 +1242,38 @@ async def send_template_api(template_id: str, request: Request):
             if not variables.get(vn):
                 variables[vn] = contact_name if vn == "1" else f"Value {vn}"
 
-    # Build send-time components (fill in variable parameters)
+def _build_send_template_components(template, variables, request: Request = None):
+    """Builds component parameters array for Meta template message API."""
     send_components = []
+    
+    # 1. Header Component
+    header_obj = template.get("header")
+    if header_obj and header_obj.get("type"):
+        h_type = str(header_obj["type"]).lower()
+        if h_type in ["image", "document", "video"]:
+            h_content = header_obj.get("content") or header_obj.get("value") or header_obj.get("link") or ""
+            if not h_content and h_type == "image":
+                base_url = str(request.base_url).rstrip("/") if request else ""
+                h_content = f"{base_url}/static/images/BOT-IMAGE.jpg" if base_url else "https://raw.githubusercontent.com/public-assets/kdi-logo.jpg"
+            
+            if h_content:
+                direct_url = resolve_direct_media_url(h_content)
+                if direct_url != h_content:
+                    logger.info(f"Resolved header media URL: {h_content[:60]}... → {direct_url[:60]}...")
+                header_param = {"type": h_type, h_type: {"link": direct_url}}
+                send_components.append({"type": "header", "parameters": [header_param]})
+        elif h_type == "text":
+            h_val = header_obj.get("content") or header_obj.get("value") or ""
+            h_var_nums = re.findall(r'\{\{(\d+)\}\}', h_val)
+            if h_var_nums:
+                h_params = []
+                for vn in h_var_nums:
+                    val = variables.get(f"h_{vn}") or variables.get(vn) or "Value"
+                    h_params.append({"type": "text", "text": str(val)})
+                if h_params:
+                    send_components.append({"type": "header", "parameters": h_params})
+
+    # 2. Body Component
     if variables:
         params = []
         for key in sorted(variables.keys(), key=lambda x: int(x)):
@@ -1251,17 +1281,36 @@ async def send_template_api(template_id: str, request: Request):
         if params:
             send_components.append({"type": "body", "parameters": params})
 
-    # If header is media, add header component
-    if template.get("header") and template["header"].get("type") in ["image", "document", "video"]:
-        h_type = template["header"]["type"]
-        h_content = template["header"].get("content", "")
-        if h_content:
-            direct_url = resolve_direct_media_url(h_content)
-            if direct_url != h_content:
-                logger.info(f"Resolved media URL: {h_content[:60]}... → {direct_url[:60]}...")
-            header_param = {"type": h_type}
-            header_param[h_type] = {"link": direct_url}
-            send_components.append({"type": "header", "parameters": [header_param]})
+    return send_components
+
+@router.post("/api/templates/{template_id}/send")
+async def send_template_api(template_id: str, request: Request):
+    """Sends a template message to a single phone number."""
+    auth.require_auth(request)
+    payload = await request.json()
+    phone = payload.get("phone", "").strip().replace("+", "")
+    phone = re.sub(r'[^0-9]', '', phone)
+    variables = payload.get("variables", {})  # { "1": "value1", "2": "value2" }
+
+    if not phone:
+        raise HTTPException(status_code=400, detail="Phone number is required.")
+
+    templates = config_manager.get_templates()
+    template = next((t for t in templates if t["id"] == template_id), None)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found.")
+
+    # Auto-fill missing variables (e.g. {{1}} -> lead name)
+    body_var_nums = re.findall(r'\{\{(\d+)\}\}', template.get("body", ""))
+    if body_var_nums:
+        lead = db.get_lead_by_phone(phone)
+        contact_name = (lead.get("name") if lead and lead.get("name") else "") or "Customer"
+        for vn in body_var_nums:
+            if not variables.get(vn):
+                variables[vn] = contact_name if vn == "1" else f"Value {vn}"
+
+    # Build send-time components
+    send_components = _build_send_template_components(template, variables, request=request)
 
     try:
         from routes.whatsapp import send_whatsapp_template
@@ -1310,22 +1359,7 @@ async def send_broadcast_api(request: Request):
         raise HTTPException(status_code=404, detail="Template not found.")
 
     # Build send-time components
-    send_components = []
-    if variables:
-        params = []
-        for key in sorted(variables.keys(), key=lambda x: int(x)):
-            params.append({"type": "text", "text": str(variables[key])})
-        if params:
-            send_components.append({"type": "body", "parameters": params})
-
-    if template.get("header") and template["header"].get("type") in ["image", "document", "video"]:
-        h_type = template["header"]["type"]
-        h_content = template["header"].get("content", "")
-        if h_content:
-            direct_url = resolve_direct_media_url(h_content)
-            header_param = {"type": h_type}
-            header_param[h_type] = {"link": direct_url}
-            send_components.append({"type": "header", "parameters": [header_param]})
+    send_components = _build_send_template_components(template, variables, request=request)
 
     from routes.whatsapp import send_whatsapp_template
     import time
