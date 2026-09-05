@@ -1087,21 +1087,32 @@
                 <section id="catalog-tab" class="tab-panel">
                     <div class="catalog-container card">
                         <div class="catalog-header">
-                            <div class="catalog-filters">
-                                <label for="category-select">Category:</label>
-                                <select id="category-select" class="dropdown-filter">
-                                    <option value="All">All Categories</option>
-                                    <!-- Populated dynamically from API -->
-                                </select>
-                                <button class="btn-add-cable" id="add-cable-btn" title="Add a new cable to the catalog">
-                                    <i class="fa-solid fa-plus"></i> Add Cable
-                                </button>
-                                <button class="btn-add-cable" id="bulk-upload-btn" title="Bulk upload products from an Excel file" style="background: linear-gradient(135deg, #059669, #10b981); color: #ffffff !important; margin-left: 6px;">
-                                    <i class="fa-solid fa-file-excel"></i> Excel Upload
-                                </button>
-                                <button class="btn-add-cable" id="manage-categories-btn" title="Manage product categories" style="background: linear-gradient(135deg, #6d28d9, #7c3aed); color: #ffffff !important; margin-left: 6px;">
-                                    <i class="fa-solid fa-tags"></i> Categories
-                                </button>
+                            <div class="catalog-filters" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <label for="category-select" style="font-weight: 600; font-size: 0.82rem; margin: 0;">Category:</label>
+                                    <select id="category-select" class="dropdown-filter">
+                                        <option value="All">All Categories</option>
+                                        <!-- Populated dynamically from API -->
+                                    </select>
+                                </div>
+                                <div class="catalog-search-box" style="position: relative; min-width: 220px; max-width: 320px; flex: 1;">
+                                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.8rem;"></i>
+                                    <input type="text" id="catalog-search" placeholder="Search 370+ cables by name, size..." style="width: 100%; padding: 6px 12px 6px 30px; border-radius: 8px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text-primary); font-size: 0.8rem; outline: none;">
+                                </div>
+                                <span id="catalog-count-badge" style="font-size: 0.74rem; font-weight: 700; color: var(--accent-cyan); background: rgba(6, 182, 212, 0.12); padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(6, 182, 212, 0.25); white-space: nowrap;">
+                                    376 Products
+                                </span>
+                                <div style="margin-left: auto; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                    <button class="btn-add-cable" id="add-cable-btn" title="Add a new cable to the catalog">
+                                        <i class="fa-solid fa-plus"></i> Add Cable
+                                    </button>
+                                    <button class="btn-add-cable" id="bulk-upload-btn" title="Bulk upload products from an Excel file" style="background: linear-gradient(135deg, #059669, #10b981); color: #ffffff !important;">
+                                        <i class="fa-solid fa-file-excel"></i> Excel Upload
+                                    </button>
+                                    <button class="btn-add-cable" id="manage-categories-btn" title="Manage product categories" style="background: linear-gradient(135deg, #6d28d9, #7c3aed); color: #ffffff !important;">
+                                        <i class="fa-solid fa-tags"></i> Categories
+                                    </button>
+                                </div>
                             </div>
                             <span class="info-note"><i class="fa-solid fa-circle-info text-cyan"></i> Click on the Price or Stock fields in the table below to edit product details directly.</span>
                         </div>

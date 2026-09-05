@@ -507,47 +507,108 @@ def normalize_category(category):
     return CATEGORY_ALIASES.get(category, category)
 
 
+def get_base_catalog_products():
+    """Loads the complete base catalog of 376+ products extracted from KDI price lists and catalog."""
+    catalog_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "products_catalog.json")
+    if os.path.exists(catalog_path):
+        try:
+            import json
+            with open(catalog_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Error reading products_catalog.json: {e}")
+            
+    # Dynamic fallback to parsing data/prices/ directly
+    try:
+        import sys
+        scripts_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.append(scripts_dir)
+        import ingest_prices
+        prices_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "prices")
+        p_file = os.path.join(prices_dir, "price_power.txt")
+        c_file = os.path.join(prices_dir, "price_control.txt")
+        f_file = os.path.join(prices_dir, "price_cu_flexible.txt")
+        prods = []
+        if os.path.exists(p_file):
+            lines = [l.strip() for l in open(p_file, encoding="utf-8") if l.strip()]
+            prods.extend(ingest_prices.extract_power_cables(lines))
+        if os.path.exists(c_file):
+            lines = [l.strip() for l in open(c_file, encoding="utf-8") if l.strip()]
+            prods.extend(ingest_prices.extract_control_cables(lines))
+        if os.path.exists(f_file):
+            lines = [l.strip() for l in open(f_file, encoding="utf-8") if l.strip()]
+            prods.extend(ingest_prices.extract_flexible_cables(lines))
+        prods.extend(get_static_dummy_products())
+        seen = set()
+        unique_prods = []
+        for p in prods:
+            k = p.get("name", "").strip().lower()
+            if k and k not in seen:
+                seen.add(k)
+                unique_prods.append(p)
+        return unique_prods
+    except Exception as err:
+        logger.error(f"Dynamic catalog generation failed: {err}")
+    return get_static_dummy_products()
+
+
 def get_all_products(category_filter=None):
     params = {}
     if category_filter:
         params["category"] = f"eq.{category_filter}"
     
-    products = request_supabase("products", "GET", params=params)
-    if not products:
-        # Supabase error or empty/RLS-blocked table — fall back to static catalog + custom products
-        products = get_static_dummy_products()
-        try:
-            import config_manager
-            custom_products = config_manager.get_custom_products()
-            existing_names = {p["name"].strip().lower() for p in products if p.get("name")}
-            for cp in custom_products:
-                if cp.get("name", "").strip().lower() not in existing_names:
-                    products.append(dict(cp))
-            
-            # Apply saved price/stock overrides
-            overrides = config_manager.get_product_overrides()
-            for p in products:
-                name = p.get("name")
-                if name in overrides:
-                    ov = overrides[name]
-                    if "price" in ov and ov["price"] is not None:
-                        p["price_per_meter"] = ov["price"]
-                    if "stock_status" in ov and ov["stock_status"] is not None:
-                        p["stock_status"] = ov["stock_status"]
-            
-            # Filter out any deleted products
-            deleted_names = {d.strip().lower() for d in config_manager.get_deleted_products()}
-            if deleted_names:
-                products = [p for p in products if p.get("name", "").strip().lower() not in deleted_names]
-        except Exception as err:
-            logger.error(f"Error loading custom products or overrides: {err}")
+    # 1. Start with the complete 376+ products catalog as baseline
+    base_products = get_base_catalog_products()
+    catalog_map = {p["name"].strip().lower(): dict(p) for p in base_products if p.get("name")}
+    
+    # 2. If Supabase returns products, merge/override them by name
+    try:
+        remote_products = request_supabase("products", "GET", params=params)
+        if remote_products:
+            for rp in remote_products:
+                name_key = rp.get("name", "").strip().lower()
+                if name_key:
+                    catalog_map[name_key] = dict(rp)
+    except Exception as e:
+        logger.warning(f"Failed to fetch products from Supabase: {e}")
+        
+    # 3. Add custom products created via dashboard
+    try:
+        import config_manager
+        custom_products = config_manager.get_custom_products()
+        for cp in custom_products:
+            name_key = cp.get("name", "").strip().lower()
+            if name_key:
+                catalog_map[name_key] = dict(cp)
+        
+        # 4. Apply saved price and stock overrides
+        overrides = config_manager.get_product_overrides()
+        for name, ov in overrides.items():
+            name_key = name.strip().lower()
+            if name_key in catalog_map:
+                if "price" in ov and ov["price"] is not None:
+                    catalog_map[name_key]["price_per_meter"] = ov["price"]
+                if "stock_status" in ov and ov["stock_status"] is not None:
+                    catalog_map[name_key]["stock_status"] = ov["stock_status"]
+                    
+        # 5. Filter out user-deleted products
+        deleted_names = {d.strip().lower() for d in config_manager.get_deleted_products()}
+        if deleted_names:
+            for del_name in deleted_names:
+                catalog_map.pop(del_name, None)
+    except Exception as err:
+        logger.error(f"Error applying custom products/overrides: {err}")
 
-        if category_filter:
-            products = [p for p in products if p.get("category") == category_filter]
+    products = list(catalog_map.values())
+
+    if category_filter:
+        products = [p for p in products if p.get("category") == category_filter]
 
     for product in products:
         product["category"] = normalize_category(product.get("category"))
     return products
+
 
 def get_product_by_id(product_name):
     res = request_supabase("products", "GET", params={"name": f"eq.{product_name}"})

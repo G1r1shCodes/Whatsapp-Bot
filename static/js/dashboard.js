@@ -775,7 +775,112 @@ async function fetchProductCategories() {
 
 if (categorySelect) {
     categorySelect.addEventListener('change', () => {
-        loadCatalogData();
+        renderFilteredCatalog();
+    });
+}
+
+const catalogSearchInput = document.getElementById('catalog-search');
+if (catalogSearchInput) {
+    catalogSearchInput.addEventListener('input', () => {
+        renderFilteredCatalog();
+    });
+}
+
+function renderFilteredCatalog() {
+    const tableBody = document.getElementById('catalog-table-body');
+    if (!tableBody) return;
+
+    const filter = categorySelect ? categorySelect.value : 'All';
+    const searchQuery = (document.getElementById('catalog-search')?.value || '').trim().toLowerCase();
+
+    let filteredProducts = filter === 'All' 
+        ? catalogData 
+        : catalogData.filter(p => p.category === filter);
+
+    if (searchQuery) {
+        filteredProducts = filteredProducts.filter(p => {
+            const name = (p.name || '').toLowerCase();
+            const cat = (p.category || '').toLowerCase();
+            const cond = (p.conductor || '').toLowerCase();
+            const size = (p.size || '').toLowerCase();
+            const specs = (p.specifications || '').toLowerCase();
+            return name.includes(searchQuery) || cat.includes(searchQuery) || cond.includes(searchQuery) || size.includes(searchQuery) || specs.includes(searchQuery);
+        });
+    }
+
+    const countBadge = document.getElementById('catalog-count-badge');
+    if (countBadge) {
+        countBadge.textContent = `${filteredProducts.length} Products`;
+    }
+
+    tableBody.innerHTML = '';
+
+    if (filteredProducts.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center text-muted" style="padding: 3rem 0;">
+                    No products found matching filters
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    filteredProducts.forEach(product => {
+        const stockOptions = ['In Stock', 'Out of Stock', 'Custom Only'].map(opt => {
+            const selected = product.stock_status === opt ? 'selected' : '';
+            return `<option value="${opt}" ${selected}>${opt}</option>`;
+        }).join('');
+        
+        let stockClass = 'stock-in';
+        if (product.stock_status === 'Out of Stock') stockClass = 'stock-out';
+        else if (product.stock_status === 'Custom Only') stockClass = 'stock-custom';
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><span class="text-secondary">${escapeHtml(product.category || '')}</span></td>
+            <td><strong>${escapeHtml(product.name || '')}</strong></td>
+            <td>${escapeHtml(product.conductor || '')}</td>
+            <td>${escapeHtml(product.size || '')}</td>
+            <td>${product.core ? product.core + ' core' : '-'}</td>
+            <td>
+                <span class="editable-price" data-name="${escapeHtml(product.name || '')}">
+                    ${product.price_per_meter !== null && product.price_per_meter !== undefined ? 'INR ' + Number(product.price_per_meter).toFixed(2) : 'N/A'} <i class="fa-solid fa-pen" style="font-size: 0.65rem; opacity: 0.4; margin-left: 4px;"></i>
+                </span>
+            </td>
+            <td>
+                <select class="catalog-status-select ${stockClass}" data-name="${escapeHtml(product.name || '')}">
+                    ${stockOptions}
+                </select>
+            </td>
+            <td>
+                <button class="btn-delete-product" data-name="${escapeHtml(product.name || '')}" title="Delete this product">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tableBody.appendChild(tr);
+    });
+
+    // Add click event to price cells
+    tableBody.querySelectorAll('.editable-price').forEach(cell => {
+        cell.addEventListener('click', function() {
+            startEditingPrice(this);
+        });
+    });
+
+    // Add change event to stock selectors
+    tableBody.querySelectorAll('.catalog-status-select').forEach(select => {
+        select.addEventListener('change', function() {
+            updateProductStock(this.getAttribute('data-name'), this.value, this);
+        });
+    });
+
+    // Add click event to delete buttons
+    tableBody.querySelectorAll('.btn-delete-product').forEach(btn => {
+        btn.addEventListener('click', function() {
+            deleteProduct(this.getAttribute('data-name'));
+        });
     });
 }
 
@@ -809,80 +914,7 @@ async function loadCatalogData() {
             }).join('');
         }
         
-        const filter = categorySelect ? categorySelect.value : 'All';
-        const filteredProducts = filter === 'All' 
-            ? catalogData 
-            : catalogData.filter(p => p.category === filter);
-            
-        tableBody.innerHTML = '';
-        
-        if (filteredProducts.length === 0) {
-            tableBody.innerHTML = `
-                <tr>
-                    <td colspan="8" class="text-center text-muted" style="padding: 3rem 0;">
-                        No products found
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-        
-        filteredProducts.forEach(product => {
-            const stockOptions = ['In Stock', 'Out of Stock', 'Custom Only'].map(opt => {
-                const selected = product.stock_status === opt ? 'selected' : '';
-                return `<option value="${opt}" ${selected}>${opt}</option>`;
-            }).join('');
-            
-            let stockClass = 'stock-in';
-            if (product.stock_status === 'Out of Stock') stockClass = 'stock-out';
-            else if (product.stock_status === 'Custom Only') stockClass = 'stock-custom';
-            
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td><span class="text-secondary">${product.category}</span></td>
-                <td><strong>${product.name}</strong></td>
-                <td>${product.conductor}</td>
-                <td>${product.size}</td>
-                <td>${product.core} core</td>
-                <td>
-                    <span class="editable-price" data-name="${product.name}">
-                        ${product.price_per_meter !== null ? 'INR ' + product.price_per_meter.toFixed(2) : 'N/A'} <i class="fa-solid fa-pen" style="font-size: 0.65rem; opacity: 0.4; margin-left: 4px;"></i>
-                    </span>
-                </td>
-                <td>
-                    <select class="catalog-status-select ${stockClass}" data-name="${product.name}">
-                        ${stockOptions}
-                    </select>
-                </td>
-                <td>
-                    <button class="btn-delete-product" data-name="${product.name}" title="Delete this product">
-                        <i class="fa-solid fa-trash"></i>
-                    </button>
-                </td>
-            `;
-            tableBody.appendChild(tr);
-        });
-        
-        // Add double click & click edit event to price cells
-        document.querySelectorAll('.editable-price').forEach(cell => {
-            cell.addEventListener('click', function() {
-                startEditingPrice(this);
-            });
-        });
-        
-        // Add change event to stock selectors
-        document.querySelectorAll('.catalog-status-select').forEach(select => {
-            select.addEventListener('change', function() {
-                updateProductStock(this.getAttribute('data-name'), this.value, this);
-            });
-        });
-        
-        // Add click event to delete buttons
-        document.querySelectorAll('.btn-delete-product').forEach(btn => {
-            btn.addEventListener('click', function() {
-                deleteProduct(this.getAttribute('data-name'));
-            });
-        });
+        renderFilteredCatalog();
     } catch (e) {
         console.error('Error loading catalog:', e);
         tableBody.innerHTML = `
