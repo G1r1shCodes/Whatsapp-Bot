@@ -343,7 +343,7 @@ def send_whatsapp_template(to_phone, template_name, language_code, components=No
     This works even outside the 24-hour customer service window.
     """
     if not META_ACCESS_TOKEN or not META_PHONE_NUMBER_ID:
-        raise RuntimeError("Meta API credentials are required.")
+        raise RuntimeError("Meta API credentials (META_ACCESS_TOKEN & META_PHONE_NUMBER_ID) are missing.")
     url = f"https://graph.facebook.com/v21.0/{META_PHONE_NUMBER_ID}/messages"
     headers = {
         "Authorization": f"Bearer {META_ACCESS_TOKEN}",
@@ -362,6 +362,7 @@ def send_whatsapp_template(to_phone, template_name, language_code, components=No
     }
     if components:
         payload["template"]["components"] = components
+
     try:
         response = http_client.post(url, json=payload, headers=headers)
         response.raise_for_status()
@@ -369,11 +370,11 @@ def send_whatsapp_template(to_phone, template_name, language_code, components=No
         return response.json()
     except httpx.HTTPStatusError as he:
         res_text = he.response.text
-        logger.warning(f"Meta template send failed initially for '{template_name}' (HTTP {he.response.status_code}): {res_text}")
+        logger.warning(f"Meta template send failed for '{template_name}' (HTTP {he.response.status_code}): {res_text}")
         
-        # 1. Fallback for language code mismatch (en <-> en_US)
+        # Fallback for language code mismatch (en <-> en_US) if error 132001
         alt_lang = "en_US" if lang == "en" else "en" if lang == "en_US" else None
-        if alt_lang and ("132001" in res_text or "language" in res_text.lower()):
+        if alt_lang and "132001" in res_text:
             logger.info(f"Retrying template '{template_name}' with alt language code '{alt_lang}'...")
             payload["template"]["language"]["code"] = alt_lang
             try:
@@ -381,33 +382,6 @@ def send_whatsapp_template(to_phone, template_name, language_code, components=No
                 res2.raise_for_status()
                 logger.info(f"Sent template '{template_name}' ({alt_lang}) to {to_phone}")
                 return res2.json()
-            except Exception:
-                pass
-
-        # 2. Fallback for header format mismatch (error 132012)
-        if "132012" in res_text or "header" in res_text.lower() or "format mismatch" in res_text.lower():
-            # Try without header component
-            no_header_comps = [c for c in (payload["template"].get("components") or []) if c.get("type") != "header"]
-            payload["template"]["components"] = no_header_comps if no_header_comps else None
-            try:
-                logger.info(f"Retrying template '{template_name}' without header component...")
-                res_no_h = http_client.post(url, json=payload, headers=headers)
-                res_no_h.raise_for_status()
-                logger.info(f"Sent template '{template_name}' (no header) to {to_phone}")
-                return res_no_h.json()
-            except Exception:
-                pass
-                
-            # Try with image header component
-            img_header = {"type": "header", "parameters": [{"type": "image", "image": {"link": "https://raw.githubusercontent.com/public-assets/kdi-logo.jpg"}}]}
-            img_comps = [img_header] + (no_header_comps or [])
-            payload["template"]["components"] = img_comps
-            try:
-                logger.info(f"Retrying template '{template_name}' with fallback image header...")
-                res_img = http_client.post(url, json=payload, headers=headers)
-                res_img.raise_for_status()
-                logger.info(f"Sent template '{template_name}' (image header) to {to_phone}")
-                return res_img.json()
             except Exception:
                 pass
 

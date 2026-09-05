@@ -1262,20 +1262,14 @@ def _build_send_template_components(template, variables, phone: str = "", reques
     
     # 1. Header Component
     header_obj = template.get("header")
-    if header_obj and header_obj.get("type"):
+    if header_obj and isinstance(header_obj, dict) and header_obj.get("type"):
         h_type = str(header_obj["type"]).lower()
         if h_type in ["image", "document", "video"]:
             h_content = header_obj.get("content") or header_obj.get("value") or header_obj.get("link") or ""
-            if not h_content or "localhost" in h_content or "127.0.0.1" in h_content or not h_content.startswith("http"):
-                base_url = os.environ.get("BASE_URL", "").rstrip("/")
-                if base_url and not "localhost" in base_url and not "127.0.0.1" in base_url:
-                    h_content = f"{base_url}/static/images/BOT-IMAGE.jpg"
-                else:
-                    h_content = "https://raw.githubusercontent.com/public-assets/kdi-logo.jpg"
-            
-            direct_url = resolve_direct_media_url(h_content)
-            header_param = {"type": h_type, h_type: {"link": direct_url}}
-            send_components.append({"type": "header", "parameters": [header_param]})
+            if h_content and h_content.startswith("http"):
+                direct_url = resolve_direct_media_url(h_content)
+                header_param = {"type": h_type, h_type: {"link": direct_url}}
+                send_components.append({"type": "header", "parameters": [header_param]})
         elif h_type == "text":
             h_val = header_obj.get("content") or header_obj.get("value") or ""
             h_var_nums = re.findall(r'\{\{(\d+)\}\}', h_val)
@@ -1293,12 +1287,17 @@ def _build_send_template_components(template, variables, phone: str = "", reques
     
     final_vars = dict(variables) if variables else {}
     
-    # Ensure every placeholder variable in body text has a value
+    # Auto-fill missing variables (e.g. {{1}} -> contact_name)
     if body_var_nums:
-        var_keys = sorted(list(set(body_var_nums + [str(k) for k in final_vars.keys()])), key=lambda x: int(x) if str(x).isdigit() else 999)
+        for vn in body_var_nums:
+            curr_val = final_vars.get(str(vn))
+            if curr_val is None or str(curr_val).strip() == "":
+                final_vars[str(vn)] = contact_name if str(vn) == "1" else f"Value {vn}"
+
+    if final_vars:
         params = []
-        for key in var_keys:
-            val = str(final_vars.get(str(key), "")).strip()
+        for key in sorted(final_vars.keys(), key=lambda x: int(x) if str(x).isdigit() else 999):
+            val = str(final_vars[key]).strip()
             if not val:
                 val = contact_name if str(key) == "1" else f"Value {key}"
             params.append({"type": "text", "text": val})
