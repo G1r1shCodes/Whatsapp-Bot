@@ -26,5 +26,16 @@
             "id": "cat_control",
             "title": "Control Cables"
         }
-    ]
+    ],
+    "product_categories": [
+        "Power Cables",
+        "House Wires",
+        "Control Cables",
+        "Rubber Cable",
+        "Aerial Bunched Cable",
+        "Instrumentation Wires",
+        "Conductor"
+    ],
+    "message_templates": [],
+    "broadcast_history": []
 }

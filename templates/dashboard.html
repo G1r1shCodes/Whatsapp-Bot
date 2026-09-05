@@ -702,21 +702,153 @@
                 </section>
 
                 <!-- ═══════════════════════════════════════════ -->
-                <!-- MODAL: Template Builder                     -->
+                <!-- ═══════════════════════════════════════════ -->
+                <!-- MODAL: Template Viewer / WhatsApp Preview   -->
+                <!-- ═══════════════════════════════════════════ -->
+                <div class="modal-overlay hidden" id="template-viewer-modal">
+                    <div class="modal-card modal-template-viewer" style="max-width: 860px; max-height: 90vh; overflow-y: auto;">
+                        <div class="modal-header">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <h3><i class="fa-solid fa-puzzle-piece text-cyan"></i> <span id="view-tpl-name">template_name</span></h3>
+                                <span id="view-tpl-status-badge" class="tpl-status-badge local">LOCAL</span>
+                            </div>
+                            <button class="modal-close-btn" id="close-template-viewer"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div class="modal-body" style="padding: 1.25rem;">
+                            <!-- Grid: Left side metadata, Right side WhatsApp bubble preview -->
+                            <div class="template-viewer-grid">
+                                <!-- Left: Details & Info -->
+                                <div class="template-viewer-specs">
+                                    <!-- Rejection Alert if REJECTED -->
+                                    <div id="view-tpl-rejection-banner" class="hidden viewer-rejection-alert">
+                                        <div style="font-weight: 700; margin-bottom: 3px;"><i class="fa-solid fa-triangle-exclamation"></i> Meta Rejection Reason:</div>
+                                        <div id="view-tpl-rejection-text">-</div>
+                                    </div>
+
+                                    <!-- Meta & Template Spec Box -->
+                                    <div class="viewer-spec-box">
+                                        <div class="viewer-meta-grid">
+                                            <div>
+                                                <span class="viewer-spec-label">Category</span>
+                                                <strong id="view-tpl-category" class="viewer-spec-value">MARKETING</strong>
+                                            </div>
+                                            <div>
+                                                <span class="viewer-spec-label">Language</span>
+                                                <strong id="view-tpl-language" class="viewer-spec-value">en</strong>
+                                            </div>
+                                            <div>
+                                                <span class="viewer-spec-label">Meta Template ID</span>
+                                                <strong id="view-tpl-meta-id" class="viewer-spec-mono">None (Local)</strong>
+                                            </div>
+                                            <div>
+                                                <span class="viewer-spec-label">Last Updated</span>
+                                                <span id="view-tpl-updated" class="viewer-spec-value">-</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Header component details -->
+                                    <div class="viewer-component-box">
+                                        <div class="viewer-component-title">
+                                            <i class="fa-solid fa-heading"></i> Header Component
+                                        </div>
+                                        <div id="view-tpl-header-info" class="viewer-component-content">None</div>
+                                    </div>
+
+                                    <!-- Body component details -->
+                                    <div class="viewer-component-box">
+                                        <div class="viewer-component-title">
+                                            <i class="fa-solid fa-align-left"></i> Body Text
+                                        </div>
+                                        <div id="view-tpl-body-raw" class="viewer-body-raw"></div>
+                                    </div>
+
+                                    <!-- Footer component details -->
+                                    <div id="view-tpl-footer-box" class="viewer-component-box">
+                                        <div class="viewer-component-title">
+                                            <i class="fa-solid fa-shoe-prints"></i> Footer
+                                        </div>
+                                        <div id="view-tpl-footer-info" class="viewer-component-content" style="font-style: italic;">None</div>
+                                    </div>
+
+                                    <!-- Buttons component details -->
+                                    <div id="view-tpl-buttons-box" class="viewer-component-box">
+                                        <div class="viewer-component-title">
+                                            <i class="fa-solid fa-hand-pointer"></i> Buttons (<span id="view-tpl-buttons-count">0</span>)
+                                        </div>
+                                        <div id="view-tpl-buttons-list" class="viewer-buttons-list"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Right: Realistic WhatsApp Preview -->
+                                <div class="template-viewer-preview-col">
+                                    <div class="viewer-preview-header">
+                                        <i class="fa-brands fa-whatsapp" style="color: #25d366;"></i> WhatsApp Live Preview
+                                    </div>
+                                    <div class="whatsapp-preview viewer-wa-container">
+                                        <div class="whatsapp-bubble" style="width: 100%; max-width: 320px; background: #ffffff; border-radius: 8px 0px 8px 8px; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); padding: 0; overflow: hidden;">
+                                            <!-- Header Preview -->
+                                            <div id="view-preview-header" style="display: none;"></div>
+                                            <!-- Body Preview -->
+                                            <div id="view-preview-body" class="wa-text" style="font-size: 0.88rem; color: #111b21; line-height: 1.45; white-space: pre-wrap; word-break: break-word; padding: 0.65rem 0.75rem;"></div>
+                                            <!-- Footer Preview -->
+                                            <div id="view-preview-footer" style="display: none; padding: 0 0.75rem 0.4rem; font-size: 0.72rem; color: #8696a0;"></div>
+                                            <!-- Timestamp & Ticks -->
+                                            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px; padding: 0 0.75rem 0.5rem; font-size: 0.68rem; color: #667781;">
+                                                <span id="view-preview-time">12:00</span>
+                                                <i class="fa-solid fa-check-double" style="color: #53bdeb; font-size: 0.78rem;"></i>
+                                            </div>
+                                            <!-- Buttons Preview -->
+                                            <div id="view-preview-buttons" style="display: none; border-top: 1px solid #e4e6eb;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                            <div>
+                                <button class="btn-action-sm delete-btn" id="view-tpl-delete-btn" style="color: #ef4444;" title="Delete Template">
+                                    <i class="fa-solid fa-trash-can"></i> Delete
+                                </button>
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <button class="btn-modal-cancel" id="view-tpl-close-btn">Close</button>
+                                <button class="btn-outbound-send" id="view-tpl-submit-meta-btn" style="display: none;">
+                                    <i class="fa-brands fa-meta"></i> Submit to Meta
+                                </button>
+                                <button class="btn-action-sm" id="view-tpl-use-btn" style="display: none; background: rgba(34, 197, 94, 0.15); color: #22c55e; border-color: rgba(34, 197, 94, 0.3);">
+                                    <i class="fa-solid fa-paper-plane"></i> Send Message
+                                </button>
+                                <button class="btn-outbound-primary" id="view-tpl-edit-btn">
+                                    <i class="fa-solid fa-pen-to-square"></i> Edit Template
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════ -->
+                <!-- MODAL: Template Builder (Create & Edit)     -->
                 <!-- ═══════════════════════════════════════════ -->
                 <div class="modal-overlay hidden" id="template-builder-modal">
                     <div class="modal-card modal-template-builder" style="max-width: 860px; max-height: 90vh; overflow-y: auto;">
                         <div class="modal-header">
-                            <h3><i class="fa-solid fa-puzzle-piece text-cyan"></i> Create Message Template</h3>
+                            <h3><i class="fa-solid fa-puzzle-piece text-cyan" id="tpl-builder-icon"></i> <span id="tpl-builder-title">Create Message Template</span></h3>
                             <button class="modal-close-btn" id="close-template-builder"><i class="fa-solid fa-xmark"></i></button>
                         </div>
                         <div class="modal-body" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                            <!-- Edit Mode Notice Banner -->
+                            <div id="tpl-builder-edit-note" class="hidden" style="font-size: 0.78rem; color: var(--accent-cyan); background: rgba(6, 182, 212, 0.08); border: 1px solid rgba(6, 182, 212, 0.25); padding: 8px 12px; border-radius: 8px; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                                <span id="tpl-builder-edit-msg">Editing existing template.</span>
+                            </div>
+
                             <!-- Row 1: Name + Category + Language -->
                             <div class="modal-form-grid" style="grid-template-columns: 1fr 1fr 1fr;">
                                 <div class="form-group">
                                     <label for="tpl-builder-name">Template Name <span class="required">*</span></label>
                                     <input type="text" id="tpl-builder-name" placeholder="e.g. product_launch_offer" maxlength="512" style="text-transform: lowercase;">
-                                    <p class="help-text" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">Lowercase, underscores only</p>
+                                    <p class="help-text" id="tpl-builder-name-hint" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">Lowercase, underscores only</p>
                                 </div>
                                 <div class="form-group">
                                     <label for="tpl-builder-category">Category <span class="required">*</span></label>
@@ -754,7 +886,7 @@
                                     </select>
                                     <div id="tpl-builder-header-content" class="hidden">
                                         <input type="text" id="tpl-builder-header-value" class="outbound-input" placeholder="Header text or media URL...">
-                                        <p class="help-text" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">For media: provide a publicly accessible URL</p>
+                                        <p class="help-text" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">For media: provide a publicly accessible URL (Google Drive links are auto-converted)</p>
                                     </div>
                                 </div>
                             </div>
@@ -802,10 +934,10 @@
                         <div class="modal-footer" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                             <button class="btn-modal-cancel" id="tpl-builder-cancel">Cancel</button>
                             <button class="btn-outbound-send" id="tpl-builder-save-local" style="flex: 1;">
-                                <i class="fa-solid fa-save"></i> Save Locally
+                                <i class="fa-solid fa-save"></i> <span id="tpl-builder-save-local-text">Save Locally</span>
                             </button>
                             <button class="btn-outbound-primary" id="tpl-builder-submit-meta" style="flex: 1;">
-                                <i class="fa-brands fa-meta"></i> Save & Submit to Meta
+                                <i class="fa-brands fa-meta"></i> <span id="tpl-builder-submit-meta-text">Save & Submit to Meta</span>
                             </button>
                         </div>
                     </div>
@@ -1240,6 +1372,6 @@
 
     <!-- SheetJS for parsing Excel (.xlsx, .xls) files -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="/static/js/dashboard.js?v=2.4"></script>
+    <script src="/static/js/dashboard.js?v=2.5"></script>
 </body>
 </html>

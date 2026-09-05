@@ -295,6 +295,33 @@ def create_meta_template(name, category, language, components):
         logger.error(f"Error creating Meta template: {e}")
         raise
 
+def update_meta_template(template_id, category=None, components=None):
+    """Updates an existing message template on Meta by its Meta template ID.
+    Returns the API response dict or raises on error.
+    """
+    if not META_ACCESS_TOKEN:
+        raise RuntimeError("META_ACCESS_TOKEN is required for template management.")
+    url = f"https://graph.facebook.com/v21.0/{template_id}"
+    headers = {
+        "Authorization": f"Bearer {META_ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = {}
+    if category:
+        payload["category"] = category.upper()
+    if components is not None:
+        payload["components"] = components
+    try:
+        response = http_client.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        return response.json()
+    except httpx.HTTPStatusError as he:
+        logger.error(f"Meta template update failed (HTTP {he.response.status_code}): {he.response.text}")
+        raise RuntimeError(f"Meta API error: {he.response.text}")
+    except Exception as e:
+        logger.error(f"Error updating Meta template: {e}")
+        raise
+
 def delete_meta_template(template_name):
     """Deletes a message template from Meta by name."""
     if not META_ACCESS_TOKEN or not META_WABA_ID:

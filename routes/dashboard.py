@@ -980,6 +980,37 @@ def get_templates_api(request: Request):
             logger.error(f"Auto-sync error on get_templates: {e}")
     return {"templates": templates}
 
+@router.get("/api/templates/{template_id}")
+def get_template_detail_api(template_id: str, request: Request):
+    """Returns a single template by ID."""
+    auth.require_auth(request)
+    templates = config_manager.get_templates()
+    target = next((t for t in templates if t["id"] == template_id), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="Template not found.")
+    return {"template": target}
+
+def _prepare_header_for_meta(header):
+    """Prepares header for Meta template API.
+    For media types, resolves direct download URLs (e.g. Google Drive) and uploads
+    to Meta to acquire a header_handle. Returns (resolved_header, error_string).
+    """
+    if not header or not header.get("type"):
+        return None, None
+    resolved_header = dict(header)
+    if resolved_header.get("content"):
+        resolved_header["content"] = resolve_direct_media_url(resolved_header["content"])
+    
+    if resolved_header.get("type") in ("image", "video", "document") and resolved_header.get("content"):
+        try:
+            from routes.whatsapp import upload_media_for_header
+            handle = upload_media_for_header(resolved_header["content"], resolved_header["type"])
+            resolved_header["handle"] = handle
+        except Exception as upload_err:
+            logger.error(f"Media upload for header failed: {upload_err}")
+            return resolved_header, f"Failed to upload header media: {upload_err}"
+    return resolved_header, None
+
 @router.post("/api/templates")
 async def create_template_api(request: Request):
     """Creates a new message template and optionally submits to Meta for approval."""
@@ -994,6 +1025,8 @@ async def create_template_api(request: Request):
     category = payload.get("category", "MARKETING")
     language = payload.get("language", "en")
     header = payload.get("header")  # { type, content }
+    if header and header.get("content"):
+        header["content"] = resolve_direct_media_url(header["content"])
     body = payload.get("body", "")
     footer = payload.get("footer", "")
     buttons = payload.get("buttons", [])
@@ -1012,20 +1045,11 @@ async def create_template_api(request: Request):
     meta_error = None
     if submit_to_meta:
         try:
-            from routes.whatsapp import build_meta_components, create_meta_template, upload_media_for_header
-            # For media headers (image/video/document), we need to upload via Meta's
-            # resumable upload API to get a header_handle — raw URLs are not accepted.
-            resolved_header = header
-            if header and header.get("type") in ("image", "video", "document") and header.get("content"):
-                try:
-                    media_url = resolve_direct_media_url(header["content"])
-                    handle = upload_media_for_header(media_url, header["type"])
-                    resolved_header = {**header, "handle": handle}
-                except Exception as upload_err:
-                    logger.error(f"Media upload for header failed: {upload_err}")
-                    meta_error = f"Failed to upload header media: {upload_err}"
-
-            if not meta_error:
+            from routes.whatsapp import build_meta_components, create_meta_template
+            resolved_header, header_err = _prepare_header_for_meta(header)
+            if header_err:
+                meta_error = header_err
+            else:
                 components = build_meta_components(resolved_header, body, footer, buttons)
                 result = create_meta_template(name, category, language, components)
                 template["meta_template_id"] = result.get("id")
@@ -1043,6 +1067,123 @@ async def create_template_api(request: Request):
     else:
         response["meta_submitted"] = submit_to_meta
     return response
+
+@router.put("/api/templates/{template_id}")
+async def update_template_api(template_id: str, request: Request):
+    """Updates an existing message template and optionally submits/updates with Meta."""
+    auth.require_auth(request)
+    payload = await request.json()
+
+    templates = config_manager.get_templates()
+    template = next((t for t in templates if t["id"] == template_id), None)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found.")
+
+    new_name = payload.get("name", "").strip().lower().replace(" ", "_")
+    new_name = re.sub(r'[^a-z0-9_]', '', new_name)
+    if new_name and new_name != template.get("name"):
+        if template.get("meta_template_id"):
+            raise HTTPException(status_code=400, detail="Cannot rename a template that has already been submitted to Meta.")
+        template["name"] = new_name
+
+    category = payload.get("category", template.get("category", "MARKETING"))
+    language = payload.get("language", template.get("language", "en"))
+    header = payload.get("header")  # { type, content }
+    if header and header.get("content"):
+        header["content"] = resolve_direct_media_url(header["content"])
+    body = payload.get("body", template.get("body", ""))
+    footer = payload.get("footer", "")
+    buttons = payload.get("buttons", [])
+    submit_to_meta = payload.get("submit_to_meta", False)
+
+    if not body:
+        raise HTTPException(status_code=400, detail="Template body text is required.")
+
+    template["category"] = category
+    template["language"] = language
+    template["header"] = header
+    template["body"] = body
+    template["footer"] = footer
+    template["buttons"] = buttons
+    template["updated_at"] = datetime.utcnow().isoformat() + "Z"
+
+    meta_error = None
+    if submit_to_meta:
+        try:
+            from routes.whatsapp import build_meta_components, create_meta_template, update_meta_template
+            resolved_header, header_err = _prepare_header_for_meta(header)
+            if header_err:
+                meta_error = header_err
+            else:
+                components = build_meta_components(resolved_header, body, footer, buttons)
+                if template.get("meta_template_id"):
+                    update_meta_template(template["meta_template_id"], category=category, components=components)
+                    template["meta_status"] = "PENDING"
+                    template["meta_rejection_reason"] = None
+                else:
+                    result = create_meta_template(template["name"], category, language, components)
+                    template["meta_template_id"] = result.get("id")
+                    template["meta_status"] = result.get("status", "PENDING")
+                    template["meta_rejection_reason"] = None
+        except Exception as e:
+            logger.error(f"Meta template update/submission failed: {e}")
+            meta_error = str(e)
+
+    config_manager.save_template(template)
+    response = {"success": True, "template": template}
+    if meta_error:
+        response["meta_error"] = meta_error
+        response["meta_submitted"] = False
+    else:
+        response["meta_submitted"] = submit_to_meta
+    return response
+
+@router.post("/api/templates/{template_id}/submit")
+def submit_template_to_meta_api(template_id: str, request: Request):
+    """Submits an existing local or rejected template directly to Meta for review."""
+    auth.require_auth(request)
+    templates = config_manager.get_templates()
+    template = next((t for t in templates if t["id"] == template_id), None)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found.")
+
+    try:
+        from routes.whatsapp import build_meta_components, create_meta_template, update_meta_template
+        header = template.get("header")
+        resolved_header, header_err = _prepare_header_for_meta(header)
+        if header_err:
+            raise RuntimeError(header_err)
+
+        components = build_meta_components(
+            resolved_header,
+            template.get("body", ""),
+            template.get("footer", ""),
+            template.get("buttons", [])
+        )
+        if template.get("meta_template_id"):
+            update_meta_template(
+                template["meta_template_id"],
+                category=template.get("category", "MARKETING"),
+                components=components
+            )
+            template["meta_status"] = "PENDING"
+        else:
+            result = create_meta_template(
+                template["name"],
+                template.get("category", "MARKETING"),
+                template.get("language", "en"),
+                components
+            )
+            template["meta_template_id"] = result.get("id")
+            template["meta_status"] = result.get("status", "PENDING")
+
+        template["meta_rejection_reason"] = None
+        template["updated_at"] = datetime.utcnow().isoformat() + "Z"
+        config_manager.save_template(template)
+        return {"success": True, "template": template}
+    except Exception as e:
+        logger.error(f"Failed to submit template to Meta: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.delete("/api/templates/{template_id}")
 def delete_template_api(template_id: str, request: Request):

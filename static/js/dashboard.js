@@ -2308,6 +2308,33 @@ async function loadMessageTemplates() {
     }
 }
 
+let editingTemplateId = null;
+let viewingTemplateId = null;
+
+// ── Media & Text Formatting Helpers ──────────────────────────
+function resolveDirectMediaUrl(url) {
+    if (!url) return url;
+    const gdriveMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (gdriveMatch) return `https://lh3.googleusercontent.com/d/${gdriveMatch[1]}`;
+    const gdriveOpen = url.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/);
+    if (gdriveOpen) return `https://lh3.googleusercontent.com/d/${gdriveOpen[1]}`;
+    const gdriveUc = url.match(/drive\.google\.com\/uc\?.*id=([a-zA-Z0-9_-]+)/);
+    if (gdriveUc) return `https://lh3.googleusercontent.com/d/${gdriveUc[1]}`;
+    if (url.includes('dropbox.com') && url.includes('dl=0')) return url.replace('dl=0', 'dl=1');
+    return url;
+}
+
+function formatWhatsAppText(text) {
+    if (!text) return '';
+    let escaped = escapeHtml(text);
+    escaped = escaped.replace(/\{\{(\d+)\}\}/g, '<span style="background:rgba(6,182,212,0.18);color:#0284c7;font-weight:700;padding:1px 6px;border-radius:4px;font-family:monospace;">{{$1}}</span>');
+    escaped = escaped.replace(/\*([^\*]+)\*/g, '<strong>$1</strong>');
+    escaped = escaped.replace(/_([^_]+)_/g, '<em>$1</em>');
+    escaped = escaped.replace(/~([^~]+)~/g, '<del>$1</del>');
+    escaped = escaped.replace(/\n/g, '<br>');
+    return escaped;
+}
+
 function renderTemplateCards() {
     const grid = document.getElementById('templates-grid');
     const emptyState = document.getElementById('templates-empty');
@@ -2344,9 +2371,19 @@ function renderTemplateCards() {
         if (tpl.buttons && tpl.buttons.length > 0) {
             buttonInfo = `<span style="font-size:0.7rem;color:var(--text-muted);"><i class="fa-solid fa-hand-pointer"></i> ${tpl.buttons.length} btn${tpl.buttons.length > 1 ? 's' : ''}</span>`;
         }
+
+        // Action buttons
+        let submitBtnHtml = '';
+        if (tpl.meta_status === 'LOCAL' || tpl.meta_status === 'REJECTED') {
+            submitBtnHtml = `<button title="Submit to Meta for review" class="submit-btn" onclick="event.stopPropagation(); submitSingleTemplateToMeta('${tpl.id}')"><i class="fa-brands fa-meta"></i></button>`;
+        }
+        let sendBtnHtml = '';
+        if (tpl.meta_status === 'APPROVED') {
+            sendBtnHtml = `<button title="Send this template" class="send-btn" onclick="event.stopPropagation(); selectTemplateForSend('${tpl.id}')"><i class="fa-solid fa-paper-plane"></i></button>`;
+        }
         
         card.innerHTML = `
-            <div class="template-card-header">
+            <div class="template-card-header" style="cursor:pointer;" onclick="openTemplateViewer('${tpl.id}')">
                 <div>
                     <div class="template-card-name">${escapeHtml(tpl.name)}</div>
                     <div class="template-card-category"><i class="fa-solid ${catIcon}"></i> ${tpl.category} • ${tpl.language || 'en'}</div>
@@ -2356,12 +2393,16 @@ function renderTemplateCards() {
                     ${statusLabel}
                 </span>
             </div>
-            <div class="template-card-body">${escapeHtml(tpl.body || '')}</div>
-            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">${headerInfo}${buttonInfo}${tpl.footer ? `<span style="font-size:0.7rem;color:var(--text-muted);"><i class="fa-solid fa-shoe-prints"></i> footer</span>` : ''}</div>
+            <div class="template-card-body" style="cursor:pointer;" onclick="openTemplateViewer('${tpl.id}')">${escapeHtml(tpl.body || '')}</div>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;cursor:pointer;" onclick="openTemplateViewer('${tpl.id}')">${headerInfo}${buttonInfo}${tpl.footer ? `<span style="font-size:0.7rem;color:var(--text-muted);"><i class="fa-solid fa-shoe-prints"></i> footer</span>` : ''}</div>
             <div class="template-card-footer">
                 <span style="font-size:0.7rem;color:var(--text-muted);">${formatDateTime(tpl.created_at)}</span>
                 <div class="template-card-actions">
-                    <button title="Delete template" class="delete-btn" onclick="deleteMessageTemplate('${tpl.id}')"><i class="fa-solid fa-trash-can"></i></button>
+                    <button title="View template & live preview" class="view-btn" onclick="event.stopPropagation(); openTemplateViewer('${tpl.id}')"><i class="fa-solid fa-eye"></i></button>
+                    <button title="Edit template" class="edit-btn" onclick="event.stopPropagation(); openTemplateEditor('${tpl.id}')"><i class="fa-solid fa-pen-to-square"></i></button>
+                    ${submitBtnHtml}
+                    ${sendBtnHtml}
+                    <button title="Delete template" class="delete-btn" onclick="event.stopPropagation(); deleteMessageTemplate('${tpl.id}')"><i class="fa-solid fa-trash-can"></i></button>
                 </div>
             </div>
             ${tpl.meta_status === 'REJECTED' && tpl.meta_rejection_reason ? `<div style="font-size:0.72rem;color:#f87171;background:rgba(239,68,68,0.08);padding:0.4rem 0.6rem;border-radius:6px;margin-top:0.25rem;"><i class="fa-solid fa-triangle-exclamation"></i> ${escapeHtml(tpl.meta_rejection_reason)}</div>` : ''}
@@ -2400,6 +2441,7 @@ async function deleteMessageTemplate(templateId) {
         const data = await res.json();
         if (res.ok && data.success) {
             showToast('Template deleted');
+            if (viewingTemplateId === templateId) closeTemplateViewer();
             loadMessageTemplates();
         } else {
             showToast(data.detail || 'Failed to delete template', true);
@@ -2433,6 +2475,250 @@ if (syncBtn) {
     });
 }
 
+// ── Template Viewer Modal ────────────────────────────────────
+function openTemplateViewer(templateId) {
+    const tpl = messageTemplates.find(t => t.id === templateId);
+    if (!tpl) return;
+    viewingTemplateId = templateId;
+
+    const modal = document.getElementById('template-viewer-modal');
+    if (!modal) return;
+
+    // Header & Badge
+    const nameEl = document.getElementById('view-tpl-name');
+    if (nameEl) nameEl.textContent = tpl.name;
+    const statusClass = (tpl.meta_status || 'LOCAL').toLowerCase();
+    const statusLabel = tpl.meta_status || 'LOCAL';
+    const badgeEl = document.getElementById('view-tpl-status-badge');
+    if (badgeEl) {
+        badgeEl.className = `tpl-status-badge ${statusClass}`;
+        badgeEl.innerHTML = `<i class="fa-solid ${statusClass === 'approved' ? 'fa-check-circle' : statusClass === 'rejected' ? 'fa-times-circle' : statusClass === 'pending' ? 'fa-clock' : 'fa-database'}"></i> ${statusLabel}`;
+    }
+
+    // Rejection Banner
+    const rejBanner = document.getElementById('view-tpl-rejection-banner');
+    const rejText = document.getElementById('view-tpl-rejection-text');
+    if (rejBanner && rejText) {
+        if (tpl.meta_status === 'REJECTED' && tpl.meta_rejection_reason) {
+            rejText.textContent = tpl.meta_rejection_reason;
+            rejBanner.classList.remove('hidden');
+        } else {
+            rejBanner.classList.add('hidden');
+        }
+    }
+
+    // Specs
+    const catEl = document.getElementById('view-tpl-category');
+    if (catEl) catEl.textContent = tpl.category || 'MARKETING';
+    const langEl = document.getElementById('view-tpl-language');
+    if (langEl) langEl.textContent = tpl.language || 'en';
+    const metaIdEl = document.getElementById('view-tpl-meta-id');
+    if (metaIdEl) metaIdEl.textContent = tpl.meta_template_id || 'None (Local)';
+    const updatedEl = document.getElementById('view-tpl-updated');
+    if (updatedEl) updatedEl.textContent = formatDateTime(tpl.updated_at || tpl.created_at);
+
+    // Header Spec
+    const hInfo = document.getElementById('view-tpl-header-info');
+    if (hInfo) {
+        if (tpl.header && tpl.header.type) {
+            const val = tpl.header.content || tpl.header.value || '';
+            hInfo.innerHTML = `<strong>${escapeHtml(tpl.header.type.toUpperCase())}</strong>: <span style="word-break:break-all;">${escapeHtml(val || '(none)')}</span>`;
+        } else {
+            hInfo.textContent = 'None';
+        }
+    }
+
+    // Body Spec
+    const bodyRaw = document.getElementById('view-tpl-body-raw');
+    if (bodyRaw) bodyRaw.textContent = tpl.body || '(No body text)';
+
+    // Footer Spec
+    const footerInfo = document.getElementById('view-tpl-footer-info');
+    if (footerInfo) footerInfo.textContent = tpl.footer || 'None';
+
+    // Buttons Spec
+    const btnsCount = document.getElementById('view-tpl-buttons-count');
+    const btnsList = document.getElementById('view-tpl-buttons-list');
+    if (btnsList) {
+        btnsList.innerHTML = '';
+        if (tpl.buttons && tpl.buttons.length > 0) {
+            if (btnsCount) btnsCount.textContent = tpl.buttons.length;
+            tpl.buttons.forEach(b => {
+                const chip = document.createElement('div');
+                chip.className = 'viewer-button-chip';
+                const icon = b.type === 'url' ? 'fa-arrow-up-right-from-square' : b.type === 'phone' ? 'fa-phone' : 'fa-reply';
+                chip.innerHTML = `
+                    <i class="fa-solid ${icon}"></i>
+                    <span class="btn-tag">${escapeHtml((b.type || 'btn').toUpperCase())}</span>
+                    <strong>${escapeHtml(b.text || '')}</strong>
+                    ${b.value ? `<span style="color:var(--text-muted);font-size:0.72rem;margin-left:auto;word-break:break-all;">${escapeHtml(b.value)}</span>` : ''}
+                `;
+                btnsList.appendChild(chip);
+            });
+        } else {
+            if (btnsCount) btnsCount.textContent = '0';
+            btnsList.innerHTML = '<span style="color:var(--text-muted);font-style:italic;">No interactive buttons</span>';
+        }
+    }
+
+    // Live WhatsApp Bubble Preview
+    const pHeader = document.getElementById('view-preview-header');
+    renderPreviewHeader(pHeader, tpl.header);
+
+    const pBody = document.getElementById('view-preview-body');
+    if (pBody) pBody.innerHTML = formatWhatsAppText(tpl.body || '');
+
+    const pFooter = document.getElementById('view-preview-footer');
+    if (pFooter) {
+        if (tpl.footer) {
+            pFooter.style.display = 'block';
+            pFooter.textContent = tpl.footer;
+        } else {
+            pFooter.style.display = 'none';
+        }
+    }
+
+    const pButtons = document.getElementById('view-preview-buttons');
+    renderPreviewButtons(pButtons, tpl.buttons);
+
+    // Modal Actions
+    const submitBtn = document.getElementById('view-tpl-submit-meta-btn');
+    if (submitBtn) {
+        if (tpl.meta_status === 'LOCAL' || tpl.meta_status === 'REJECTED') {
+            submitBtn.style.display = 'inline-flex';
+            submitBtn.onclick = () => submitSingleTemplateToMeta(tpl.id, true);
+        } else {
+            submitBtn.style.display = 'none';
+        }
+    }
+
+    const useBtn = document.getElementById('view-tpl-use-btn');
+    if (useBtn) {
+        if (tpl.meta_status === 'APPROVED') {
+            useBtn.style.display = 'inline-flex';
+            useBtn.onclick = () => { closeTemplateViewer(); selectTemplateForSend(tpl.id); };
+        } else {
+            useBtn.style.display = 'none';
+        }
+    }
+
+    const deleteBtn = document.getElementById('view-tpl-delete-btn');
+    if (deleteBtn) {
+        deleteBtn.onclick = () => {
+            closeTemplateViewer();
+            deleteMessageTemplate(tpl.id);
+        };
+    }
+
+    const editBtn = document.getElementById('view-tpl-edit-btn');
+    if (editBtn) {
+        editBtn.onclick = () => {
+            closeTemplateViewer();
+            openTemplateEditor(tpl.id);
+        };
+    }
+
+    modal.classList.remove('hidden');
+}
+
+function closeTemplateViewer() {
+    const modal = document.getElementById('template-viewer-modal');
+    if (modal) modal.classList.add('hidden');
+    viewingTemplateId = null;
+}
+
+const closeViewerBtn = document.getElementById('close-template-viewer');
+const closeViewerBtn2 = document.getElementById('view-tpl-close-btn');
+if (closeViewerBtn) closeViewerBtn.addEventListener('click', closeTemplateViewer);
+if (closeViewerBtn2) closeViewerBtn2.addEventListener('click', closeTemplateViewer);
+
+// ── Template Editor ──────────────────────────────────────────
+function openTemplateEditor(templateId) {
+    const tpl = messageTemplates.find(t => t.id === templateId);
+    if (!tpl) return;
+    editingTemplateId = templateId;
+
+    if (!templateBuilderModal) return;
+
+    // Title and Icon
+    const titleEl = document.getElementById('tpl-builder-title');
+    if (titleEl) titleEl.textContent = 'Edit Message Template';
+    const iconEl = document.getElementById('tpl-builder-icon');
+    if (iconEl) iconEl.className = 'fa-solid fa-pen-to-square text-cyan';
+
+    // Edit Notice Banner & Name locking
+    const noteEl = document.getElementById('tpl-builder-edit-note');
+    const msgEl = document.getElementById('tpl-builder-edit-msg');
+    const nameInput = document.getElementById('tpl-builder-name');
+    const nameHint = document.getElementById('tpl-builder-name-hint');
+    const submitMetaText = document.getElementById('tpl-builder-submit-meta-text');
+    const saveLocalText = document.getElementById('tpl-builder-save-local-text');
+
+    if (saveLocalText) saveLocalText.textContent = 'Save Changes (Local)';
+
+    if (tpl.meta_template_id) {
+        // Already submitted to Meta -> cannot change name
+        if (nameInput) {
+            nameInput.value = tpl.name;
+            nameInput.readOnly = true;
+            nameInput.style.opacity = '0.7';
+            nameInput.style.cursor = 'not-allowed';
+        }
+        if (nameHint) nameHint.textContent = 'Template name cannot be changed on Meta once submitted.';
+        if (msgEl) msgEl.textContent = `Editing template "${tpl.name}". Saving will submit updates to Meta for review.`;
+        if (submitMetaText) submitMetaText.textContent = 'Update on Meta';
+    } else {
+        // LOCAL template -> can change name
+        if (nameInput) {
+            nameInput.value = tpl.name;
+            nameInput.readOnly = false;
+            nameInput.style.opacity = '1';
+            nameInput.style.cursor = 'text';
+        }
+        if (nameHint) nameHint.textContent = 'Lowercase, underscores only';
+        if (msgEl) msgEl.textContent = `Editing local template "${tpl.name}".`;
+        if (submitMetaText) submitMetaText.textContent = 'Save & Submit to Meta';
+    }
+    if (noteEl) noteEl.classList.remove('hidden');
+
+    // Pre-populate fields
+    const catSel = document.getElementById('tpl-builder-category');
+    if (catSel) catSel.value = tpl.category || 'MARKETING';
+
+    const langSel = document.getElementById('tpl-builder-language');
+    if (langSel) langSel.value = tpl.language || 'en';
+
+    const headerType = document.getElementById('tpl-builder-header-type');
+    const headerValue = document.getElementById('tpl-builder-header-value');
+    if (tpl.header && tpl.header.type) {
+        if (headerType) { headerType.value = tpl.header.type; headerTypeChanged(); }
+        if (headerValue) headerValue.value = tpl.header.content || tpl.header.value || '';
+    } else {
+        if (headerType) { headerType.value = ''; headerTypeChanged(); }
+        if (headerValue) headerValue.value = '';
+    }
+
+    const bodyEl = document.getElementById('tpl-builder-body');
+    if (bodyEl) bodyEl.value = tpl.body || '';
+    updateBuilderBodyCharCount();
+
+    const footerEl = document.getElementById('tpl-builder-footer');
+    if (footerEl) footerEl.value = tpl.footer || '';
+
+    // Buttons
+    const buttonsContainer = document.getElementById('tpl-buttons-container');
+    if (buttonsContainer) {
+        buttonsContainer.innerHTML = '';
+        if (tpl.buttons && tpl.buttons.length > 0) {
+            tpl.buttons.forEach(b => {
+                addBuilderButtonRow(b.type, b.text, b.value);
+            });
+        }
+    }
+
+    templateBuilderModal.classList.remove('hidden');
+}
+
 // ── Template Builder Modal ───────────────────────────────────
 const createTemplateBtn = document.getElementById('create-template-btn');
 const templateBuilderModal = document.getElementById('template-builder-modal');
@@ -2441,6 +2727,31 @@ const cancelTemplateBuilderBtn = document.getElementById('tpl-builder-cancel');
 
 function openTemplateBuilder() {
     if (!templateBuilderModal) return;
+    editingTemplateId = null;
+
+    // Reset Title and Icon
+    const titleEl = document.getElementById('tpl-builder-title');
+    if (titleEl) titleEl.textContent = 'Create Message Template';
+    const iconEl = document.getElementById('tpl-builder-icon');
+    if (iconEl) iconEl.className = 'fa-solid fa-puzzle-piece text-cyan';
+
+    const noteEl = document.getElementById('tpl-builder-edit-note');
+    if (noteEl) noteEl.classList.add('hidden');
+
+    const nameInput = document.getElementById('tpl-builder-name');
+    if (nameInput) {
+        nameInput.readOnly = false;
+        nameInput.style.opacity = '1';
+        nameInput.style.cursor = 'text';
+    }
+    const nameHint = document.getElementById('tpl-builder-name-hint');
+    if (nameHint) nameHint.textContent = 'Lowercase, underscores only';
+
+    const saveLocalText = document.getElementById('tpl-builder-save-local-text');
+    if (saveLocalText) saveLocalText.textContent = 'Save Locally';
+    const submitMetaText = document.getElementById('tpl-builder-submit-meta-text');
+    if (submitMetaText) submitMetaText.textContent = 'Save & Submit to Meta';
+
     // Reset form
     const fields = ['tpl-builder-name', 'tpl-builder-body', 'tpl-builder-footer', 'tpl-builder-header-value'];
     fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
@@ -2459,6 +2770,7 @@ function openTemplateBuilder() {
 
 function closeTemplateBuilder() {
     if (templateBuilderModal) templateBuilderModal.classList.add('hidden');
+    editingTemplateId = null;
 }
 
 if (createTemplateBtn) createTemplateBtn.addEventListener('click', openTemplateBuilder);
@@ -2518,39 +2830,44 @@ if (addVariableBtn) {
     });
 }
 
-// Add Button
+// Helper: Add Button Row
+function addBuilderButtonRow(type = 'url', text = '', value = '') {
+    const container = document.getElementById('tpl-buttons-container');
+    if (!container) return null;
+    const existing = container.querySelectorAll('.tpl-button-row').length;
+    if (existing >= 3) { showToast('Max 3 buttons allowed', true); return null; }
+    
+    const row = document.createElement('div');
+    row.className = 'tpl-button-row';
+    row.innerHTML = `
+        <select class="btn-type-select">
+            <option value="url" ${type === 'url' ? 'selected' : ''}>URL</option>
+            <option value="phone" ${type === 'phone' ? 'selected' : ''}>Phone</option>
+            <option value="quick_reply" ${type === 'quick_reply' ? 'selected' : ''}>Quick Reply</option>
+        </select>
+        <input type="text" class="btn-text-input" placeholder="Button text" maxlength="25" value="${escapeHtml(text || '')}">
+        <input type="text" class="btn-value-input" placeholder="${type === 'phone' ? 'Phone (e.g. +919876543210)' : 'URL (https://...)'}" value="${escapeHtml(value || '')}" style="${type === 'quick_reply' ? 'display:none;' : ''}">
+        <button type="button" class="remove-btn" title="Remove"><i class="fa-solid fa-xmark"></i></button>
+    `;
+    
+    row.querySelector('.remove-btn').addEventListener('click', () => row.remove());
+    
+    const typeSelect = row.querySelector('.btn-type-select');
+    const valueInput = row.querySelector('.btn-value-input');
+    typeSelect.addEventListener('change', () => {
+        valueInput.style.display = typeSelect.value === 'quick_reply' ? 'none' : '';
+        valueInput.placeholder = typeSelect.value === 'phone' ? 'Phone (e.g. +919876543210)' : 'URL (https://...)';
+    });
+    
+    container.appendChild(row);
+    return row;
+}
+
+// Add Button Click
 const addButtonBtn = document.getElementById('tpl-add-button');
 if (addButtonBtn) {
     addButtonBtn.addEventListener('click', () => {
-        const container = document.getElementById('tpl-buttons-container');
-        if (!container) return;
-        const existing = container.querySelectorAll('.tpl-button-row').length;
-        if (existing >= 3) { showToast('Max 3 buttons allowed', true); return; }
-        
-        const row = document.createElement('div');
-        row.className = 'tpl-button-row';
-        row.innerHTML = `
-            <select class="btn-type-select">
-                <option value="url">URL</option>
-                <option value="phone">Phone</option>
-                <option value="quick_reply">Quick Reply</option>
-            </select>
-            <input type="text" class="btn-text-input" placeholder="Button text" maxlength="25">
-            <input type="text" class="btn-value-input" placeholder="URL or phone number">
-            <button type="button" class="remove-btn" title="Remove"><i class="fa-solid fa-xmark"></i></button>
-        `;
-        
-        row.querySelector('.remove-btn').addEventListener('click', () => row.remove());
-        
-        // Hide value input for quick_reply
-        const typeSelect = row.querySelector('.btn-type-select');
-        const valueInput = row.querySelector('.btn-value-input');
-        typeSelect.addEventListener('change', () => {
-            valueInput.style.display = typeSelect.value === 'quick_reply' ? 'none' : '';
-            valueInput.placeholder = typeSelect.value === 'phone' ? 'Phone (e.g. +919876543210)' : 'URL (https://...)';
-        });
-        
-        container.appendChild(row);
+        addBuilderButtonRow('url', '', '');
     });
 }
 
@@ -2589,11 +2906,14 @@ async function saveTemplate(submitToMeta) {
     
     const btnId = submitToMeta ? 'tpl-builder-submit-meta' : 'tpl-builder-save-local';
     const btn = document.getElementById(btnId);
+    const origHtml = btn ? btn.innerHTML : '';
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...'; }
     
     try {
-        const res = await fetch('/api/templates', {
-            method: 'POST',
+        const url = editingTemplateId ? `/api/templates/${editingTemplateId}` : '/api/templates';
+        const method = editingTemplateId ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+            method: method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...data, submit_to_meta: submitToMeta })
         });
@@ -2603,12 +2923,15 @@ async function saveTemplate(submitToMeta) {
                 // Template saved locally, but Meta submission failed — show the error
                 showToast(`Template saved locally but Meta submission failed: ${result.meta_error}`, true);
             } else if (submitToMeta && result.meta_submitted) {
-                showToast('Template submitted to Meta for review!');
+                showToast(editingTemplateId ? 'Template updated & submitted to Meta for review!' : 'Template submitted to Meta for review!');
             } else {
-                showToast('Template saved locally');
+                showToast(editingTemplateId ? 'Template updated locally' : 'Template saved locally');
             }
             closeTemplateBuilder();
-            loadMessageTemplates();
+            await loadMessageTemplates();
+            if (viewingTemplateId === editingTemplateId && viewingTemplateId) {
+                openTemplateViewer(viewingTemplateId);
+            }
         } else {
             showToast(result.detail || 'Failed to save template', true);
         }
@@ -2617,17 +2940,57 @@ async function saveTemplate(submitToMeta) {
     } finally {
         if (btn) {
             btn.disabled = false;
-            btn.innerHTML = submitToMeta
-                ? '<i class="fa-brands fa-meta"></i> Save & Submit to Meta'
-                : '<i class="fa-solid fa-save"></i> Save Locally';
+            btn.innerHTML = origHtml;
         }
     }
+}
+
+async function submitSingleTemplateToMeta(templateId, fromViewer = false) {
+    const tpl = messageTemplates.find(t => t.id === templateId);
+    const name = tpl ? tpl.name : 'template';
+    if (!confirm(`Submit template "${name}" to Meta for review?`)) return;
+
+    try {
+        showToast('Submitting template to Meta...');
+        const res = await fetch(`/api/templates/${templateId}/submit`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            showToast('Template successfully submitted to Meta for review!');
+            await loadMessageTemplates();
+            if (fromViewer) openTemplateViewer(templateId);
+        } else {
+            showToast(data.detail || 'Failed to submit template to Meta', true);
+        }
+    } catch (e) {
+        showToast('Error submitting template to Meta', true);
+    }
+}
+
+function selectTemplateForSend(templateId) {
+    document.querySelectorAll('.outbound-subtab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.outbound-subtab-panel').forEach(p => p.classList.remove('active'));
+    
+    const sendSubtab = document.getElementById('outbound-subtab-send') || document.querySelector('.outbound-subtab[data-outbound-tab="send-tab"]');
+    const sendPanel = document.getElementById('outbound-send-tab');
+    if (sendSubtab) sendSubtab.classList.add('active');
+    if (sendPanel) sendPanel.classList.add('active');
+
+    const templateModeBtn = document.getElementById('mode-template-btn');
+    if (templateModeBtn) templateModeBtn.click();
+
+    const select = document.getElementById('outbound-template-select');
+    if (select) {
+        select.value = templateId;
+        select.dispatchEvent(new Event('change'));
+    }
+    showToast('Template selected for sending');
 }
 
 const saveLocalBtn = document.getElementById('tpl-builder-save-local');
 const submitMetaBtn = document.getElementById('tpl-builder-submit-meta');
 if (saveLocalBtn) saveLocalBtn.addEventListener('click', () => saveTemplate(false));
 if (submitMetaBtn) submitMetaBtn.addEventListener('click', () => saveTemplate(true));
+
 
 // ── Contact Picker (for Send tab) ────────────────────────────
 async function loadOutboundContacts() {
@@ -2871,8 +3234,9 @@ function renderPreviewHeader(container, header) {
         container.textContent = header.content || '';
     } else if (header.type === 'image') {
         container.style.cssText = 'padding: 0; overflow: hidden; border-radius: 8px 8px 0 0;';
-        container.innerHTML = header.content
-            ? `<img src="${escapeHtml(header.content)}" style="width:100%;max-height:180px;object-fit:cover;display:block;" onerror="this.style.display='none'">`
+        const imgUrl = resolveDirectMediaUrl(header.content || '');
+        container.innerHTML = imgUrl
+            ? `<img src="${escapeHtml(imgUrl)}" style="width:100%;max-height:180px;object-fit:cover;display:block;" onerror="this.style.display='none'">`
             : `<div style="width:100%;height:120px;background:#e4e6eb;display:flex;align-items:center;justify-content:center;color:#8696a0;"><i class="fa-solid fa-image" style="font-size:2rem;"></i></div>`;
     } else if (header.type === 'document') {
         container.style.cssText = 'padding: 0.5rem 0.75rem; background: #f0f2f5;';
