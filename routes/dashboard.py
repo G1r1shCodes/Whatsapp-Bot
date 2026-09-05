@@ -1320,9 +1320,25 @@ async def send_template_api(template_id: str, request: Request):
         raise HTTPException(status_code=400, detail="Phone number is required.")
 
     templates = config_manager.get_templates()
-    template = next((t for t in templates if t["id"] == template_id), None)
+    if not templates:
+        try:
+            templates, _, _ = _sync_meta_templates_into_config()
+        except Exception:
+            pass
+
+    template = next((t for t in templates if t["id"] == template_id or t.get("name") == template_id or t.get("meta_template_id") == template_id), None)
+    
     if not template:
-        raise HTTPException(status_code=404, detail="Template not found.")
+        # Construct fallback template object using template_id as template_name
+        template = {
+            "id": template_id,
+            "name": template_id,
+            "category": "MARKETING",
+            "language": "en",
+            "body": "Hi {{1}}!",
+            "header": {"type": "image"},
+            "buttons": []
+        }
 
     # Build send-time components with resolved contact name for {{1}}
     send_components = _build_send_template_components(template, variables, phone=phone, request=request)
@@ -1338,7 +1354,8 @@ async def send_template_api(template_id: str, request: Request):
         # Log the outbound message
         body_text = template.get("body", "")
         for k, v in variables.items():
-            body_text = body_text.replace(f"{{{{{k}}}}}", str(v))
+            if v and str(v).strip():
+                body_text = body_text.replace(f"{{{{{k}}}}}", str(v))
         db.log_chat_message(phone, "outbound", f"[Template: {template['name']}] {body_text}")
 
         # Auto-update lead status
@@ -1348,8 +1365,8 @@ async def send_template_api(template_id: str, request: Request):
 
         return {"success": True, "message": f"Template sent to +{phone}"}
     except Exception as e:
-        logger.error(f"Error sending template: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to send template: {str(e)}")
+        logger.error(f"Error sending template '{template.get('name')}': {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ── Mass Broadcast API ────────────────────────────────────
 
