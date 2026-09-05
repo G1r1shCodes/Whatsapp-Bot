@@ -2713,17 +2713,19 @@ body::-webkit-scrollbar-thumb:hover {
 .btn-action-sm {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 0.4rem 0.65rem;
+    gap: 6px;
+    padding: 0.4rem 0.75rem;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid var(--border);
     border-radius: 6px;
     color: var(--text-secondary);
-    font-size: 0.75rem;
-    font-weight: 500;
+    font-size: 0.78rem;
+    font-weight: 600;
     cursor: pointer;
     font-family: inherit;
     transition: all 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .btn-action-sm:hover {
