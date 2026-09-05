@@ -3211,9 +3211,24 @@ if (outboundTemplateSelect) {
         const vars = (tpl.body || '').match(/\{\{(\d+)\}\}/g) || [];
         const uniqueVars = [...new Set(vars.map(v => v.replace(/[{}]/g, '')))].sort((a, b) => parseInt(a) - parseInt(b));
         
-        if (uniqueVars.length > 0) {
+        const hasMediaHeader = tpl.header && ['image', 'document', 'video'].includes((tpl.header.type || '').toLowerCase());
+        
+        if (uniqueVars.length > 0 || hasMediaHeader) {
             varSection?.classList.remove('hidden');
-            varList.innerHTML = '';
+            if (varList) varList.innerHTML = '';
+            
+            if (hasMediaHeader) {
+                const hType = (tpl.header.type || 'IMAGE').toUpperCase();
+                const hRow = document.createElement('div');
+                hRow.className = 'variable-input-row';
+                hRow.innerHTML = `
+                    <span class="variable-label" style="font-size:0.75rem;font-weight:600;color:var(--text-muted);">${hType} Header URL</span>
+                    <input type="text" class="outbound-input tpl-var-input" data-var="header_url" placeholder="Optional ${hType} image/file link (or leave empty for default)..." style="flex:1;">
+                `;
+                hRow.querySelector('input').addEventListener('input', updateSendPreview);
+                varList.appendChild(hRow);
+            }
+
             uniqueVars.forEach(v => {
                 const row = document.createElement('div');
                 row.className = 'variable-input-row';

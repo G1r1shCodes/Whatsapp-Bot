@@ -1248,44 +1248,48 @@ def _build_send_template_components(template, variables, phone: str = "", reques
     if header_obj and isinstance(header_obj, dict) and header_obj.get("type"):
         h_type = str(header_obj["type"]).lower()
         if h_type in ["image", "document", "video"]:
-            h_content = header_obj.get("content") or header_obj.get("value") or header_obj.get("link") or ""
-            if h_content and h_content.startswith("http"):
-                direct_url = resolve_direct_media_url(h_content)
-                header_param = {"type": h_type, h_type: {"link": direct_url}}
-                send_components.append({"type": "header", "parameters": [header_param]})
+            custom_url = None
+            if variables and isinstance(variables, dict):
+                custom_url = variables.get("header_url") or variables.get("header_link") or variables.get("h_url") or variables.get("header")
+            h_content = custom_url or header_obj.get("content") or header_obj.get("value") or header_obj.get("link") or ""
+            
+            h_content_str = str(h_content).strip() if h_content else ""
+            if not h_content_str.startswith("http"):
+                if h_type == "image":
+                    h_content_str = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800"
+                elif h_type == "document":
+                    h_content_str = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+                elif h_type == "video":
+                    h_content_str = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+
+            direct_url = resolve_direct_media_url(h_content_str)
+            header_param = {"type": h_type, h_type: {"link": direct_url}}
+            send_components.append({"type": "header", "parameters": [header_param]})
         elif h_type == "text":
             h_val = header_obj.get("content") or header_obj.get("value") or ""
             h_var_nums = re.findall(r'\{\{(\d+)\}\}', h_val)
             if h_var_nums:
+                unique_hvars = sorted(list(set(h_var_nums)), key=lambda x: int(x))
                 h_params = []
-                for vn in h_var_nums:
+                for vn in unique_hvars:
                     val = (variables.get(f"h_{vn}") if variables else None) or (variables.get(vn) if variables else None) or (contact_name if str(vn) == "1" else f"Value {vn}")
-                    h_params.append({"type": "text", "text": str(val)})
+                    h_params.append({"type": "text", "text": str(val).strip()})
                 if h_params:
                     send_components.append({"type": "header", "parameters": h_params})
 
     # 2. Body Component
     body_text = template.get("body", "")
     body_var_nums = re.findall(r'\{\{(\d+)\}\}', body_text)
-    
-    final_vars = dict(variables) if variables else {}
-    
-    # Auto-fill missing variables (e.g. {{1}} -> contact_name)
     if body_var_nums:
-        for vn in body_var_nums:
-            curr_val = final_vars.get(str(vn))
+        unique_bvars = sorted(list(set(body_var_nums)), key=lambda x: int(x))
+        b_params = []
+        for vn in unique_bvars:
+            curr_val = (variables.get(str(vn)) if variables else None) or (variables.get(vn) if variables else None)
             if curr_val is None or str(curr_val).strip() == "":
-                final_vars[str(vn)] = contact_name if str(vn) == "1" else f"Value {vn}"
-
-    if final_vars:
-        params = []
-        for key in sorted(final_vars.keys(), key=lambda x: int(x) if str(x).isdigit() else 999):
-            val = str(final_vars[key]).strip()
-            if not val:
-                val = contact_name if str(key) == "1" else f"Value {key}"
-            params.append({"type": "text", "text": val})
-        if params:
-            send_components.append({"type": "body", "parameters": params})
+                curr_val = contact_name if str(vn) == "1" else f"Value {vn}"
+            b_params.append({"type": "text", "text": str(curr_val).strip()})
+        if b_params:
+            send_components.append({"type": "body", "parameters": b_params})
 
     return send_components
 
