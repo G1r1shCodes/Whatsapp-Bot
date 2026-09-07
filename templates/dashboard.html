@@ -1105,6 +1105,9 @@
                                     </span>
                                 </div>
                                 <div class="catalog-actions-group" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <button id="bulk-delete-cables-btn" style="display: none; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.8rem; padding: 6px 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s;" title="Delete selected products">
+                                        <i class="fa-solid fa-trash-can"></i> Delete Selected (<span id="bulk-delete-count">0</span>)
+                                    </button>
                                     <button class="btn-solid-primary" id="add-cable-btn" title="Add a new cable to the catalog">
                                         <i class="fa-solid fa-plus"></i> Add Cable
                                     </button>
@@ -1125,6 +1128,9 @@
                             <table class="catalog-table">
                                 <thead>
                                     <tr>
+                                        <th style="width: 40px; text-align: center;">
+                                            <input type="checkbox" id="select-all-catalog-checkbox" style="cursor: pointer; width: 16px; height: 16px; accent-color: #10b981;" title="Select All">
+                                        </th>
                                         <th>Category</th>
                                         <th>Product Name</th>
                                         <th>Conductor</th>

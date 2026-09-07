@@ -2,6 +2,7 @@
 let currentTab = 'analytics-tab';
 let leadsData = [];
 let catalogData = [];
+let selectedProductNames = new Set();
 let selectedLead = null;
 let productChart = null;
 let statusChart = null;
@@ -819,11 +820,12 @@ function renderFilteredCatalog() {
     if (filteredProducts.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="8" class="text-center text-muted" style="padding: 3rem 0;">
+                <td colspan="9" class="text-center text-muted" style="padding: 3rem 0;">
                     No products found matching filters
                 </td>
             </tr>
         `;
+        updateBulkDeleteBtnState([]);
         return;
     }
 
@@ -837,8 +839,13 @@ function renderFilteredCatalog() {
         if (product.stock_status === 'Out of Stock') stockClass = 'stock-out';
         else if (product.stock_status === 'Custom Only') stockClass = 'stock-custom';
         
+        const isChecked = selectedProductNames.has(product.name);
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
+            <td style="text-align: center;">
+                <input type="checkbox" class="catalog-row-checkbox" data-name="${escapeHtml(product.name || '')}" ${isChecked ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px; accent-color: #10b981;">
+            </td>
             <td><span class="text-secondary">${escapeHtml(product.category || '')}</span></td>
             <td><strong>${escapeHtml(product.name || '')}</strong></td>
             <td>${escapeHtml(product.conductor || '')}</td>
@@ -883,13 +890,140 @@ function renderFilteredCatalog() {
             deleteProduct(this.getAttribute('data-name'));
         });
     });
+
+    // Add change event to row checkboxes
+    tableBody.querySelectorAll('.catalog-row-checkbox').forEach(cb => {
+        cb.addEventListener('change', function() {
+            const name = this.getAttribute('data-name');
+            if (this.checked) {
+                selectedProductNames.add(name);
+            } else {
+                selectedProductNames.delete(name);
+            }
+            updateBulkDeleteBtnState(filteredProducts);
+        });
+    });
+
+    updateBulkDeleteBtnState(filteredProducts);
+}
+
+function updateBulkDeleteBtnState(currentFilteredProducts = []) {
+    const bulkBtn = document.getElementById('bulk-delete-cables-btn');
+    const countSpan = document.getElementById('bulk-delete-count');
+    const selectAllCb = document.getElementById('select-all-catalog-checkbox');
+
+    const count = selectedProductNames.size;
+    if (countSpan) countSpan.textContent = count;
+
+    if (bulkBtn) {
+        bulkBtn.style.display = count > 0 ? 'inline-flex' : 'none';
+    }
+
+    if (selectAllCb) {
+        if (currentFilteredProducts.length === 0) {
+            selectAllCb.checked = false;
+            selectAllCb.indeterminate = false;
+        } else {
+            const visibleNames = currentFilteredProducts.map(p => p.name).filter(Boolean);
+            const selectedVisibleCount = visibleNames.filter(n => selectedProductNames.has(n)).length;
+
+            if (selectedVisibleCount === 0) {
+                selectAllCb.checked = false;
+                selectAllCb.indeterminate = false;
+            } else if (selectedVisibleCount === visibleNames.length) {
+                selectAllCb.checked = true;
+                selectAllCb.indeterminate = false;
+            } else {
+                selectAllCb.checked = false;
+                selectAllCb.indeterminate = true;
+            }
+        }
+    }
+}
+
+// Select All Checkbox Handler
+const selectAllCatalogCb = document.getElementById('select-all-catalog-checkbox');
+if (selectAllCatalogCb) {
+    selectAllCatalogCb.addEventListener('change', function() {
+        const isChecked = this.checked;
+        const searchQuery = (document.getElementById('catalog-search')?.value || '').trim().toLowerCase();
+        const filter = categorySelect ? categorySelect.value : 'All';
+        let filtered = filter === 'All' ? catalogData : catalogData.filter(p => p.category === filter);
+        if (searchQuery) {
+            filtered = filtered.filter(p => {
+                const name = (p.name || '').toLowerCase();
+                const cat = (p.category || '').toLowerCase();
+                const cond = (p.conductor || '').toLowerCase();
+                const size = (p.size || '').toLowerCase();
+                const specs = (p.specifications || '').toLowerCase();
+                return name.includes(searchQuery) || cat.includes(searchQuery) || cond.includes(searchQuery) || size.includes(searchQuery) || specs.includes(searchQuery);
+            });
+        }
+
+        filtered.forEach(p => {
+            if (p.name) {
+                if (isChecked) {
+                    selectedProductNames.add(p.name);
+                } else {
+                    selectedProductNames.delete(p.name);
+                }
+            }
+        });
+
+        const rowCbs = document.querySelectorAll('.catalog-row-checkbox');
+        rowCbs.forEach(cb => {
+            const name = cb.getAttribute('data-name');
+            cb.checked = selectedProductNames.has(name);
+        });
+
+        updateBulkDeleteBtnState(filtered);
+    });
+}
+
+// Bulk Delete Button Handler
+const bulkDeleteCablesBtn = document.getElementById('bulk-delete-cables-btn');
+if (bulkDeleteCablesBtn) {
+    bulkDeleteCablesBtn.addEventListener('click', async function() {
+        const namesArray = Array.from(selectedProductNames);
+        if (namesArray.length === 0) return;
+
+        if (!confirm(`Are you sure you want to delete ${namesArray.length} selected product(s) from the catalog?\n\nThis action cannot be undone.`)) {
+            return;
+        }
+
+        bulkDeleteCablesBtn.disabled = true;
+        bulkDeleteCablesBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Deleting...';
+
+        try {
+            const res = await fetch('/api/products/bulk-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ product_names: namesArray })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast(`Successfully deleted ${data.deleted_count} product(s)`);
+                selectedProductNames.clear();
+                updateBulkDeleteBtnState([]);
+                await loadCatalogData();
+            } else {
+                showToast(data.detail || data.message || 'Failed to delete selected products', true);
+            }
+        } catch (err) {
+            console.error('Bulk delete error:', err);
+            showToast('Network error during bulk delete', true);
+        } finally {
+            bulkDeleteCablesBtn.disabled = false;
+            bulkDeleteCablesBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i> Delete Selected (<span id="bulk-delete-count">0</span>)';
+        }
+    });
 }
 
 async function loadCatalogData() {
     const tableBody = document.getElementById('catalog-table-body');
     tableBody.innerHTML = `
         <tr>
-            <td colspan="8" class="text-center" style="padding: 3rem 0;">
+            <td colspan="9" class="text-center" style="padding: 3rem 0;">
                 <i class="fa-solid fa-spinner fa-spin"></i> Loading catalog...
             </td>
         </tr>
@@ -920,7 +1054,7 @@ async function loadCatalogData() {
         console.error('Error loading catalog:', e);
         tableBody.innerHTML = `
             <tr>
-                <td colspan="8" class="text-center text-rose-500" style="padding: 3rem 0;">
+                <td colspan="9" class="text-center text-rose-500" style="padding: 3rem 0;">
                     Failed to load catalog products
                 </td>
             </tr>
@@ -1214,7 +1348,7 @@ async function handleAddProdCategory() {
         const res = await fetch('/api/product-categories', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ category: val })
+            body: JSON.stringify({ name: val })
         });
         const result = await res.json();
         if (res.ok && result.success) {

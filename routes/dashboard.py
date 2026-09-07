@@ -674,6 +674,27 @@ async def delete_product_api(product_name: str, request: Request):
     db.delete_product(decoded_name)
     return {"success": True, "product": decoded_name, "message": "Product deleted successfully."}
 
+@router.post("/api/products/bulk-delete")
+async def bulk_delete_products_api(request: Request):
+    """Deletes multiple products from the catalog in bulk."""
+    auth.require_auth(request)
+    payload = await request.json()
+    product_names = payload.get("product_names", [])
+    
+    if not product_names or not isinstance(product_names, list):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Product names list is required for bulk delete.")
+    
+    deleted_count = 0
+    for name in product_names:
+        if name and isinstance(name, str):
+            clean_name = name.strip()
+            if clean_name:
+                db.delete_product(clean_name)
+                deleted_count += 1
+                
+    return {"success": True, "deleted_count": deleted_count, "message": f"{deleted_count} products deleted successfully."}
+
 @router.post("/api/products/bulk-upload")
 async def bulk_upload_products_api(request: Request, file: UploadFile = File(...)):
     """Uploads an Excel (.xlsx) file to bulk-add or update products in the catalog."""

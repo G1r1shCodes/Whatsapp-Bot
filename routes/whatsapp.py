@@ -645,50 +645,73 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
         elif lower_msg == "browse products":
             reply_text = ""
             cat_match = True
-        elif lower_msg in [
-            "power cables", "electrical wires", "house wires", "flexible/housewire",
-            "armoured cables", "unarmoured cables", "control cables", "conductors",
-            "conductor", "aerial bunched cable", "aerial bunched cables", "rubber cable",
-            "instrumentation wires"
-        ]:
-            # Fast-path for Category Selection
-            all_prods = db.get_all_products()
-            cat_keywords = {
-                "power cables": ["power"],
-                "electrical wires": ["wire", "house", "flexible"],
-                "house wires": ["wire", "house", "flexible"],
-                "flexible/housewire": ["wire", "house", "flexible"],
-                "armoured cables": ["armoured", "armored"],
-                "unarmoured cables": ["unarmoured", "unarmored"],
-                "control cables": ["control"],
-                "conductors": ["conductor"],
-                "conductor": ["conductor"],
-                "aerial bunched cable": ["aerial", "arieal", "bunched", "abc"],
-                "aerial bunched cables": ["aerial", "arieal", "bunched", "abc"],
-                "rubber cable": ["rubber"],
-                "instrumentation wires": ["instrumentation"]
-            }
-            kws = cat_keywords.get(lower_msg, [lower_msg])
-            matching = [p for p in all_prods if any(kw in p.get("name", "").lower() or kw in p.get("category", "").lower() for kw in kws)]
-            
-            if matching:
-                show = matching[:5]
-                total = len(matching)
-                lines = [f"🔹 *{p['name']}*: ~INR {p['price_per_meter']}/m | {p.get('conductor','')} {p.get('size','')} | {p.get('core','')} Core(s)" for p in show]
-                more_note = f"\n\n📋 *Showing {len(show)} of {total} available options.*" if total > len(show) else ""
-                reply_text = (
-                    f"📦 *{lower_msg.title()}*\n\n"
-                    + "\n".join(lines)
-                    + more_note
-                    + "\n\n💡 *Prices are indicative and subject to daily metal rates.*"
-                    + "\n💬 Reply with a specific product name or size (e.g. *3.5C x 70 sqmm*) to get a formal quote!"
-                    + "\n🏭 *Custom specifications also available on request.*"
-                )
-            else:
-                reply_text = f"📦 We offer various options for *{lower_msg.title()}*. Please share your specific core count, conductor size, or conductor type (Copper/Aluminium) and we'll find the right product for you!"
         else:
-            # Questions requiring complex reasoning or general product knowledge call Groq AI
-            ai_response = ai.get_ai_response(from_number, profile_name)
+            # Dynamic check if lower_msg matches any configured category title, ID, or product category
+            cfg_cats = config_manager.get_config().get("browse_categories", [])
+            browse_titles = [c.get("title", "").lower().strip() for c in cfg_cats if c.get("title")]
+            browse_ids = [c.get("id", "").lower().strip() for c in cfg_cats if c.get("id")]
+            prod_cats = [c.lower().strip() for c in config_manager.get_product_categories()]
+            
+            builtin_cats = [
+                "power cables", "electrical wires", "house wires", "flexible/housewire",
+                "armoured cables", "unarmoured cables", "control cables", "conductors",
+                "conductor", "aerial bunched cable", "aerial bunched cables", "rubber cable",
+                "instrumentation wires"
+            ]
+            
+            all_known_cats = set(browse_titles + browse_ids + prod_cats + builtin_cats)
+            
+            if lower_msg in all_known_cats or any(bc == lower_msg for bc in browse_titles):
+                # Fast-path for Category Selection
+                all_prods = db.get_all_products()
+                cat_keywords = {
+                    "power cables": ["power"],
+                    "electrical wires": ["wire", "house", "flexible"],
+                    "house wires": ["wire", "house", "flexible"],
+                    "flexible/housewire": ["wire", "house", "flexible"],
+                    "armoured cables": ["armoured", "armored"],
+                    "unarmoured cables": ["unarmoured", "unarmored"],
+                    "control cables": ["control"],
+                    "conductors": ["conductor"],
+                    "conductor": ["conductor"],
+                    "aerial bunched cable": ["aerial", "arieal", "bunched", "abc"],
+                    "aerial bunched cables": ["aerial", "arieal", "bunched", "abc"],
+                    "rubber cable": ["rubber"],
+                    "instrumentation wires": ["instrumentation"]
+                }
+                
+                # Determine search keywords
+                if lower_msg in cat_keywords:
+                    kws = cat_keywords[lower_msg]
+                else:
+                    # Clean words for search
+                    clean_kw = re.sub(r'cat_', '', lower_msg).replace('_', ' ')
+                    kws = [w for w in clean_kw.split() if len(w) > 2] or [lower_msg]
+                
+                matching = [
+                    p for p in all_prods 
+                    if p.get("category", "").lower() == lower_msg
+                    or any(kw in p.get("name", "").lower() or kw in p.get("category", "").lower() for kw in kws)
+                ]
+                
+                if matching:
+                    show = matching[:5]
+                    total = len(matching)
+                    lines = [f"🔹 *{p['name']}*: ~INR {p['price_per_meter']}/m | {p.get('conductor','')} {p.get('size','')} | {p.get('core','')} Core(s)" for p in show]
+                    more_note = f"\n\n📋 *Showing {len(show)} of {total} available options.*" if total > len(show) else ""
+                    reply_text = (
+                        f"📦 *{lower_msg.title()}*\n\n"
+                        + "\n".join(lines)
+                        + more_note
+                        + "\n\n💡 *Prices are indicative and subject to daily metal rates.*"
+                        + "\n💬 Reply with a specific product name or size (e.g. *3.5C x 70 sqmm*) to get a formal quote!"
+                        + "\n🏭 *Custom specifications also available on request.*"
+                    )
+                else:
+                    reply_text = f"📦 We offer various options for *{lower_msg.title()}*. Please share your specific core count, conductor size, or conductor type (Copper/Aluminium) and we'll find the right product for you!"
+            else:
+                # Questions requiring complex reasoning or general product knowledge call Groq AI
+                ai_response = ai.get_ai_response(from_number, profile_name)
 
             
             reply_text = ai_response
