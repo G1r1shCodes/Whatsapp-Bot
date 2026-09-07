@@ -872,7 +872,7 @@ def get_product_categories_api(request: Request):
 async def add_product_category_api(request: Request):
     auth.require_auth(request)
     payload = await request.json()
-    name = (payload.get("name") or "").strip()
+    name = (payload.get("name") or payload.get("category") or "").strip()
     if not name or len(name) < 2:
         raise HTTPException(status_code=400, detail="Category name must be at least 2 characters.")
     if len(name) > 50:
