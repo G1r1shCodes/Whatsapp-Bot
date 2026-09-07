@@ -1528,6 +1528,31 @@ body {
     box-shadow: 0 2px 8px rgba(51, 65, 85, 0.25);
 }
 
+.btn-solid-danger {
+    background: #dc2626;
+    color: #ffffff !important;
+    border: 1px solid #b91c1c;
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius-md);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.btn-solid-danger:hover {
+    background: #b91c1c;
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+}
+
+.btn-solid-danger:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 /* Add Cable Button (Fallback) */
 .btn-add-cable {
     background: #0284c7;

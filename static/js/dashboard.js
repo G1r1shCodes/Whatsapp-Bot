@@ -907,16 +907,51 @@ function renderFilteredCatalog() {
     updateBulkDeleteBtnState(filteredProducts);
 }
 
+function deselectAllCatalogProducts() {
+    selectedProductNames.clear();
+    const rowCbs = document.querySelectorAll('.catalog-row-checkbox');
+    rowCbs.forEach(cb => cb.checked = false);
+    const selectAllCb = document.getElementById('select-all-catalog-checkbox');
+    if (selectAllCb) {
+        selectAllCb.checked = false;
+        selectAllCb.indeterminate = false;
+    }
+    updateBulkDeleteBtnState([]);
+}
+
 function updateBulkDeleteBtnState(currentFilteredProducts = []) {
     const bulkBtn = document.getElementById('bulk-delete-cables-btn');
     const countSpan = document.getElementById('bulk-delete-count');
     const selectAllCb = document.getElementById('select-all-catalog-checkbox');
+    const infoBanner = document.getElementById('catalog-info-banner');
 
     const count = selectedProductNames.size;
     if (countSpan) countSpan.textContent = count;
 
     if (bulkBtn) {
         bulkBtn.style.display = count > 0 ? 'inline-flex' : 'none';
+    }
+
+    if (infoBanner) {
+        if (count > 0) {
+            infoBanner.style.background = 'rgba(16, 185, 129, 0.08)';
+            infoBanner.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+            infoBanner.innerHTML = `
+                <i class="fa-solid fa-square-check text-emerald" style="color: #10b981;"></i>
+                <span style="font-weight: 600; color: var(--text-primary);">${count} product(s) selected</span>
+                <span style="margin: 0 6px; opacity: 0.4;">|</span>
+                <button id="deselect-all-btn" onclick="deselectAllCatalogProducts()" style="background: transparent; border: none; color: var(--accent-cyan); font-weight: 600; cursor: pointer; text-decoration: underline; padding: 0; font-size: 0.78rem;">
+                    Clear Selection
+                </button>
+            `;
+        } else {
+            infoBanner.style.background = 'rgba(6, 182, 212, 0.05)';
+            infoBanner.style.borderColor = 'rgba(6, 182, 212, 0.15)';
+            infoBanner.innerHTML = `
+                <i class="fa-solid fa-circle-info text-cyan"></i>
+                <span>Click on the Price or Stock fields in the table below to edit product details directly.</span>
+            `;
+        }
     }
 
     if (selectAllCb) {
