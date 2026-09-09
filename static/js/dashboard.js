@@ -535,17 +535,30 @@ if (saveLeadDetailsBtn) {
     });
 }
 
-async function loadChatHistory(phone) {
+let lastLeadChatSig = '';
+
+async function loadChatHistory(phone, isSilent = false) {
     const chatContainer = document.getElementById('chat-bubbles-container');
-    chatContainer.innerHTML = '<div class="text-center text-muted" style="padding: 2rem 0;"><i class="fa-solid fa-spinner fa-spin"></i> Loading messages...</div>';
+    if (!chatContainer) return;
+    
+    if (!isSilent) {
+        chatContainer.innerHTML = '<div class="text-center text-muted" style="padding: 2rem 0;"><i class="fa-solid fa-spinner fa-spin"></i> Loading messages...</div>';
+        lastLeadChatSig = '';
+    }
     
     try {
-        const res = await fetch(`/api/leads/${phone}/history`);
+        const res = await fetch(`/api/leads/${encodeURIComponent(phone)}/history`);
         const chats = await res.json();
         
+        const newSig = Array.isArray(chats) ? chats.map(c => `${c.id || ''}_${c.created_at || c.timestamp}_${c.body}`).join('|') : '';
+        if (isSilent && newSig === lastLeadChatSig) {
+            return; // No new messages, keep UI untouched
+        }
+        
+        lastLeadChatSig = newSig;
         chatContainer.innerHTML = '';
         
-        if (chats.length === 0) {
+        if (!chats || chats.length === 0) {
             chatContainer.innerHTML = '<div class="text-center text-muted" style="padding: 2rem 0;">No chat history found.</div>';
             return;
         }
@@ -553,7 +566,7 @@ async function loadChatHistory(phone) {
         chats.forEach(chat => {
             const isUser = chat.direction === 'inbound';
             const rowClass = isUser ? 'inbound' : 'outbound';
-            const timeStr = new Date(chat.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const timeStr = new Date(chat.timestamp || chat.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             
             // Clean text formatting for WhatsApp formatting: *bold* -> <strong>
             let formattedBody = (chat.body || '')
@@ -575,7 +588,9 @@ async function loadChatHistory(phone) {
         chatContainer.scrollTop = chatContainer.scrollHeight;
     } catch (e) {
         console.error('Error loading chats:', e);
-        chatContainer.innerHTML = '<div class="text-center text-rose-500" style="padding: 2rem 0;">Failed to load chat history.</div>';
+        if (!isSilent) {
+            chatContainer.innerHTML = '<div class="text-center text-rose-500" style="padding: 2rem 0;">Failed to load chat history.</div>';
+        }
     }
 }
 
@@ -2072,7 +2087,9 @@ function renderVisitorsList(visitors) {
     });
 }
 
-async function renderVisitorChat(visitor) {
+let lastVisitorChatSig = '';
+
+async function renderVisitorChat(visitor, isSilent = false) {
     const emptyState = document.getElementById('visitor-empty-state');
     const contentArea = document.getElementById('visitor-content-area');
     const phoneHeader = document.getElementById('visitor-phone-header');
@@ -2086,8 +2103,9 @@ async function renderVisitorChat(visitor) {
     if (phoneHeader) phoneHeader.textContent = `+${cleanPhone}`;
     if (waBtn) waBtn.href = `https://web.whatsapp.com/send?phone=${cleanPhone}`;
     
-    if (bubblesContainer) {
+    if (!isSilent && bubblesContainer) {
         bubblesContainer.innerHTML = '<div class="text-center" style="padding: 2rem; color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Loading chat...</div>';
+        lastVisitorChatSig = '';
     }
     
     try {
@@ -2095,9 +2113,16 @@ async function renderVisitorChat(visitor) {
         const chatLogs = await res.json();
         
         if (!bubblesContainer) return;
+        
+        const newSig = Array.isArray(chatLogs) ? chatLogs.map(c => `${c.id || ''}_${c.created_at || c.timestamp}_${c.body}`).join('|') : '';
+        if (isSilent && newSig === lastVisitorChatSig) {
+            return; // No new messages, keep UI untouched
+        }
+        
+        lastVisitorChatSig = newSig;
         bubblesContainer.innerHTML = '';
         
-        if (chatLogs.length === 0) {
+        if (!chatLogs || chatLogs.length === 0) {
             bubblesContainer.innerHTML = '<div class="text-center" style="padding: 2rem; color: var(--text-muted);">No messages logged.</div>';
             return;
         }
@@ -4215,5 +4240,25 @@ function updateChartThemes(theme) {
 
 // Initialize theme on load
 initTheme();
+
+// Realtime Chat & Visitor/Lead Polling (Every 3 seconds)
+function initRealtimePolling() {
+    if (window.dashboardRealtimeInterval) clearInterval(window.dashboardRealtimeInterval);
+    window.dashboardRealtimeInterval = setInterval(async () => {
+        try {
+            if (currentTab === 'leads-tab' && selectedLead && selectedLead.phone) {
+                await loadChatHistory(selectedLead.phone, true);
+            } else if (currentTab === 'visitors-tab' && selectedVisitor && selectedVisitor.phone) {
+                await renderVisitorChat(selectedVisitor, true);
+            }
+        } catch (err) {
+            // silent catch for background polling
+        }
+    }, 3000);
+}
+
+// Start realtime polling on load
+initRealtimePolling();
+
 
 
