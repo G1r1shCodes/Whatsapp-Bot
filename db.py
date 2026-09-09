@@ -749,12 +749,11 @@ def log_chat_message(phone, direction, body, profile_name=None):
         "body": body,
         "created_at": datetime.utcnow().isoformat() + "Z"
     }
-    if profile_name:
-        data["profile_name"] = profile_name
     res = request_supabase("chat_history", "POST", data=data)
     if res is None:
-        logger.error(f"Failed to insert chat history message for phone {target_phone} ({direction}). Check Supabase RLS policies or API keys.")
+        logger.error(f"Failed to insert chat history message for phone {target_phone} ({direction}). Check Supabase table schema or API keys.")
     return res
+
 
 def get_chat_history(phone, limit=50):
     if not phone:

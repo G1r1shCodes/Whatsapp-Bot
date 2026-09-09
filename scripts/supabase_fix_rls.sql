@@ -7,6 +7,10 @@ ALTER TABLE IF EXISTS leads DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS sessions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS products DISABLE ROW LEVEL SECURITY;
 
+-- Ensure chat_history has profile_name column
+ALTER TABLE IF EXISTS chat_history ADD COLUMN IF NOT EXISTS profile_name TEXT;
+
+
 -- OPTION B: Alternatively, if you want RLS enabled, grant full access to public/anon role:
 -- DROP POLICY IF EXISTS "Allow all access to chat_history" ON chat_history;
 -- CREATE POLICY "Allow all access to chat_history" ON chat_history FOR ALL TO public USING (true) WITH CHECK (true);
