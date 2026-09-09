@@ -86,7 +86,42 @@ def request_supabase(endpoint, method="GET", data=None, params=None):
         logger.error(f"Supabase API error on {endpoint} [{method}]: {e}")
         return None  # Return None on error so callers can distinguish from empty results
 
+def upload_file_to_supabase_storage(file_bytes: bytes, filename: str, content_type: str = "image/jpeg", bucket_name: str = "chat-media") -> str:
+    """Uploads binary file to Supabase Storage bucket and returns its permanent public URL."""
+    if not SUPABASE_URL or not SUPABASE_KEY or not file_bytes:
+        return ""
+    try:
+        url = f"{SUPABASE_URL}/storage/v1/object/{bucket_name}/{filename}"
+        headers = {
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type": content_type,
+            "x-upsert": "true"
+        }
+        res = http_client.post(url, content=file_bytes, headers=headers)
+        if res.status_code in (200, 201):
+            public_url = f"{SUPABASE_URL}/storage/v1/object/public/{bucket_name}/{filename}"
+            logger.info(f"Uploaded media to Supabase Storage: {public_url}")
+            return public_url
+        elif res.status_code == 404:
+            # Create bucket if it doesn't exist
+            b_url = f"{SUPABASE_URL}/storage/v1/bucket"
+            b_data = {"id": bucket_name, "name": bucket_name, "public": True}
+            b_res = http_client.post(b_url, json=b_data, headers=headers)
+            if b_res.status_code in (200, 201):
+                res2 = http_client.post(url, content=file_bytes, headers=headers)
+                if res2.status_code in (200, 201):
+                    public_url = f"{SUPABASE_URL}/storage/v1/object/public/{bucket_name}/{filename}"
+                    logger.info(f"Uploaded media to Supabase Storage after bucket creation: {public_url}")
+                    return public_url
+        logger.warning(f"Supabase storage upload returned status {res.status_code}: {res.text}")
+        return ""
+    except Exception as e:
+        logger.error(f"Error uploading to Supabase Storage: {e}")
+        return ""
+
 def init_db():
+
     # Database tables are initialized on Supabase via MCP SQL execute
     pass
 

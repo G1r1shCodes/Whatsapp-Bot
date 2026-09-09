@@ -90,9 +90,18 @@ def download_meta_media(media_id: str, mime_type: str = "image/jpeg") -> str:
         # Download media file with authorization header
         dl_res = http_client.get(media_url, headers=headers)
         if dl_res.status_code == 200:
+            file_bytes = dl_res.content
+            
+            # Save local copy
             with open(local_path, "wb") as f:
-                f.write(dl_res.content)
+                f.write(file_bytes)
             logger.info(f"Downloaded Meta media file to {local_path}")
+            
+            # Upload to Supabase Storage Bucket for permanent cloud URL
+            supa_url = db.upload_file_to_supabase_storage(file_bytes, filename, mime_type=mime_type)
+            if supa_url:
+                return supa_url
+                
             return f"/static/uploads/{filename}"
         else:
             logger.error(f"Failed to download Meta media file for {media_id}: {dl_res.status_code}")
