@@ -712,66 +712,65 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
             else:
                 # Questions requiring complex reasoning or general product knowledge call Groq AI
                 ai_response = ai.get_ai_response(from_number, profile_name)
-
-            
-            reply_text = ai_response
-            
-            # Parse specific tags
-            submit_match = re.search(r'\[LEAD_SUBMIT:\s*(\{.*?\})\s*\]', ai_response, re.DOTALL)
-            partial_match = re.search(r'\[LEAD_PARTIAL:\s*(\{.*?\})\s*\]', ai_response, re.DOTALL)
-            status_match = "[LEAD_STATUS_CHECK]" in ai_response
-            menu_match = "[SHOW_MAIN_MENU]" in ai_response
-            catalogue_match = "[SEND_CATALOGUE]" in ai_response
-            image_match = re.search(r'\[IMAGE:\s*(.+?)\s*\]', ai_response)
-            
-            if menu_match:
-                reply_text = reply_text.replace("[SHOW_MAIN_MENU]", "").strip()
+                reply_text = ai_response
                 
-            if catalogue_match:
-                reply_text = reply_text.replace("[SEND_CATALOGUE]", "").strip()
-                base_url = os.environ.get("BASE_URL", "https://whatsapp-bot-4ukk.onrender.com")
-                catalogue_url = f"{base_url}/catalogue/CATALOUGE.pdf"
-                # Send the text reply first, then the document
-                if reply_text:
-                    reply_text = reply_text.replace("**", "*")
-                    reply_text = re.sub(r'\n{3,}', '\n\n', reply_text).strip()
-                    db.log_chat_message(from_number, "outbound", reply_text)
-                    send_whatsapp_message(from_number, reply_text)
-                send_whatsapp_document(from_number, catalogue_url, "KDI_Power_Catalogue.pdf", caption="📄 KDI Power Product Catalogue")
-                return  # Early return — handled completely
-
-            if image_match:
-                image_file = image_match.group(1).strip()
-                reply_text = re.sub(r'\[IMAGE:\s*.+?\s*\]', '', reply_text).strip()
-
-            if partial_match:
-                try:
-                    lead_data = json.loads(partial_match.group(1))
-                    db.upsert_lead_from_chat(phone=from_number, profile_name=profile_name, lead_data=lead_data, status="Partial")
-                    reply_text = re.sub(r'\[LEAD_PARTIAL:\s*\{.*?\}\s*\]', '', reply_text, flags=re.DOTALL).strip()
-                except Exception as e:
-                    logger.error(f"Error parsing LEAD_PARTIAL tag: {e}")
-
-            if submit_match:
-                try:
-                    lead_data = json.loads(submit_match.group(1))
-                    db.upsert_lead_from_chat(phone=from_number, profile_name=profile_name, lead_data=lead_data, status="New")
-                    cleaned_text = re.sub(r'\[LEAD_SUBMIT:\s*\{.*?\}\s*\]', '', reply_text, flags=re.DOTALL).strip()
-                    success_msg = f"🎉 *Inquiry Submitted Successfully!*\n\nOur sales representatives are reviewing your requirements and will reach out shortly."
-                    reply_text = f"{cleaned_text}\n\n{success_msg}" if cleaned_text else success_msg
-                except Exception as e:
-                    logger.error(f"Error parsing LEAD_SUBMIT tag: {e}")
-                    reply_text = "I encountered an error submitting your quote request. Please try again."
+                # Parse specific tags
+                submit_match = re.search(r'\[LEAD_SUBMIT:\s*(\{.*?\})\s*\]', ai_response, re.DOTALL)
+                partial_match = re.search(r'\[LEAD_PARTIAL:\s*(\{.*?\})\s*\]', ai_response, re.DOTALL)
+                status_match = "[LEAD_STATUS_CHECK]" in ai_response
+                menu_match = "[SHOW_MAIN_MENU]" in ai_response
+                catalogue_match = "[SEND_CATALOGUE]" in ai_response
+                image_match = re.search(r'\[IMAGE:\s*(.+?)\s*\]', ai_response)
+                
+                if menu_match:
+                    reply_text = reply_text.replace("[SHOW_MAIN_MENU]", "").strip()
                     
-            elif status_match:
-                lead = db.get_lead_by_phone(from_number)
-                cleaned_text = ai_response.replace("[LEAD_STATUS_CHECK]", "").strip()
-                if lead:
-                    status_emoji = {"New": "🆕", "Contacted": "📞", "Quoted": "💰", "Won": "🎉", "Lost": "❌"}.get(lead["status"], "ℹ️")
-                    status_msg = f"📄 *Your Inquiry Status*\n\n🔹 *Inquiry ID:* #{lead['id']}\n🔹 *Product:* {lead['product_interest']}\n🔹 *Quantity:* {lead['quantity']}\n🔹 *Status:* {status_emoji} *{lead['status']}*\n🔹 *Updated:* {lead['updated_at'][:16]}"
-                else:
-                    status_msg = "❌ No active inquiry found for your number. Feel free to request a quote by chatting with me!"
-                reply_text = f"{cleaned_text}\n\n{status_msg}" if cleaned_text else status_msg
+                if catalogue_match:
+                    reply_text = reply_text.replace("[SEND_CATALOGUE]", "").strip()
+                    base_url = os.environ.get("BASE_URL", "https://whatsapp-bot-4ukk.onrender.com")
+                    catalogue_url = f"{base_url}/catalogue/CATALOUGE.pdf"
+                    # Send the text reply first, then the document
+                    if reply_text:
+                        reply_text = reply_text.replace("**", "*")
+                        reply_text = re.sub(r'\n{3,}', '\n\n', reply_text).strip()
+                        db.log_chat_message(from_number, "outbound", reply_text)
+                        send_whatsapp_message(from_number, reply_text)
+                    send_whatsapp_document(from_number, catalogue_url, "KDI_Power_Catalogue.pdf", caption="📄 KDI Power Product Catalogue")
+                    return  # Early return — handled completely
+
+                if image_match:
+                    image_file = image_match.group(1).strip()
+                    reply_text = re.sub(r'\[IMAGE:\s*.+?\s*\]', '', reply_text).strip()
+
+                if partial_match:
+                    try:
+                        lead_data = json.loads(partial_match.group(1))
+                        db.upsert_lead_from_chat(phone=from_number, profile_name=profile_name, lead_data=lead_data, status="Partial")
+                        reply_text = re.sub(r'\[LEAD_PARTIAL:\s*\{.*?\}\s*\]', '', reply_text, flags=re.DOTALL).strip()
+                    except Exception as e:
+                        logger.error(f"Error parsing LEAD_PARTIAL tag: {e}")
+
+                if submit_match:
+                    try:
+                        lead_data = json.loads(submit_match.group(1))
+                        db.upsert_lead_from_chat(phone=from_number, profile_name=profile_name, lead_data=lead_data, status="New")
+                        cleaned_text = re.sub(r'\[LEAD_SUBMIT:\s*\{.*?\}\s*\]', '', reply_text, flags=re.DOTALL).strip()
+                        success_msg = f"🎉 *Inquiry Submitted Successfully!*\n\nOur sales representatives are reviewing your requirements and will reach out shortly."
+                        reply_text = f"{cleaned_text}\n\n{success_msg}" if cleaned_text else success_msg
+                    except Exception as e:
+                        logger.error(f"Error parsing LEAD_SUBMIT tag: {e}")
+                        reply_text = "I encountered an error submitting your quote request. Please try again."
+                        
+                elif status_match:
+                    lead = db.get_lead_by_phone(from_number)
+                    cleaned_text = ai_response.replace("[LEAD_STATUS_CHECK]", "").strip()
+                    if lead:
+                        status_emoji = {"New": "🆕", "Contacted": "📞", "Quoted": "💰", "Won": "🎉", "Lost": "❌"}.get(lead["status"], "ℹ️")
+                        status_msg = f"📄 *Your Inquiry Status*\n\n🔹 *Inquiry ID:* #{lead['id']}\n🔹 *Product:* {lead['product_interest']}\n🔹 *Quantity:* {lead['quantity']}\n🔹 *Status:* {status_emoji} *{lead['status']}*\n🔹 *Updated:* {lead['updated_at'][:16]}"
+                    else:
+                        status_msg = "❌ No active inquiry found for your number. Feel free to request a quote by chatting with me!"
+                    reply_text = f"{cleaned_text}\n\n{status_msg}" if cleaned_text else status_msg
+
             
         reply_text = reply_text.replace("**", "*")
         reply_text = re.sub(r'\n{3,}', '\n\n', reply_text).strip()

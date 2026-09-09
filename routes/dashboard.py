@@ -327,10 +327,13 @@ def delete_lead_api(lead_id: int, request: Request):
     db.delete_lead(lead_id)
     return {"success": True, "lead_id": lead_id, "message": "Lead deleted successfully."}
 
-@router.get("/api/leads/{phone}/history")
+@router.get("/api/leads/{phone:path}/history")
 def get_lead_history_api(phone: str, request: Request):
     auth.require_auth(request)
-    return db.get_chat_history(phone)
+    import urllib.parse
+    clean_phone = urllib.parse.unquote(phone).strip()
+    return db.get_chat_history(clean_phone)
+
 
 @router.post("/api/leads/send-message")
 async def send_manager_message_api(payload: ManagerMessagePayload, request: Request):

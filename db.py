@@ -34,7 +34,8 @@ logger = get_logger(__name__)
 load_env()
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_KEY = SUPABASE_SERVICE_ROLE_KEY or os.environ.get("SUPABASE_KEY")
 
 http_client = httpx.Client(timeout=10.0)
 
@@ -750,7 +751,10 @@ def log_chat_message(phone, direction, body, profile_name=None):
     }
     if profile_name:
         data["profile_name"] = profile_name
-    request_supabase("chat_history", "POST", data=data)
+    res = request_supabase("chat_history", "POST", data=data)
+    if res is None:
+        logger.error(f"Failed to insert chat history message for phone {target_phone} ({direction}). Check Supabase RLS policies or API keys.")
+    return res
 
 def get_chat_history(phone, limit=50):
     if not phone:
@@ -761,12 +765,12 @@ def get_chat_history(phone, limit=50):
     filters = []
     if raw:
         filters.append(f"phone.eq.{raw}")
-    if plus_phone:
+    if plus_phone and plus_phone != raw:
         filters.append(f"phone.eq.{plus_phone}")
-    if clean_digits:
+    if clean_digits and clean_digits != raw:
         filters.append(f"phone.eq.{clean_digits}")
     if last10:
-        filters.append(f"phone.ilike.*{last10}")
+        filters.append(f"phone.ilike.%{last10}")
         
     unique_filters = list(dict.fromkeys(filters))
     or_clause = f"({','.join(unique_filters)})"
@@ -777,6 +781,12 @@ def get_chat_history(phone, limit=50):
         "limit": str(limit)
     }
     res = request_supabase("chat_history", "GET", params=params) or []
+    
+    # Fallback checks if PostgREST OR clause returned empty due to formatting
+    if not res and last10:
+        res = request_supabase("chat_history", "GET", params={"phone": f"ilike.%{last10}", "order": "created_at.desc", "limit": str(limit)}) or []
+    if not res and raw:
+        res = request_supabase("chat_history", "GET", params={"phone": f"eq.{raw}", "order": "created_at.desc", "limit": str(limit)}) or []
     
     seen = set()
     deduped = []
