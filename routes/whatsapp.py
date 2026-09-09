@@ -642,6 +642,13 @@ def process_incoming_message(from_number: str, incoming_msg: str, profile_name: 
             return  # Early return — document is sent, no further processing needed
         elif lower_msg in ["website", "website link", "link", "company website", "share website", "share link", "company link", "your website", "share your website", "share website link"]:
             reply_text = "🌐 *KDI Power Website*\n\nVisit us at: https://kdipower.com/\n\nBrowse our full range of electrical cables, wires, and get instant quotes! 💡"
+        elif lower_msg.startswith("📷 [photo]") or lower_msg.startswith("📄 [document") or lower_msg.startswith("🎵 [audio") or lower_msg.startswith("🎥 [video") or lower_msg.startswith("🎨 [sticker"):
+            media_kind = "photo" if "photo" in lower_msg else ("document" if "document" in lower_msg else "file")
+            reply_text = (
+                f"📷 *{media_kind.title()} Received!*\n\n"
+                f"Thank you for sharing the {media_kind}. Our team has received it! 📥\n\n"
+                f"If you need a price quote or technical specifications for a specific cable or wire size, please let us know! 💬"
+            )
         elif lower_msg == "browse products":
             reply_text = ""
             cat_match = True
@@ -850,6 +857,25 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
                         btn_obj = msg.get("button", {})
                         incoming_msg = btn_obj.get("text") or btn_obj.get("payload") or ""
                         incoming_msg = incoming_msg.strip()
+                    elif msg_type == "image":
+                        img_obj = msg.get("image", {})
+                        caption = img_obj.get("caption", "").strip()
+                        incoming_msg = f"📷 [Photo] {caption}".strip() if caption else "📷 [Photo]"
+                    elif msg_type == "document":
+                        doc_obj = msg.get("document", {})
+                        filename = doc_obj.get("filename", "").strip()
+                        caption = doc_obj.get("caption", "").strip()
+                        doc_info = filename or caption or ""
+                        incoming_msg = f"📄 [Document: {doc_info}]".strip() if doc_info else "📄 [Document]"
+                    elif msg_type == "audio":
+                        incoming_msg = "🎵 [Audio / Voice Note]"
+                    elif msg_type == "video":
+                        incoming_msg = "🎥 [Video]"
+                    elif msg_type == "sticker":
+                        incoming_msg = "🎨 [Sticker]"
+                    elif msg_type == "location":
+                        loc = msg.get("location", {})
+                        incoming_msg = f"📍 [Location: {loc.get('latitude')}, {loc.get('longitude')}]"
                     
                     if not incoming_msg:
                         continue
