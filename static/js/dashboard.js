@@ -556,7 +556,7 @@ async function loadChatHistory(phone) {
             const timeStr = new Date(chat.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             
             // Clean text formatting for WhatsApp formatting: *bold* -> <strong>
-            let formattedBody = chat.body
+            let formattedBody = (chat.body || '')
                 .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
                 .replace(/\n/g, '<br>');
                 

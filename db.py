@@ -1,6 +1,22 @@
 import os
+import re
 import httpx
 from datetime import datetime
+
+def normalize_phone(phone):
+    """Normalizes phone input into (plus_phone, clean_digits, last10).
+    Example: '+2347074702099' -> ('+2347074702099', '2347074702099', '7074702099')
+    """
+    if not phone:
+        return "", "", ""
+    s_phone = str(phone).strip()
+    clean = re.sub(r'\D', '', s_phone)
+    if not clean:
+        return s_phone, s_phone, s_phone
+    plus = f"+{clean}"
+    last10 = clean[-10:] if len(clean) >= 10 else clean
+    return plus, clean, last10
+
 # Helper to load .env variables manually
 def load_env():
     env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -465,8 +481,26 @@ def delete_lead(lead_id):
     request_supabase("leads", "DELETE", params=params)
 
 def get_lead_by_phone(phone):
+    if not phone:
+        return None
+    plus_phone, clean_digits, last10 = normalize_phone(phone)
+    raw = str(phone).strip()
+    
+    filters = []
+    if raw:
+        filters.append(f"phone.eq.{raw}")
+    if plus_phone:
+        filters.append(f"phone.eq.{plus_phone}")
+    if clean_digits:
+        filters.append(f"phone.eq.{clean_digits}")
+    if last10:
+        filters.append(f"phone.ilike.*{last10}")
+        
+    unique_filters = list(dict.fromkeys(filters))
+    or_clause = f"({','.join(unique_filters)})"
+    
     params = {
-        "phone": f"eq.{phone}",
+        "or": or_clause,
         "order": "created_at.desc",
         "limit": "1"
     }
@@ -706,8 +740,10 @@ def get_product_categories():
 
 # Chat History loggers
 def log_chat_message(phone, direction, body, profile_name=None):
+    plus_phone, clean_digits, _ = normalize_phone(phone)
+    target_phone = plus_phone if plus_phone else str(phone).strip()
     data = {
-        "phone": phone,
+        "phone": target_phone,
         "direction": direction,
         "body": body,
         "created_at": datetime.utcnow().isoformat() + "Z"
@@ -717,50 +753,106 @@ def log_chat_message(phone, direction, body, profile_name=None):
     request_supabase("chat_history", "POST", data=data)
 
 def get_chat_history(phone, limit=50):
+    if not phone:
+        return []
+    plus_phone, clean_digits, last10 = normalize_phone(phone)
+    raw = str(phone).strip()
+    
+    filters = []
+    if raw:
+        filters.append(f"phone.eq.{raw}")
+    if plus_phone:
+        filters.append(f"phone.eq.{plus_phone}")
+    if clean_digits:
+        filters.append(f"phone.eq.{clean_digits}")
+    if last10:
+        filters.append(f"phone.ilike.*{last10}")
+        
+    unique_filters = list(dict.fromkeys(filters))
+    or_clause = f"({','.join(unique_filters)})"
+    
     params = {
-        "phone": f"eq.{phone}",
+        "or": or_clause,
         "order": "created_at.desc",
         "limit": str(limit)
     }
     res = request_supabase("chat_history", "GET", params=params) or []
-    # Reverse to get chronological order (oldest first)
-    res = list(reversed(res))
+    
+    seen = set()
+    deduped = []
     for row in res:
-        row["timestamp"] = row["created_at"]
-    return res
+        key = row.get("id") or f"{row.get('created_at')}_{row.get('body')}_{row.get('direction')}"
+        if key not in seen:
+            seen.add(key)
+            row["timestamp"] = row.get("created_at", "")
+            deduped.append(row)
+            
+    # Reverse to get chronological order (oldest first)
+    return list(reversed(deduped))
 
 def get_visitor_chats():
     """Returns a list of chat contacts who are NOT registered in the leads table."""
-    all_chats = request_supabase("chat_history", "GET", params={"order": "created_at.desc", "limit": "500"}) or []
-    all_leads = request_supabase("leads", "GET", params={"limit": "500"}) or []
+    all_chats = request_supabase("chat_history", "GET", params={"order": "created_at.desc", "limit": "1000"}) or []
+    all_leads = request_supabase("leads", "GET", params={"limit": "1000"}) or []
     
-    lead_phones = set(l.get("phone") for l in all_leads if l.get("phone"))
+    lead_phones = set()
+    for l in all_leads:
+        lp = l.get("phone")
+        if lp:
+            lead_phones.add(str(lp).strip())
+            plus_lp, clean_lp, last10_lp = normalize_phone(lp)
+            if plus_lp:
+                lead_phones.add(plus_lp)
+            if clean_lp:
+                lead_phones.add(clean_lp)
+            if last10_lp:
+                lead_phones.add(last10_lp)
     
     visitors_map = {}
     for chat in all_chats:
-        phone = chat.get("phone")
-        if not phone or phone in lead_phones:
+        raw_phone = chat.get("phone")
+        if not raw_phone:
             continue
+            
+        plus_p, clean_p, last10_p = normalize_phone(raw_phone)
+        canonical_key = plus_p if plus_p else str(raw_phone).strip()
         
-        if phone not in visitors_map:
-            visitors_map[phone] = {
-                "phone": phone,
-                "name": f"Visitor ({phone[-4:] if len(phone)>=4 else phone})",
+        is_lead = (
+            raw_phone in lead_phones or
+            (plus_p and plus_p in lead_phones) or
+            (clean_p and clean_p in lead_phones) or
+            (last10_p and last10_p in lead_phones)
+        )
+        if is_lead:
+            continue
+            
+        if canonical_key not in visitors_map:
+            profile_name = chat.get("profile_name")
+            display_name = profile_name if profile_name else f"Visitor ({clean_p[-4:] if len(clean_p)>=4 else canonical_key})"
+            visitors_map[canonical_key] = {
+                "phone": canonical_key,
+                "name": display_name,
                 "last_message": chat.get("body", ""),
                 "direction": chat.get("direction", "inbound"),
                 "last_active": chat.get("created_at", ""),
                 "message_count": 1
             }
         else:
-            visitors_map[phone]["message_count"] += 1
+            visitors_map[canonical_key]["message_count"] += 1
+            if chat.get("profile_name") and visitors_map[canonical_key]["name"].startswith("Visitor"):
+                visitors_map[canonical_key]["name"] = chat.get("profile_name")
             
     visitors_list = list(visitors_map.values())
     visitors_list.sort(key=lambda x: x["last_active"], reverse=True)
     return visitors_list
 
 def delete_visitor_chats(phone):
-    """Deletes chat history for a single non-lead visitor phone."""
-    request_supabase("chat_history", "DELETE", params={"phone": f"eq.{phone}"})
+    """Deletes chat history for a single non-lead visitor phone across all number variants."""
+    plus_phone, clean_digits, _ = normalize_phone(phone)
+    targets = list(dict.fromkeys([phone, plus_phone, clean_digits]))
+    for p in targets:
+        if p:
+            request_supabase("chat_history", "DELETE", params={"phone": f"eq.{p}"})
 
 def convert_visitor_to_lead(phone, context="", extracted_details=None):
     """Creates a lead record from a non-lead visitor chat using AI-extracted or default details.
@@ -769,9 +861,12 @@ def convert_visitor_to_lead(phone, context="", extracted_details=None):
     if existing:
         return "exists"
 
+    plus_phone, clean_digits, _ = normalize_phone(phone)
+    target_phone = plus_phone if plus_phone else str(phone).strip()
+
     details = extracted_details or {}
     data = {
-        "phone": phone,
+        "phone": target_phone,
         "name": details.get("name") or "Unknown",
         "company": details.get("company") or "Unknown",
         "email": details.get("email") or "",
@@ -789,15 +884,12 @@ def convert_visitor_to_lead(phone, context="", extracted_details=None):
 def clear_visitor_chats():
     """Deletes chat history for every phone that is not a registered lead.
     Returns the number of visitor chats deleted."""
-    all_chats = request_supabase("chat_history", "GET", params={"order": "created_at.desc", "limit": "500"}) or []
-    all_leads = request_supabase("leads", "GET", params={"limit": "500"}) or []
-
-    lead_phones = set(l.get("phone") for l in all_leads if l.get("phone"))
-    visitor_phones = set(c.get("phone") for c in all_chats if c.get("phone") and c.get("phone") not in lead_phones)
-
-    for phone in visitor_phones:
-        request_supabase("chat_history", "DELETE", params={"phone": f"eq.{phone}"})
-    return len(visitor_phones)
+    visitors = get_visitor_chats()
+    deleted_count = 0
+    for v in visitors:
+        delete_visitor_chats(v["phone"])
+        deleted_count += 1
+    return deleted_count
 
 def get_all_outbound_messages():
     """Returns history of direct manager outbound messages."""
