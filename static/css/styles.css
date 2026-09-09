@@ -4093,5 +4093,28 @@ select option:checked {
     }
 }
 
+/* ── Chat Media Thumbnail Styles ─────────────────────────── */
+.chat-media-wrapper {
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+.chat-photo-thumbnail {
+    max-width: 250px;
+    max-height: 250px;
+    object-fit: cover;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    display: block;
+}
+
+.chat-photo-thumbnail:hover {
+    transform: scale(1.02);
+    opacity: 0.95;
+}
+
+
 
 

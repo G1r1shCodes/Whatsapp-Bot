@@ -56,7 +56,54 @@ def extract_meta_error_message(res_text: str) -> str:
     return res_str
 
 
+def download_meta_media(media_id: str, mime_type: str = "image/jpeg") -> str:
+    """Downloads media binary from Meta WhatsApp Cloud API and saves it locally under static/uploads/."""
+    if not media_id or not META_ACCESS_TOKEN:
+        return ""
+    try:
+        url = f"https://graph.facebook.com/v21.0/{media_id}"
+        headers = {"Authorization": f"Bearer {META_ACCESS_TOKEN}"}
+        res = http_client.get(url, headers=headers)
+        if res.status_code != 200:
+            logger.error(f"Failed to fetch Meta media info for {media_id}: {res.status_code} - {res.text}")
+            return ""
+        
+        media_url = res.json().get("url")
+        if not media_url:
+            return ""
+            
+        ext = ".jpg"
+        if "png" in mime_type:
+            ext = ".png"
+        elif "webp" in mime_type:
+            ext = ".webp"
+        elif "pdf" in mime_type:
+            ext = ".pdf"
+        elif "gif" in mime_type:
+            ext = ".gif"
+            
+        filename = f"{media_id}{ext}"
+        upload_dir = os.path.join("static", "uploads")
+        os.makedirs(upload_dir, exist_ok=True)
+        local_path = os.path.join(upload_dir, filename)
+        
+        # Download media file with authorization header
+        dl_res = http_client.get(media_url, headers=headers)
+        if dl_res.status_code == 200:
+            with open(local_path, "wb") as f:
+                f.write(dl_res.content)
+            logger.info(f"Downloaded Meta media file to {local_path}")
+            return f"/static/uploads/{filename}"
+        else:
+            logger.error(f"Failed to download Meta media file for {media_id}: {dl_res.status_code}")
+            return ""
+    except Exception as e:
+        logger.error(f"Error downloading Meta media {media_id}: {e}")
+        return ""
+
+
 def send_whatsapp_message(to_phone: str, text: str, image_url: str = None, show_menu: bool = False, show_categories_menu: bool = False):
+
     """Sends a message to the user via Meta Cloud API."""
     if not META_ACCESS_TOKEN or not META_PHONE_NUMBER_ID:
         logger.error("Missing Meta API credentials in environment variables.")
@@ -859,14 +906,30 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
                         incoming_msg = incoming_msg.strip()
                     elif msg_type == "image":
                         img_obj = msg.get("image", {})
+                        media_id = img_obj.get("id")
                         caption = img_obj.get("caption", "").strip()
-                        incoming_msg = f"📷 [Photo] {caption}".strip() if caption else "📷 [Photo]"
+                        mime_type = img_obj.get("mime_type", "image/jpeg")
+                        
+                        img_url = download_meta_media(media_id, mime_type) if media_id else ""
+                        if img_url:
+                            img_html = f'<div class="chat-media-wrapper"><img src="{img_url}" class="chat-photo-thumbnail" alt="Customer Photo" onclick="window.open(\'{img_url}\', \'_blank\')" title="Click to open full photo"></div>'
+                            incoming_msg = f"{img_html}<br>{caption}".strip() if caption else img_html
+                        else:
+                            incoming_msg = f"📷 [Photo] {caption}".strip() if caption else "📷 [Photo]"
                     elif msg_type == "document":
                         doc_obj = msg.get("document", {})
-                        filename = doc_obj.get("filename", "").strip()
+                        media_id = doc_obj.get("id")
+                        filename = doc_obj.get("filename", "Document").strip()
                         caption = doc_obj.get("caption", "").strip()
-                        doc_info = filename or caption or ""
-                        incoming_msg = f"📄 [Document: {doc_info}]".strip() if doc_info else "📄 [Document]"
+                        mime_type = doc_obj.get("mime_type", "application/pdf")
+                        
+                        doc_url = download_meta_media(media_id, mime_type) if media_id else ""
+                        doc_info = filename or caption or "Document"
+                        if doc_url:
+                            doc_html = f'<div class="chat-media-wrapper"><a href="{doc_url}" target="_blank" style="color: #06b6d4; font-weight: 600; text-decoration: underline;"><i class="fa-solid fa-file-pdf"></i> {doc_info}</a></div>'
+                            incoming_msg = f"{doc_html}<br>{caption}".strip() if caption else doc_html
+                        else:
+                            incoming_msg = f"📄 [Document: {doc_info}]"
                     elif msg_type == "audio":
                         incoming_msg = "🎵 [Audio / Voice Note]"
                     elif msg_type == "video":
