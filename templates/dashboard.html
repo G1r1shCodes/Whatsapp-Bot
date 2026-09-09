@@ -68,10 +68,16 @@
             </div>
         </aside>
 
+        <!-- Mobile Sidebar Overlay Backdrop -->
+        <div class="mobile-sidebar-overlay" id="mobile-sidebar-overlay"></div>
+
         <!-- Main Content Area -->
         <main class="main-content">
             <!-- Header -->
             <header class="top-header">
+                <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Toggle Navigation">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
                 <div class="header-title">
                     <h1 id="page-title">Analytics Overview</h1>
                     <p class="text-secondary" id="page-subtitle">Real-time performance and insights</p>
@@ -212,6 +218,9 @@
                             </div>
                             <div class="detail-content hidden" id="detail-content-area">
                                 <div class="detail-header">
+                                    <button class="mobile-back-btn" id="mobile-lead-back-btn" type="button">
+                                        <i class="fa-solid fa-chevron-left"></i> Back
+                                    </button>
                                     <div class="customer-profile">
                                         <div class="customer-avatar" id="detail-avatar">RK</div>
                                         <div class="customer-info">
@@ -337,6 +346,9 @@
                             </div>
                             <div class="detail-content hidden" id="visitor-content-area">
                                 <div class="detail-header">
+                                    <button class="mobile-back-btn" id="mobile-visitor-back-btn" type="button">
+                                        <i class="fa-solid fa-chevron-left"></i> Back
+                                    </button>
                                     <div class="customer-profile">
                                         <div class="customer-avatar" id="visitor-avatar" style="background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan);">VC</div>
                                         <div class="customer-info">

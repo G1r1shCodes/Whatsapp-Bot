@@ -407,6 +407,10 @@ async function loadLeadsData() {
 function selectLead(lead) {
     selectedLead = lead;
     
+    // Open detail panel on phone screens
+    const leadsLayout = document.querySelector('#leads-tab .inbox-layout');
+    if (leadsLayout) leadsLayout.classList.add('mobile-detail-open');
+
     // Highlight active card
     document.querySelectorAll('.lead-item').forEach(item => item.classList.remove('active'));
     const activeCard = document.querySelector(`.lead-item[data-id="${lead.id}"]`);
@@ -2096,6 +2100,10 @@ async function renderVisitorChat(visitor, isSilent = false) {
     const waBtn = document.getElementById('visitor-wa-btn');
     const bubblesContainer = document.getElementById('visitor-chat-bubbles');
     
+    // Open detail panel on phone screens
+    const visitorLayout = document.querySelector('#visitors-tab .inbox-layout');
+    if (visitorLayout) visitorLayout.classList.add('mobile-detail-open');
+
     if (emptyState) emptyState.classList.add('hidden');
     if (contentArea) contentArea.classList.remove('hidden');
     
@@ -4259,6 +4267,55 @@ function initRealtimePolling() {
 
 // Start realtime polling on load
 initRealtimePolling();
+
+// Mobile UI & Navigation Event Handlers
+function initMobileUI() {
+    const mobileMenuBtn = document.getElementById('mobile-menu-toggle');
+    const mobileOverlay = document.getElementById('mobile-sidebar-overlay');
+    const sidebar = document.querySelector('.sidebar');
+    const leadBackBtn = document.getElementById('mobile-lead-back-btn');
+    const visitorBackBtn = document.getElementById('mobile-visitor-back-btn');
+
+    if (mobileMenuBtn && sidebar) {
+        mobileMenuBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('active');
+            if (mobileOverlay) mobileOverlay.classList.toggle('active');
+        });
+    }
+
+    if (mobileOverlay && sidebar) {
+        mobileOverlay.addEventListener('click', () => {
+            sidebar.classList.remove('active');
+            mobileOverlay.classList.remove('active');
+        });
+    }
+
+    // Auto-close drawer when navigating tabs on mobile
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+            if (sidebar) sidebar.classList.remove('active');
+            if (mobileOverlay) mobileOverlay.classList.remove('active');
+        });
+    });
+
+    // Mobile Back Buttons
+    if (leadBackBtn) {
+        leadBackBtn.addEventListener('click', () => {
+            const leadsLayout = document.querySelector('#leads-tab .inbox-layout');
+            if (leadsLayout) leadsLayout.classList.remove('mobile-detail-open');
+        });
+    }
+
+    if (visitorBackBtn) {
+        visitorBackBtn.addEventListener('click', () => {
+            const visitorLayout = document.querySelector('#visitors-tab .inbox-layout');
+            if (visitorLayout) visitorLayout.classList.remove('mobile-detail-open');
+        });
+    }
+}
+
+initMobileUI();
+
 
 
 
