@@ -892,25 +892,25 @@ function renderFilteredCatalog() {
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td style="text-align: center;">
-                <input type="checkbox" class="catalog-row-checkbox" data-name="${escapeHtml(product.name || '')}" ${isChecked ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px; accent-color: #10b981;">
+            <td data-label="Select" style="text-align: center;">
+                <input type="checkbox" class="catalog-row-checkbox" data-name="${escapeHtml(product.name || '')}" ${isChecked ? 'checked' : ''} style="cursor: pointer; width: 18px; height: 18px; accent-color: #10b981;">
             </td>
-            <td><span class="text-secondary">${escapeHtml(product.category || '')}</span></td>
-            <td><strong>${escapeHtml(product.name || '')}</strong></td>
-            <td>${escapeHtml(product.conductor || '')}</td>
-            <td>${escapeHtml(product.size || '')}</td>
-            <td>${product.core ? product.core + ' core' : '-'}</td>
-            <td>
+            <td data-label="Category"><span class="text-secondary">${escapeHtml(product.category || '')}</span></td>
+            <td data-label="Product Name"><strong>${escapeHtml(product.name || '')}</strong></td>
+            <td data-label="Conductor">${escapeHtml(product.conductor || '')}</td>
+            <td data-label="Size">${escapeHtml(product.size || '')}</td>
+            <td data-label="Core">${product.core ? product.core + ' core' : '-'}</td>
+            <td data-label="Price / Meter">
                 <span class="editable-price" data-name="${escapeHtml(product.name || '')}">
                     ${product.price_per_meter !== null && product.price_per_meter !== undefined ? 'INR ' + Number(product.price_per_meter).toFixed(2) : 'N/A'} <i class="fa-solid fa-pen" style="font-size: 0.65rem; opacity: 0.4; margin-left: 4px;"></i>
                 </span>
             </td>
-            <td>
+            <td data-label="Stock Status">
                 <select class="catalog-status-select ${stockClass}" data-name="${escapeHtml(product.name || '')}">
                     ${stockOptions}
                 </select>
             </td>
-            <td>
+            <td data-label="Action">
                 <button class="btn-delete-product" data-name="${escapeHtml(product.name || '')}" title="Delete this product">
                     <i class="fa-solid fa-trash"></i>
                 </button>
