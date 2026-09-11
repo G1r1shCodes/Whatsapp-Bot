@@ -57,12 +57,41 @@ function formatDateTime(isoString) {
 }
 
 // -------------------------------------------------------------
+// Mobile Sidebar Menu & Overlay Toggle
+// -------------------------------------------------------------
+const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+const sidebar = document.querySelector('.sidebar');
+const mobileSidebarOverlay = document.getElementById('mobile-sidebar-overlay');
+
+function closeMobileSidebar() {
+    if (sidebar) sidebar.classList.remove('active');
+    if (mobileSidebarOverlay) mobileSidebarOverlay.classList.remove('active');
+}
+
+if (mobileMenuToggle && sidebar) {
+    mobileMenuToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sidebar.classList.toggle('active');
+        if (mobileSidebarOverlay) mobileSidebarOverlay.classList.toggle('active');
+    });
+}
+
+if (mobileSidebarOverlay) {
+    mobileSidebarOverlay.addEventListener('click', () => {
+        closeMobileSidebar();
+    });
+}
+
+// -------------------------------------------------------------
 // Tab Navigation
 // -------------------------------------------------------------
 navItems.forEach(item => {
     item.addEventListener('click', () => {
         const targetTab = item.getAttribute('data-tab');
-        if (currentTab === targetTab) return;
+        if (currentTab === targetTab) {
+            closeMobileSidebar();
+            return;
+        }
         
         if (!document.startViewTransition) {
             switchTab(targetTab, item);
@@ -75,6 +104,7 @@ navItems.forEach(item => {
 });
 
 function switchTab(targetTab, activeItem) {
+    closeMobileSidebar();
     // Update active class
     navItems.forEach(btn => btn.classList.remove('active'));
     activeItem.classList.add('active');
