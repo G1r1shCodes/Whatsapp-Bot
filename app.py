@@ -38,6 +38,45 @@ async def health_check():
     """Public endpoint for cron jobs to keep the service awake."""
     return JSONResponse({"status": "ok", "message": "Service is awake"})
 
+@app.get("/health/db")
+async def health_db():
+    """Diagnostic endpoint to verify live Supabase connectivity."""
+    import httpx
+    if not db.SUPABASE_URL or not db.SUPABASE_KEY:
+        return JSONResponse({
+            "status": "error",
+            "message": "SUPABASE_URL or SUPABASE_KEY missing in environment",
+            "url_set": bool(db.SUPABASE_URL),
+            "key_set": bool(db.SUPABASE_KEY)
+        }, status_code=500)
+
+    url = f"{db.SUPABASE_URL}/rest/v1/leads"
+    headers = {
+        "apikey": db.SUPABASE_KEY,
+        "Authorization": f"Bearer {db.SUPABASE_KEY}",
+        "Content-Type": "application/json"
+    }
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.get(url, headers=headers, params={"limit": 1})
+            is_ok = resp.status_code == 200
+            data = resp.json() if is_ok else None
+            return JSONResponse({
+                "status": "ok" if is_ok else "error",
+                "status_code": resp.status_code,
+                "configured_url": db.SUPABASE_URL,
+                "leads_found": len(data) if isinstance(data, list) else 0,
+                "response": resp.text[:200]
+            }, status_code=200 if is_ok else 502)
+    except Exception as e:
+        return JSONResponse({
+            "status": "exception",
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+            "configured_url": db.SUPABASE_URL
+        }, status_code=500)
+
+
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     return FileResponse("static/images/kdi-logo-90x90.png")
