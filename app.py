@@ -50,12 +50,15 @@ async def health_db():
             "key_set": bool(db.SUPABASE_KEY)
         }, status_code=500)
 
-    url = f"{db.SUPABASE_URL}/rest/v1/leads"
+    clean_url = (db.SUPABASE_URL or "").strip().rstrip("/")
+    clean_key = (db.SUPABASE_KEY or "").strip()
+    url = f"{clean_url}/rest/v1/leads"
     headers = {
-        "apikey": db.SUPABASE_KEY,
-        "Authorization": f"Bearer {db.SUPABASE_KEY}",
+        "apikey": clean_key,
+        "Authorization": f"Bearer {clean_key}",
         "Content-Type": "application/json"
     }
+
     try:
         with httpx.Client(timeout=10.0) as client:
             resp = client.get(url, headers=headers, params={"limit": 1})

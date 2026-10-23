@@ -33,9 +33,10 @@ logger = get_logger(__name__)
 
 load_env()
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-SUPABASE_KEY = SUPABASE_SERVICE_ROLE_KEY or os.environ.get("SUPABASE_KEY")
+SUPABASE_URL = (os.environ.get("SUPABASE_URL") or "").strip().rstrip("/")
+SUPABASE_SERVICE_ROLE_KEY = (os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
+SUPABASE_KEY = (SUPABASE_SERVICE_ROLE_KEY or os.environ.get("SUPABASE_KEY") or "").strip()
+
 
 http_client = httpx.Client(timeout=10.0)
 

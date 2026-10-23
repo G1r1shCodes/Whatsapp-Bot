@@ -107,9 +107,9 @@ def _finalize_reply(reply):
     if reply and _looks_like_code(reply):
         return OUT_OF_SCOPE_REPLY
     return reply
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_URL = (os.environ.get("SUPABASE_URL") or "").strip().rstrip("/")
+SUPABASE_KEY = (os.environ.get("SUPABASE_KEY") or "").strip()
 
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 http_client = httpx.Client(timeout=15.0)
 
